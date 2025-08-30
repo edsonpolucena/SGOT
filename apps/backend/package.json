@@ -1,0 +1,17 @@
+{
+  "name": "sgot-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test:ci": "echo \"no tests yet\""
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  }
+}
