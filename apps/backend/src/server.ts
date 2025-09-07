@@ -43,3 +43,11 @@ app.post("/api/obligations", async (req, res) => {
 
 const port = Number(process.env.PORT) || 3000;
 app.listen(port, () => logger.info(`API on :${port}`));
+
+export { app };
+
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(process.env.PORT ?? 3000, () => {
+    logger.info('API on :3000');
+  });
+}
