@@ -1,17 +1,22 @@
 {
-  "name": "sgot-frontend",
-  "version": "0.1.0",
+  "name": "sgto-frontend",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
-    "dev": "tsx src/index.ts",
-    "test:ci": "echo \"no tests yet\""
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "axios": "^1.7.7"
   },
   "devDependencies": {
-    "@types/node": "^24.3.0",
-    "tsx": "^4.7.0",
-    "typescript": "^5.4.5"
+    "vite": "^5.4.8",
+    "typescript": "^5.5.4",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0"
   }
 }
