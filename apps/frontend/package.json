@@ -1,17 +1,29 @@
 {
-  "name": "sgot-frontend",
-  "version": "0.1.0",
+  "name": "sgto-frontend",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
-    "dev": "tsx src/index.ts",
-    "test:ci": "echo \"no tests yet\""
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest --run --coverage",    
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2"
   },
   "devDependencies": {
-    "@types/node": "^24.3.0",
-    "tsx": "^4.7.0",
-    "typescript": "^5.4.5"
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^5.0.2",
+    "@vitest/coverage-v8": "^3.2.4",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.8",
+    "vitest": "^3.2.4"
   }
 }

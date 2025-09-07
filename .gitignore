@@ -1,11 +1,36 @@
-# Node
-node_modules
-dist
-.env
-.env.*
+# Node/Monorepo
+**/node_modules/
+**/dist/
+*.tsbuildinfo
+
+# Env files (em qualquer subpasta)
+**/.env
+**/.env.*
+!**/.env.example
+
 # Logs
+**/*.log
+logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+
 # OS
 .DS_Store
+Thumbs.db
+
+# Tooling caches
+**/.vite
+**/.eslintcache
+coverage/
+.nyc_output/
+.scannerwork/   # se rodar sonar-scanner local
+
+# Prisma
+# (NÃO ignore migrations — devem ser versionadas!)
+**/prisma/dev.db   # caso use SQLite em dev, ignore o arquivo do DB
+
+# Docker (se mapear volumes para diretórios locais; ajuste aos seus paths)
+infra/compose/**/data/
+infra/compose/**/volumes/

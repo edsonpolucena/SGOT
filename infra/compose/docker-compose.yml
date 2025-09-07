@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:16
+    container_name: sgto_db
+    environment:
+      POSTGRES_USER: sgto
+      POSTGRES_PASSWORD: sgto
+      POSTGRES_DB: sgto
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sgto -d sgto"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+volumes:
+  pgdata:

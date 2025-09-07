@@ -1,0 +1,36 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum ObligationStatus {
+  PENDING
+  SENT
+  PAID
+  LATE
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         String   @default("user")
+  createdAt    DateTime @default(now())
+  obligations  Obligation[]
+}
+
+model Obligation {
+  id           String           @id @default(cuid())
+  title        String
+  dueDate      DateTime
+  status       ObligationStatus @default(PENDING)
+  taxpayerName String
+  notes        String?
+  createdAt    DateTime         @default(now())
+  createdById  String
+  createdBy    User             @relation(fields: [createdById], references: [id])
+}
