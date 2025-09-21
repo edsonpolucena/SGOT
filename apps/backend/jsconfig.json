@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "allowJs": true,
+    "checkJs": false,
+    "baseUrl": "./src",
+    "noEmit": true
+  },
+  "include": ["src/**/*.js", "prisma/**/*.js"],
+  "exclude": ["node_modules", "dist"]
+}
