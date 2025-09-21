@@ -11,7 +11,6 @@ describe('JWT Middleware Tests', () => {
   let testUser;
 
   beforeAll(async () => {
-    // Criar usuário de teste
     testUser = await prisma.user.create({
       data: {
         email: 'jwt-test@example.com',
@@ -21,21 +20,18 @@ describe('JWT Middleware Tests', () => {
       }
     });
 
-    // Gerar tokens para testes
     validToken = jwt.sign(
       { sub: testUser.id, email: testUser.email },
       env.JWT_SECRET,
       { expiresIn: '1h' }
     );
 
-    // Token expirado (criado com expiração no passado)
     expiredToken = jwt.sign(
       { sub: testUser.id, email: testUser.email },
       env.JWT_SECRET,
-      { expiresIn: '-1h' } // Expirado há 1 hora
+      { expiresIn: '-1h' } 
     );
 
-    // Token inválido (assinado com chave diferente)
     invalidToken = jwt.sign(
       { sub: testUser.id, email: testUser.email },
       'wrong-secret-key',
@@ -157,7 +153,6 @@ describe('JWT Middleware Tests', () => {
 
   describe('Usuário não encontrado', () => {
     it('deve rejeitar token válido de usuário que não existe mais', async () => {
-      // Criar token para usuário que será deletado
       const deletedUserToken = jwt.sign(
         { sub: 'non-existent-user-id', email: 'deleted@example.com' },
         env.JWT_SECRET,
@@ -210,14 +205,11 @@ describe('JWT Middleware Tests', () => {
 
   describe('Informações do usuário no request', () => {
     it('deve adicionar userId e user ao request com token válido', async () => {
-      // Este teste verifica se o middleware está adicionando as informações corretas ao request
       const res = await request(app)
         .get('/api/auth/me')
         .set('Authorization', `Bearer ${validToken}`)
         .expect(200);
 
-      // Se chegou até aqui, significa que o middleware funcionou corretamente
-      // e adicionou as informações do usuário ao request
       expect(res.body.id).toBe(testUser.id);
     });
   });
