@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
 export default function Health() {
-  const [status, setStatus] = useState<"loading" | "up" | "down">("loading");
-  const [payload, setPayload] = useState<string>("");
+  const [status, setStatus] = useState("loading");
+  const [payload, setPayload] = useState("");
 
   useEffect(() => {
     const url = `${import.meta.env.VITE_API_URL}/health`;
