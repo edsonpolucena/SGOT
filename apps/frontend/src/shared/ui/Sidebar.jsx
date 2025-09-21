@@ -1,0 +1,122 @@
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import styled from "styled-components";
+import { FaHome, FaBuilding, FaUsers, FaFileInvoice, FaChartBar, FaCog, FaSignOutAlt } from "react-icons/fa";
+import { useAuth } from "../context/AuthContext";
+
+const SidebarContainer = styled.div`
+  width: 220px;
+  height: 100vh;
+  background: linear-gradient(180deg, #1e3c72 0%, #2a5298 100%);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 10px;
+  position: fixed;
+`;
+
+const MenuSection = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+`;
+
+const LogoutSection = styled.div`
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+`;
+
+const MenuItem = styled(Link)`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  margin: 4px 0;
+  border-radius: 8px;
+  text-decoration: none;
+  color: ${(props) => (props.active ? "#1e293b" : "#fff")};
+  background: ${(props) => (props.active ? "#fff" : "transparent")};
+  font-weight: ${(props) => (props.active ? "bold" : "normal")};
+
+  &:hover {
+    background: #334155;
+  }
+`;
+
+const LogoutButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  margin: 4px 0;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #fff;
+  background: transparent;
+  border: none;
+  font-weight: normal;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+
+  &:hover {
+    background: #dc3545;
+  }
+`;
+
+export default function Sidebar() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { isAccounting, isClient, logout } = useAuth();
+
+  // Menu baseado no role do usuário
+  const getMenuItems = () => {
+    if (isAccounting) {
+      // Menu para contabilidade (acesso total)
+      return [
+        { to: "/dashboard", label: "Dashboard", icon: <FaHome /> },
+        { to: "/companies", label: "Empresas", icon: <FaBuilding /> },
+        { to: "/auth/register", label: "Usuários", icon: <FaUsers /> },
+        { to: "/obligations/new", label: "Obrigações", icon: <FaFileInvoice /> },
+        { to: "/reports", label: "Relatórios", icon: <FaChartBar /> },
+        { to: "/settings", label: "Configurações", icon: <FaCog /> },
+      ];
+    } else if (isClient) {
+      // Menu para cliente (acesso limitado)
+      return [
+        { to: "/dashboard", label: "Dashboard", icon: <FaHome /> },
+        { to: "/company/profile", label: "Perfil da Empresa", icon: <FaBuilding /> },
+      ];
+    }
+    return [];
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const menu = getMenuItems();
+
+  return (
+    <SidebarContainer>
+      <MenuSection>
+        {menu.map((item) => (
+          <MenuItem
+            key={item.to}
+            to={item.to}
+            active={location.pathname === item.to ? 1 : 0}
+          >
+            {item.icon} {item.label}
+          </MenuItem>
+        ))}
+      </MenuSection>
+      
+      <LogoutSection>
+        <LogoutButton onClick={handleLogout}>
+          <FaSignOutAlt /> Sair
+        </LogoutButton>
+      </LogoutSection>
+    </SidebarContainer>
+  );
+}
