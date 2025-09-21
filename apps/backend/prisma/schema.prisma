@@ -7,26 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Regime {
-  SIMPLES
-  LUCRO_PRESUMIDO
-  LUCRO_REAL
-  MEI
-}
-
-enum ObligationStatus {
-  PENDING
-  SUBMITTED
-  LATE
-  PAID
-  CANCELED
-}
-
-enum UserRole {
-  ACCOUNTING  // Contabilidade - acesso total
-  CLIENT      // Cliente - acesso apenas aos próprios dados
-}
-
 model User {
   id           String       @id @default(cuid())
   name         String?
@@ -80,6 +60,26 @@ model Empresa {
   obligations Obligation[]
 }
 
+enum Regime {
+  SIMPLES
+  LUCRO_PRESUMIDO
+  LUCRO_REAL
+  MEI
+}
+
+enum ObligationStatus {
+  PENDING
+  SUBMITTED
+  LATE
+  PAID
+  CANCELED
+}
+
+enum UserRole {
+  ACCOUNTING  // Contabilidade - acesso total
+  CLIENT      // Cliente - acesso apenas aos próprios dados
+}
+
 model ObligationFile {
   id           String     @id @default(cuid())
   obligationId String
@@ -96,6 +96,3 @@ model ObligationFile {
   @@index([obligationId])
   @@index([uploadedBy])
 }
-
-
-
