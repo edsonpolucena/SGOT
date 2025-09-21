@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Regime {
+  SIMPLES
+  LUCRO_PRESUMIDO
+  LUCRO_REAL
+  MEI
+}
+
+enum ObligationStatus {
+  PENDING
+  SUBMITTED
+  LATE
+  PAID
+  CANCELED
+}
+
+enum UserRole {
+  ACCOUNTING  // Contabilidade - acesso total
+  CLIENT      // Cliente - acesso apenas aos próprios dados
+}
+
+model User {
+  id           String       @id @default(cuid())
+  name         String?
+  email        String       @unique
+  passwordHash String
+  role         UserRole     @default(CLIENT)
+  companyId    Int?         // Relacionamento com empresa (opcional para contabilidade)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  obligations  Obligation[]
+  company      Empresa?     @relation(fields: [companyId], references: [id])
+}
+
+model Obligation {
+  id          String           @id @default(cuid())
+  userId      String
+  companyId   Int              // Obrigatório - sempre associado a uma empresa
+  title       String
+  regime      Regime
+  periodStart DateTime
+  periodEnd   DateTime
+  dueDate     DateTime
+  status      ObligationStatus @default(PENDING)
+  amount      Decimal?         @db.Decimal(10,2)
+  notes       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company     Empresa          @relation(fields: [companyId], references: [id])
+  files       ObligationFile[]
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([status])
+  @@index([regime])
+  @@index([dueDate])
+}
+
+model Empresa {
+  id          Int             @id @default(autoincrement())
+  codigo      String          @unique
+  nome        String
+  cnpj        String          @unique
+  email       String?
+  telefone    String?
+  endereco    String?
+  status      String          @default("ativa")
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  users       User[]
+  obligations Obligation[]
+}
+
+model ObligationFile {
+  id           String     @id @default(cuid())
+  obligationId String
+  fileName     String
+  originalName String
+  fileSize     Int
+  mimeType     String
+  s3Key        String     @unique // Chave no S3
+  s3Url        String?    // URL pública (se configurada)
+  uploadedBy   String     // ID do usuário que fez upload
+  createdAt    DateTime   @default(now())
+  obligation   Obligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+
+  @@index([obligationId])
+  @@index([uploadedBy])
+}
+
+
+
