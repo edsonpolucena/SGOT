@@ -34,3 +34,11 @@ coverage/
 # Docker (se mapear volumes para diretórios locais; ajuste aos seus paths)
 infra/compose/**/data/
 infra/compose/**/volumes/
+
+.sonarlint/
+.sonar_lock
+.vscode/
+
+apps/**/__tests__/**/results/
+apps/**/coverage/
+

@@ -11,7 +11,6 @@ jest.mock("../prisma", () => ({
   },
 }));
 
-// mock simples de middleware auth
 jest.mock("../middleware/requireAuth", () => ({
   requireAuth: (_req, _res, next) => {
     _req.userId = "test-user-id";
