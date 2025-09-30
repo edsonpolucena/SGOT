@@ -1,5 +1,5 @@
 const { createObligation, listObligations, getObligation, updateObligation, deleteObligation } = require('./obligation.service');
-const { createObligationFile, getObligationFiles, getFileDownloadUrl, deleteObligationFile } = require('./obligation-file.service');
+const { createObligationFile, getObligationFiles, getFileViewUrl, getFileDownloadUrl, deleteObligationFile } = require('./obligation-file.service');
 
 async function postObligation(req, res) {
   try {
@@ -112,6 +112,16 @@ async function getFiles(req, res) {
   }
 }
 
+async function viewFile(req, res) {
+  try {
+    const signedUrl = await getFileViewUrl(req.params.fileId, req.userId);
+    return res.json({ viewUrl: signedUrl });
+  } catch (error) {
+    console.error('Error generating view URL:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
 async function downloadFile(req, res) {
   try {
     const signedUrl = await getFileDownloadUrl(req.params.fileId, req.userId);
@@ -141,6 +151,7 @@ module.exports = {
   deleteObligationById,
   uploadFiles,
   getFiles,
+  viewFile,
   downloadFile,
   deleteFile
 };

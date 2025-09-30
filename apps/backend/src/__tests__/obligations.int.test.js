@@ -7,7 +7,6 @@ async function authToken() {
   const email = "inttest@teste.com";
   const password = "123456";
 
-  // cria usuário fake
   const hash = await bcrypt.hash(password, 10);
   await prisma.user.create({
     data: { 
@@ -18,7 +17,6 @@ async function authToken() {
     },
   });
 
-  // pega token
   const res = await request(app).post("/api/auth/login").send({ email, password });
   return res.body.token;
 }
@@ -28,7 +26,7 @@ describe("Obligations CRUD", () => {
   let company;
 
   beforeAll(async () => {
-    // cria empresa fake
+
     company = await prisma.empresa.create({
       data: { 
         codigo: "TEST001",
