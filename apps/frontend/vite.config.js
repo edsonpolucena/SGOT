@@ -16,5 +16,14 @@ export default defineConfig({
         '**/vite-env.d.js'
       ]
     }
+  },
+  server: {
+    port: 5173,         
+    strictPort: true,   
+    hmr: {              
+      port: 5173
+    }
   }
+
+  
 });

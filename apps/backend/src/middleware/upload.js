@@ -1,9 +1,12 @@
+const crypto = require('crypto');
+
 const multer = require('multer');
 const multerS3 = require('multer-s3');
-const AWS = require('aws-sdk');
+const { S3Client } = require('@aws-sdk/client-s3');
 const path = require('path');
 const fs = require('fs');
 const { env } = require('../config/env');
+
 
 // Verificar se S3 está configurado
 const isS3Configured = env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY && env.S3_BUCKET_NAME;
@@ -12,14 +15,16 @@ let storage;
 
 if (isS3Configured) {
   // Usar S3 se configurado
-  const s3 = new AWS.S3({
-    accessKeyId: env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
-    region: env.AWS_REGION || 'us-east-1'
+  const s3Client = new S3Client({
+    region: env.AWS_REGION || 'sa-east-1',
+    credentials: {
+      accessKeyId: env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+    }
   });
 
   storage = multerS3({
-    s3: s3,
+    s3: s3Client,
     bucket: env.S3_BUCKET_NAME,
     key: function (req, file, cb) {
       const timestamp = Date.now();
@@ -51,7 +56,9 @@ if (isS3Configured) {
     },
     filename: function (req, file, cb) {
       const timestamp = Date.now();
-      const randomString = Math.random().toString(36).substring(2, 15);
+      //const randomString = Math.random().toString(36).substring(2, 15);
+      const randomString = crypto.randomBytes(8).toString('hex');
+
       const fileName = `${timestamp}-${randomString}-${file.originalname}`;
       cb(null, fileName);
     }
