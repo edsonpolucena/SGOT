@@ -317,6 +317,7 @@ export default function Form() {
                 <option value="DAS">DAS</option>
                 <option value="ISS_RETIDO">ISS Retido</option>
                 <option value="FGTS">FGTS</option>
+                <option value="DCTFWeb">DCTFWeb	</option>
                 <option value="OUTRO">Outro</option>
               </Select>
             </Field>

@@ -6,6 +6,11 @@ import WelcomeCard from "../../../shared/ui/WelcomeCard";
 import { FaEye, FaDownload, FaTrashAlt } from "../../../shared/icons";
 import IconButton from "../../../shared/ui/IconButton";
 import IconGroup from "../../../shared/ui/IconGroup";
+import { useMonthlySummary } from "../../analytics/hooks/useAnalyticsData.js";
+import TaxesPieChart from "../../analytics/components/charts/TaxesPieChart";
+import { useMonthlyVariationByTax } from "../../analytics/hooks/useAnalyticsData";
+import VariationByTaxChart from "../../analytics/components/charts/VariationByTaxChart";
+
 import {
   Wrapper,
   Header,
@@ -15,6 +20,35 @@ import {
   Card,
   Calendar,
 } from '../styles/ClientDashboard.styles.js';
+
+const StatsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+`;
+
+const StatCard = styled.div`
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid ${(props) => props.color || "#667eea"};
+`;
+
+const StatNumber = styled.div`
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: ${(props) => props.color || "#333"};
+  margin-bottom: 10px;
+`;
+
+const StatLabel = styled.div`
+  color: #666;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
 
 const Table = styled.table`
   width: 100%;
@@ -59,7 +93,19 @@ const Pagination = styled.div`
 
 export default function ClientDashboard() {
   const { user } = useAuth();
+  const empresaId = user?.company?.id;
+  const { data: analyticsData, loading: analyticsLoading, error: analyticsError } =
+  useMonthlySummary(user?.company?.id, "2025-09");
+  const { data: variationByTaxData, loading: variationByTaxLoading, error: variationByTaxError } =
+  useMonthlyVariationByTax(user?.company?.id, "2025-09");
   const [obligations, setObligations] = useState([]);
+
+  const stats = {
+  totalObligations: obligations.length,
+  pendingObligations: obligations.filter(o => o.status === "PENDING").length,
+  lateObligations: obligations.filter(o => o.status === "LATE").length,
+  paidObligations: obligations.filter(o => o.status === "PAID").length,
+};
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
@@ -254,12 +300,38 @@ export default function ClientDashboard() {
       />
 
       <Wrapper>
-        <Header>
-          <CompanyInfo>
-            <h2>{user?.company?.nome}</h2>
-            <p>CNPJ: {user?.company?.cnpj} | Código: {user?.company?.codigo}</p>
-          </CompanyInfo>
-        </Header>
+
+
+      <StatsGrid>
+   
+    <StatCard color="#3b82f6" style={{ gridColumn: "span 2" }}>
+  <h4 style={{ marginBottom: "10px", color: "#3b82f6" }}>
+    Comparativo de Valores de Impostos – Mês Atual vs. Mês Anterior (R$)
+  </h4>
+  {variationByTaxLoading && <p>Carregando...</p>}
+  {variationByTaxError && <p>Erro ao carregar dados</p>}
+{variationByTaxData && (
+  <VariationByTaxChart data={variationByTaxData.impostos || []} />
+)}
+</StatCard>
+
+        <StatCard color="#3b82f6" style={{ gridColumn: "span 2" }}>
+          <h4 style={{ marginBottom: "10px", color: "#3b82f6" }}>
+            Distribuição dos Impostos por Tipo (em R$)
+          </h4>
+          {analyticsData && (
+            <p style={{ marginBottom: "15px", fontWeight: "bold", color: "#374151" }}>
+              Total arrecadado no mês:{" "}
+              R$ {analyticsData.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </p>
+          )}
+          {analyticsLoading ? (<p>Carregando...</p>)
+           : analyticsData ? ( <TaxesPieChart data={analyticsData.impostos} /> 
+           ) : analyticsError ? ( <p>Erro ao carregar dados</p>) : null
+           }
+         
+        </StatCard>
+      </StatsGrid>
 
         <h2>Obrigações Recentes</h2>
         <input
