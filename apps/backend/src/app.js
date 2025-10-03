@@ -4,6 +4,8 @@ const { authRouter } = require('./modules/auth/auth.routes');
 const { obligationRouter } = require('./modules/obligations/obligation.routes');
 const { setupSwagger } = require('./swagger');
 const companyRoutes = require("./modules/company/company.routes.js");
+const analyticsRoutes = require("./modules/analytics/analytics.routes");
+
 
 
 const app = express();
@@ -16,10 +18,14 @@ app.use('/api/auth', authRouter);
 app.use('/api/obligations', obligationRouter);
 app.use("/api/empresas", companyRoutes);
 
+app.use("/api/analytics", analyticsRoutes);
+
+
 
 setupSwagger(app);
 
 const { errorMiddleware } = require('./middleware/error');
 app.use(errorMiddleware);
+
 
 module.exports = { app };

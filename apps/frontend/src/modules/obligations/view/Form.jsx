@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import * as api from '../data/obligation.api.js';
-import InputMask from "react-input-mask";
+// import InputMask from "react-input-mask"; // Comentado temporariamente
 import {
   Page, Title, Card, FormStyled, Field, FieldRow, FieldSmall, Label, Input, Select, Submit
 } from '../styles/Obligation.styles';
@@ -156,7 +156,26 @@ export default function Form() {
         companyId: companyId // 👈 Usar o ID da empresa selecionada
       };
 
-      await api.create(obligationData);
+      const response = await api.create(obligationData);
+      const obligationId = response.data.id;
+      
+      // Se há arquivo, fazer upload
+      if (file) {
+        try {
+          const formData = new FormData();
+          formData.append('files', file);
+          
+          await http.post(`/api/obligations/${obligationId}/files`, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          });
+        } catch (uploadError) {
+          console.error('Erro no upload do arquivo:', uploadError);
+          // Não falha a criação da obrigação se o upload falhar
+        }
+      }
+      
       setSuccessMessage('✅ Obrigação criada com sucesso!');
       setErrorMessage('');
           setCompanyCode('');
@@ -298,19 +317,25 @@ export default function Form() {
                 <option value="DAS">DAS</option>
                 <option value="ISS_RETIDO">ISS Retido</option>
                 <option value="FGTS">FGTS</option>
+                <option value="DCTFWeb">DCTFWeb	</option>
                 <option value="OUTRO">Outro</option>
               </Select>
             </Field>
             <Field>
               <Label>Competência*</Label>
-              <InputMask
-                mask="99/9999"
+              <Input
+                type="text"
                 placeholder="MM/AAAA"
                 value={competence}
-                onChange={e => setCompetence(e.target.value)}
-              >
-                {(inputProps) => <Input {...inputProps} />}
-              </InputMask>
+                onChange={e => {
+                  let value = e.target.value.replace(/\D/g, '');
+                  if (value.length >= 2) {
+                    value = value.substring(0, 2) + '/' + value.substring(2, 6);
+                  }
+                  setCompetence(value);
+                }}
+                maxLength={7}
+              />
             </Field>
           </FieldRow>
 
@@ -340,7 +365,23 @@ export default function Form() {
           {/* Upload */}
           <Field>
             <Label>Upload do documento</Label>
-            <Input type="file" onChange={e => setFile(e.target.files?.[0] || null)} />
+            <Input 
+              type="file" 
+              accept=".pdf,.xml,.xlsx,.xls"
+              onChange={e => setFile(e.target.files?.[0] || null)} 
+            />
+            {file && (
+              <div style={{ 
+                marginTop: '8px', 
+                padding: '8px', 
+                backgroundColor: '#f0f8ff', 
+                border: '1px solid #3b82f6', 
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}>
+                📄 Arquivo selecionado: {file.name} ({(file.size / 1024).toFixed(1)} KB)
+              </div>
+            )}
           </Field>
 
           <Submit>{isEdit ? 'Salvar Alterações' : 'Salvar'}</Submit>

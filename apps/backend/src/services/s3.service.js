@@ -1,10 +1,13 @@
-const AWS = require('aws-sdk');
+const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl: generateSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { env } = require('../config/env');
 
-const s3 = new AWS.S3({
-  accessKeyId: env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
-  region: env.AWS_REGION || 'us-east-1'
+const s3Client = new S3Client({
+  region: env.AWS_REGION || 'sa-east-1',
+  credentials: {
+    accessKeyId: env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+  }
 });
 
 const BUCKET_NAME = env.S3_BUCKET_NAME;
@@ -13,19 +16,21 @@ async function uploadFile(fileBuffer, fileName, mimeType, folder = 'documents') 
   try {
     const s3Key = `${folder}/${Date.now()}-${fileName}`;
     
-    const uploadParams = {
+    const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: s3Key,
       Body: fileBuffer,
       ContentType: mimeType,
       ACL: 'private'
-    };
+    });
 
-    const result = await s3.upload(uploadParams).promise();
+    await s3Client.send(command);
+    
+    const s3Url = `https://${BUCKET_NAME}.s3.${env.AWS_REGION || 'sa-east-1'}.amazonaws.com/${s3Key}`;
     
     return {
       s3Key: s3Key,
-      s3Url: result.Location
+      s3Url: s3Url
     };
   } catch (error) {
     console.error('Erro no upload para S3:', error);
@@ -33,15 +38,16 @@ async function uploadFile(fileBuffer, fileName, mimeType, folder = 'documents') 
   }
 }
 
-function getSignedUrl(s3Key, expiresIn = 3600) {
+async function getSignedUrl(s3Key, expiresIn = 3600, forceDownload = false) {
   try {
-    const params = {
+    const command = new GetObjectCommand({
       Bucket: BUCKET_NAME,
       Key: s3Key,
-      Expires: expiresIn
-    };
+      // Forçar download se solicitado
+      ...(forceDownload && { ResponseContentDisposition: 'attachment' })
+    });
     
-    return s3.getSignedUrl('getObject', params);
+    return await generateSignedUrl(s3Client, command, { expiresIn });
   } catch (error) {
     console.error('Erro ao gerar URL assinada:', error);
     throw new Error('Falha ao gerar URL de download');
@@ -55,12 +61,12 @@ function getSignedUrl(s3Key, expiresIn = 3600) {
  */
 async function deleteFile(s3Key) {
   try {
-    const params = {
+    const command = new DeleteObjectCommand({
       Bucket: BUCKET_NAME,
       Key: s3Key
-    };
+    });
     
-    await s3.deleteObject(params).promise();
+    await s3Client.send(command);
     return true;
   } catch (error) {
     console.error('Erro ao deletar arquivo do S3:', error);
@@ -75,12 +81,12 @@ async function deleteFile(s3Key) {
  */
 async function fileExists(s3Key) {
   try {
-    const params = {
+    const command = new HeadObjectCommand({
       Bucket: BUCKET_NAME,
       Key: s3Key
-    };
+    });
     
-    await s3.headObject(params).promise();
+    await s3Client.send(command);
     return true;
   } catch (error) {
     return false;

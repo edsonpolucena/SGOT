@@ -10,7 +10,7 @@ const {
   fileIdParamSchema,
   obligationFiltersSchema
 } = require('../../middleware/validation');
-const { 
+const {
   postObligation, 
   getObligations, 
   getObligationById, 
@@ -18,6 +18,7 @@ const {
   deleteObligationById,
   uploadFiles,
   getFiles,
+  viewFile,
   downloadFile,
   deleteFile
 } = require('./obligation.controller');
@@ -33,6 +34,7 @@ obligationRouter.delete('/:id', validateParams(idParamSchema), deleteObligationB
 
 obligationRouter.post('/:id/files', validateParams(idParamSchema), uploadMultiple, handleUploadError, uploadFiles);
 obligationRouter.get('/:id/files', validateParams(idParamSchema), getFiles);
+obligationRouter.get('/files/:fileId/view', validateParams(fileIdParamSchema), viewFile);
 obligationRouter.get('/files/:fileId/download', validateParams(fileIdParamSchema), downloadFile);
 obligationRouter.delete('/files/:fileId', validateParams(fileIdParamSchema), deleteFile);
 

@@ -11,7 +11,6 @@ import ForgotPassword from '../modules/auth/view/ForgotPassword.jsx';
 
 import List from '../modules/obligations/view/List.jsx';
 import Form from '../modules/obligations/view/Form.jsx';
-import FileManager from '../modules/obligations/view/FileManager.jsx';
 import Health from '../modules/obligations/view/Health.jsx';
 
 import Dashboard from '../modules/dashboard/view/Dashboard.jsx';
@@ -58,7 +57,6 @@ export default function AppRouter() {
         <Route path="/obligations" element={<ProtectedRoute><AppLayout><List /></AppLayout></ProtectedRoute>} />
         <Route path="/obligations/new" element={<ProtectedRoute><AppLayout><Form /></AppLayout></ProtectedRoute>} />
         <Route path="/obligations/:id/edit" element={<ProtectedRoute><AppLayout><Form /></AppLayout></ProtectedRoute>} />
-        <Route path="/obligations/:id/files" element={<ProtectedRoute><AppLayout><FileManager /></AppLayout></ProtectedRoute>} />
 
         {/* Área logada - empresas */}
         <Route path="/companies" element={<ProtectedRoute><AppLayout><CompanyList /></AppLayout></ProtectedRoute>} />
