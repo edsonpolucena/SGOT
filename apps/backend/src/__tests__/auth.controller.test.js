@@ -29,7 +29,7 @@ describe("AuthController", () => {
       id: "user-id", 
       email: "teste@teste.com",
       name: "Test User",
-      role: "CLIENT"
+      role: "CLIENT_NORMAL"
     });
 
     const res = await request(app)
@@ -67,7 +67,7 @@ describe("AuthController", () => {
       email: "teste@teste.com",
       passwordHash: "$2b$10$fakehash",
       name: "Test User",
-      role: "CLIENT"
+      role: "CLIENT_NORMAL"
     });
 
     const res = await request(app)

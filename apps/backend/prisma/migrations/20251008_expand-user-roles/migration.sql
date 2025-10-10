@@ -1,0 +1,1 @@
+-- Manual migration for enum UserRole adjustment (ACCOUNTING_* and CLIENT_*)

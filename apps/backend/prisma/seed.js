@@ -40,7 +40,8 @@ async function run() {
       email: 'contabilidade@sgot.com', 
       passwordHash, 
       name: 'Contabilidade',
-      role: 'ACCOUNTING'
+      role: 'ACCOUNTING_SUPER',
+      status: 'ACTIVE'
     },
   });
 
@@ -49,7 +50,8 @@ async function run() {
       email: 'cliente@sgot.com', 
       passwordHash, 
       name: 'Cliente Teste',
-      role: 'CLIENT',
+      role: 'CLIENT_NORMAL',
+      status: 'ACTIVE',
       companyId: empresa1.id // Associar cliente à primeira empresa
     },
   });

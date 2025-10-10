@@ -32,7 +32,7 @@ async function getObligationFiles(obligationId, userId) {
           { userId: userId },
           { 
             user: { 
-              role: 'ACCOUNTING'
+              role: 'ACCOUNTING_SUPER'
             }
           }
         ]
@@ -79,7 +79,7 @@ async function getFileViewUrl(fileId, userId) {
     }
 
     const hasAccess = file.obligation.userId === userId || 
-                     file.obligation.user.role === 'ACCOUNTING';
+                     file.obligation.user.role === 'ACCOUNTING_SUPER';
 
     if (!hasAccess) {
       throw new Error('Acesso negado ao arquivo');
@@ -118,7 +118,7 @@ async function getFileDownloadUrl(fileId, userId) {
     }
 
     const hasAccess = file.obligation.userId === userId || 
-                     file.obligation.user.role === 'ACCOUNTING';
+                     file.obligation.user.role === 'ACCOUNTING_SUPER';
 
     if (!hasAccess) {
       throw new Error('Acesso negado ao arquivo');
@@ -157,7 +157,7 @@ async function deleteObligationFile(fileId, userId) {
     }
 
     const canDelete = file.obligation.userId === userId || 
-                     file.obligation.user.role === 'ACCOUNTING';
+                     file.obligation.user.role === 'ACCOUNTING_SUPER';
 
     if (!canDelete) {
       throw new Error('Permissão negada para deletar arquivo');
@@ -191,7 +191,7 @@ async function hasAccessToObligation(obligationId, userId) {
           { userId: userId },
           { 
             user: { 
-              role: 'ACCOUNTING'
+              role: 'ACCOUNTING_SUPER'
             }
           }
         ]

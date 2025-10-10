@@ -12,7 +12,8 @@ model User {
   name         String?
   email        String       @unique
   passwordHash String
-  role         UserRole     @default(CLIENT)
+  role         UserRole     @default(CLIENT_NORMAL)
+  status       UserStatus   @default(ACTIVE)
   companyId    Int?         // Relacionamento com empresa (opcional para contabilidade)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -76,9 +77,21 @@ enum ObligationStatus {
 }
 
 enum UserRole {
-  ACCOUNTING  // Contabilidade - acesso total
-  CLIENT      // Cliente - acesso apenas aos próprios dados
+  // Contabilidade
+  ACCOUNTING_NORMAL
+  ACCOUNTING_ADMIN
+  ACCOUNTING_SUPER
+
+  // Cliente
+  CLIENT_NORMAL
+  CLIENT_ADMIN
 }
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
 
 model ObligationFile {
   id           String     @id @default(cuid())

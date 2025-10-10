@@ -16,7 +16,7 @@ describe('JWT Middleware Tests', () => {
         email: 'jwt-test@example.com',
         passwordHash: 'hashed-password',
         name: 'JWT Test User',
-        role: 'ACCOUNTING'
+        role: 'ACCOUNTING_SUPER'
       }
     });
 
@@ -214,6 +214,8 @@ describe('JWT Middleware Tests', () => {
     });
   });
 });
+
+
 
 
 

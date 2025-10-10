@@ -13,7 +13,7 @@ async function authToken() {
       email, 
       passwordHash: hash,
       name: "Test User",
-      role: "ACCOUNTING"
+      role: "ACCOUNTING_SUPER"
     },
   });
 

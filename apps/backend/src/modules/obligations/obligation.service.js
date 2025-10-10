@@ -21,7 +21,7 @@ async function createObligation(userId, data) {
 async function listObligations(userId, role, filters = {}, companyIdFromToken = null) {
   let where = {};
 
-  if (role === 'CLIENT') {
+  if (role === 'CLIENT_NORMAL') {
     const user = await prisma.user.findUnique({
       where: { id: userId }
     });
@@ -29,7 +29,7 @@ async function listObligations(userId, role, filters = {}, companyIdFromToken = 
     where.companyId = user.companyId;
   } 
   
-  else if (role === 'ACCOUNTING') {
+  else if (role === 'ACCOUNTING_SUPER') {
     if (filters.companyId) where.companyId = filters.companyId;
   }
 
@@ -57,7 +57,7 @@ async function getObligation(userId, role, id) {
 
   if (!obligation) return null;
 
-  if (role === 'CLIENT') {
+  if (role === 'CLIENT_NORMAL') {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (user?.companyId !== obligation.companyId) {
       return null; // bloqueia acesso a obrigações de outra empresa

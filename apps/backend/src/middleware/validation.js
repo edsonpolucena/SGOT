@@ -4,8 +4,14 @@ const registerSchema = Joi.object({
   name: Joi.string().min(2).max(100).optional(),
   email: Joi.string().email().required(),
   password: Joi.string().min(6).max(100).required(),
-  role: Joi.string().valid('ACCOUNTING', 'CLIENT').optional(),
-  companyId: Joi.number().integer().positive().optional()
+  role: Joi.string().valid(
+    'ACCOUNTING_SUPER',
+    'ACCOUNTING_ADMIN',
+    'ACCOUNTING_NORMAL',
+    'CLIENT_ADMIN',
+    'CLIENT_NORMAL').default('CLIENT_NORMAL'),
+  companyId: Joi.number().integer().positive().optional(),
+  status: Joi.string().valid('ACTIVE', 'INACTIVE').default('ACTIVE')
 });
 
 const loginSchema = Joi.object({
@@ -32,6 +38,25 @@ const companySchema = Joi.object({
   telefone: Joi.string().pattern(/^\(\d{2}\)\s\d{4,5}-\d{4}$/).optional(),
   endereco: Joi.string().max(500).optional(),
   status: Joi.string().valid('ativa', 'inativa').optional()
+});
+
+const updateUserSchema = Joi.object({
+  name: Joi.string().min(2).max(100).optional(),
+  email: Joi.string().email().optional(),
+  password: Joi.string().min(6).max(100).optional(),
+  role: Joi.string().valid(
+    'ACCOUNTING_SUPER',
+    'ACCOUNTING_ADMIN',
+    'ACCOUNTING_NORMAL',
+    'CLIENT_ADMIN',
+    'CLIENT_NORMAL'
+  ).optional(),
+  status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
+  companyId: Joi.number().integer().positive().optional().allow(null)
+});
+
+const updateStatusSchema = Joi.object({
+  status: Joi.string().valid('ACTIVE', 'INACTIVE').required()
 });
 
 function validate(schema) {
@@ -121,6 +146,8 @@ module.exports = {
   loginSchema,
   obligationSchema,
   companySchema,
+  updateUserSchema,
+  updateStatusSchema,
   idParamSchema,
   fileIdParamSchema,
   obligationFiltersSchema

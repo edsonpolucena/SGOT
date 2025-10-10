@@ -12,11 +12,16 @@ async function requireAuth(req, res, next) {
     
     const user = await prisma.user.findUnique({
       where: { id: p.sub },
-      select: { id: true, email: true, name: true, role: true, companyId: true }
+      select: { id: true, email: true, name: true, role: true, status: true, companyId: true }
     });
     
     if (!user) {
       return res.status(401).json({ message: 'User not found' });
+    }
+    
+    // Bloquear usuários inativos
+    if (user.status === 'INACTIVE') {
+      return res.status(403).json({ message: 'Usuário inativo. Entre em contato com o administrador.' });
     }
     
     req.userId = user.id;

@@ -14,7 +14,7 @@ jest.mock("../prisma", () => ({
 jest.mock("../middleware/requireAuth", () => ({
   requireAuth: (_req, _res, next) => {
     _req.userId = "test-user-id";
-    _req.user = { role: "ACCOUNTING" };
+    _req.user = { role: "ACCOUNTING_SUPER" };
     next();
   },
 }));
