@@ -95,7 +95,7 @@ export default function Register() {
   const getUserRole = () => {
     // Se o código da empresa for "EMP001" (primeira empresa), é contabilidade
     // Caso contrário, é cliente
-    return selectedCompanyCode === 'EMP001' ? 'ACCOUNTING' : 'CLIENT';
+    return selectedCompanyCode === 'EMP001' ? 'ACCOUNTING_SUPER' : 'CLIENT_NORMAL';
   };
 
   const getUserCompanyId = () => {
@@ -201,8 +201,8 @@ export default function Register() {
         {selectedCompanyCode && (
           <InfoBox>
             <strong>Empresa selecionada:</strong> {selectedCompany?.nome}<br/>
-            <strong>Tipo de usuário:</strong> {userRole === 'ACCOUNTING' ? 'Contabilidade' : 'Cliente'}
-            {userRole === 'ACCOUNTING' && (
+            <strong>Tipo de usuário:</strong> {userRole === 'ACCOUNTING_SUPER' ? 'Contabilidade' : 'Cliente'}
+            {userRole === 'ACCOUNTING_SUPER' && (
               <WarningText>
                 ⚠️ Acesso total ao sistema
               </WarningText>

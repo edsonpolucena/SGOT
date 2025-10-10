@@ -21,6 +21,9 @@ import CompanyProfile from '../modules/client/view/CompanyProfile.jsx';
 import CompanyList from "../modules/company/view/CompanyList.jsx";
 import CompanyForm from "../modules/company/view/CompanyForm.jsx";
 
+import UserList from "../modules/users/view/UserList.jsx";
+import UserForm from "../modules/users/view/UserForm.jsx";
+
 export default function AppRouter() {
   return (
     <BrowserRouter>
@@ -69,6 +72,10 @@ export default function AppRouter() {
         {/* Área logada - logins */}
        <Route path="/auth/register" element={<ProtectedRoute><AppLayout><Register /></AppLayout></ProtectedRoute>}/>
 
+        {/* Área logada - usuários */}
+        <Route path="/users" element={<ProtectedRoute><AppLayout><UserList /></AppLayout></ProtectedRoute>} />
+        <Route path="/users/new" element={<ProtectedRoute><AppLayout><UserForm /></AppLayout></ProtectedRoute>} />
+        <Route path="/users/edit/:id" element={<ProtectedRoute><AppLayout><UserForm /></AppLayout></ProtectedRoute>} />
 
         {/* Opcionais */}
         <Route path="/health" element={<Health />} />

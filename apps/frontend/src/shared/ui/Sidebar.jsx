@@ -67,7 +67,7 @@ const LogoutButton = styled.button`
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAccounting, isClient, logout } = useAuth();
+  const { user, isAccounting, isClient, logout } = useAuth();
 
   // Menu baseado no role do usuário
   const getMenuItems = () => {
@@ -76,17 +76,24 @@ export default function Sidebar() {
       return [
         { to: "/dashboard", label: "Dashboard", icon: <FaHome /> },
         { to: "/companies", label: "Empresas", icon: <FaBuilding /> },
-        { to: "/auth/register", label: "Usuários", icon: <FaUsers /> },
+        { to: "/users", label: "Usuários", icon: <FaUsers /> },
         { to: "/obligations/new", label: "Obrigações", icon: <FaFileInvoice /> },
         { to: "/reports", label: "Relatórios", icon: <FaChartBar /> },
         { to: "/settings", label: "Configurações", icon: <FaCog /> },
       ];
     } else if (isClient) {
       // Menu para cliente (acesso limitado)
-      return [
+      const menu = [
         { to: "/dashboard", label: "Dashboard", icon: <FaHome /> },
         { to: "/company/profile", label: "Perfil da Empresa", icon: <FaBuilding /> },
       ];
+      
+      // Adiciona "Usuários" se for CLIENT_ADMIN
+      if (user?.role === 'CLIENT_ADMIN') {
+        menu.push({ to: "/users", label: "Usuários", icon: <FaUsers /> });
+      }
+      
+      return menu;
     }
     return [];
   };
