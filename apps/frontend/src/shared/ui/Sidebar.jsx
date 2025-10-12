@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { FaHome, FaBuilding, FaUsers, FaFileInvoice, FaChartBar, FaCog, FaSignOutAlt } from "react-icons/fa";
+import { FaHome, FaBuilding, FaUsers, FaFileInvoice, FaChartBar, FaCog, FaSignOutAlt, FaClipboardList } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 
 const SidebarContainer = styled.div`
@@ -73,7 +73,7 @@ export default function Sidebar() {
   const getMenuItems = () => {
     if (isAccounting) {
       // Menu para contabilidade (acesso total)
-      return [
+      const menu = [
         { to: "/dashboard", label: "Dashboard", icon: <FaHome /> },
         { to: "/companies", label: "Empresas", icon: <FaBuilding /> },
         { to: "/users", label: "Usuários", icon: <FaUsers /> },
@@ -81,6 +81,13 @@ export default function Sidebar() {
         { to: "/reports", label: "Relatórios", icon: <FaChartBar /> },
         { to: "/settings", label: "Configurações", icon: <FaCog /> },
       ];
+      
+      // Adiciona "Logs de Auditoria" apenas para ACCOUNTING_SUPER
+      if (user?.role === 'ACCOUNTING_SUPER') {
+        menu.push({ to: "/audit/logs", label: "Logs de Auditoria", icon: <FaClipboardList /> });
+      }
+      
+      return menu;
     } else if (isClient) {
       // Menu para cliente (acesso limitado)
       const menu = [

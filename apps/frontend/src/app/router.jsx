@@ -24,6 +24,8 @@ import CompanyForm from "../modules/company/view/CompanyForm.jsx";
 import UserList from "../modules/users/view/UserList.jsx";
 import UserForm from "../modules/users/view/UserForm.jsx";
 
+import AuditLog from "../modules/audit/view/AuditLog.jsx";
+
 export default function AppRouter() {
   return (
     <BrowserRouter>
@@ -76,6 +78,9 @@ export default function AppRouter() {
         <Route path="/users" element={<ProtectedRoute><AppLayout><UserList /></AppLayout></ProtectedRoute>} />
         <Route path="/users/new" element={<ProtectedRoute><AppLayout><UserForm /></AppLayout></ProtectedRoute>} />
         <Route path="/users/edit/:id" element={<ProtectedRoute><AppLayout><UserForm /></AppLayout></ProtectedRoute>} />
+
+        {/* Área logada - auditoria (apenas ACCOUNTING_SUPER) */}
+        <Route path="/audit/logs" element={<ProtectedRoute><AppLayout><AuditLog /></AppLayout></ProtectedRoute>} />
 
         {/* Opcionais */}
         <Route path="/health" element={<Health />} />

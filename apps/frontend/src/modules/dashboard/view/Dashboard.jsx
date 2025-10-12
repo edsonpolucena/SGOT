@@ -308,6 +308,10 @@ export default function Dashboard() {
           aVal = a.amount || 0;
           bVal = b.amount || 0;
           break;
+        case "postedBy":
+          aVal = a.user?.name || "";
+          bVal = b.user?.name || "";
+          break;
         default:
           aVal = "";
           bVal = "";
@@ -372,13 +376,14 @@ export default function Dashboard() {
             <Th onClick={() => handleSort("competence")}>Competência</Th>
             <Th onClick={() => handleSort("dueDate")}>Vencimento</Th>
             <Th onClick={() => handleSort("amount")}>Valor</Th>
+            <Th onClick={() => handleSort("postedBy")}>Postado</Th>
             <Th>Ações</Th>
           </tr>
         </thead>
         <tbody>
           {currentItems.length === 0 ? (
             <tr>
-              <Td colSpan="7" style={{ textAlign: "center", padding: "20px" }}>
+              <Td colSpan="8" style={{ textAlign: "center", padding: "20px" }}>
                 Nenhuma obrigação encontrada
               </Td>
             </tr>
@@ -397,6 +402,7 @@ export default function Dashboard() {
                       })}`
                     : "-"}
                 </Td>
+                <Td>{o.user?.name || "N/A"}</Td>
                 <Td>
                   <IconGroup>
                       <IconButton 
