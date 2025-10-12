@@ -45,7 +45,9 @@ async function listObligations(userId, role, filters = {}, companyIdFromToken = 
   return prisma.obligation.findMany({
     where,
     orderBy: { createdAt: 'desc' },
-    include: { company: true } // importante pro dashboard
+    include: { company: true,
+      user: {select: {name: true}}
+     } // importante pro dashboard
   });
 }
 

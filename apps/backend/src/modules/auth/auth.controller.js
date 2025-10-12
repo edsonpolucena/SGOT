@@ -1,5 +1,6 @@
 const { registerUser, loginUser } = require('./auth.service');
 const { prisma } = require('../../prisma');
+const { logAudit } = require('../../utils/audit.helper');
 
 async function postRegister(req, res) {
   try {
@@ -13,6 +14,12 @@ async function postRegister(req, res) {
     const generateToken = !req.user;
 
     const result = await registerUser(name, email, password, role, companyId, status, generateToken);
+    
+    // Log de auditoria (se há usuário autenticado criando outro usuário)
+    if (req.user) {
+      await logAudit(req, 'CREATE', 'User', result.user.id, { email, role });
+    }
+    
     return res.status(201).json(result);
   } catch (err) {
     console.error('Erro ao registrar usuário:', err);
@@ -28,6 +35,15 @@ async function postLogin(req, res) {
     if (!email || !password)
       return res.status(400).json({ message: 'Email e senha são obrigatórios' });
     const result = await loginUser(email, password);
+    
+    // Log de auditoria (criar um req mock para o logAudit funcionar)
+    const mockReq = {
+      ...req,
+      userId: result.user.id,
+      user: { id: result.user.id }
+    };
+    await logAudit(mockReq, 'LOGIN', 'Auth', result.user.id, { email });
+    
     return res.status(200).json(result);
   } catch (err) {
     if (err.message === 'INVALID_CREDENTIALS')

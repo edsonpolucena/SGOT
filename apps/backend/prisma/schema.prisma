@@ -9,34 +9,34 @@ datasource db {
 
 model User {
   id           String       @id @default(cuid())
-  name         String?
   email        String       @unique
   passwordHash String
-  role         UserRole     @default(CLIENT_NORMAL)
-  status       UserStatus   @default(ACTIVE)
-  companyId    Int?         // Relacionamento com empresa (opcional para contabilidade)
   createdAt    DateTime     @default(now())
+  name         String?
   updatedAt    DateTime     @updatedAt
+  companyId    Int?
+  role         UserRole     @default(CLIENT)
+  status       UserStatus   @default(ACTIVE)
   obligations  Obligation[]
   company      Empresa?     @relation(fields: [companyId], references: [id])
 }
 
 model Obligation {
   id          String           @id @default(cuid())
-  userId      String
-  companyId   Int              // Obrigatório - sempre associado a uma empresa
   title       String
-  regime      Regime
-  periodStart DateTime
-  periodEnd   DateTime
   dueDate     DateTime
   status      ObligationStatus @default(PENDING)
-  amount      Decimal?         @db.Decimal(10,2)
   notes       String?
   createdAt   DateTime         @default(now())
+  amount      Decimal?         @db.Decimal(10, 2)
+  periodEnd   DateTime
+  periodStart DateTime
+  regime      Regime
   updatedAt   DateTime         @updatedAt
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  companyId   Int
   company     Empresa          @relation(fields: [companyId], references: [id])
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   files       ObligationFile[]
 
   @@index([userId])
@@ -47,18 +47,35 @@ model Obligation {
 }
 
 model Empresa {
-  id          Int             @id @default(autoincrement())
-  codigo      String          @unique
+  id          Int          @id @default(autoincrement())
+  codigo      String       @unique
   nome        String
-  cnpj        String          @unique
+  cnpj        String       @unique
   email       String?
   telefone    String?
   endereco    String?
-  status      String          @default("ativa")
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  users       User[]
+  status      String       @default("ativa")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   obligations Obligation[]
+  users       User[]
+}
+
+model ObligationFile {
+  id           String     @id @default(cuid())
+  obligationId String
+  fileName     String
+  originalName String
+  fileSize     Int
+  mimeType     String
+  s3Key        String     @unique
+  s3Url        String?
+  uploadedBy   String
+  createdAt    DateTime   @default(now())
+  obligation   Obligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+
+  @@index([obligationId])
+  @@index([uploadedBy])
 }
 
 enum Regime {
@@ -77,12 +94,11 @@ enum ObligationStatus {
 }
 
 enum UserRole {
-  // Contabilidade
+  ACCOUNTING
+  CLIENT
   ACCOUNTING_NORMAL
   ACCOUNTING_ADMIN
   ACCOUNTING_SUPER
-
-  // Cliente
   CLIENT_NORMAL
   CLIENT_ADMIN
 }
@@ -92,20 +108,40 @@ enum UserStatus {
   INACTIVE
 }
 
+model AuditLog {
+  id        String     @id @default(cuid())
+  userId    String     // Quem fez a ação
+  action    ActionType // Tipo de ação (CREATE, UPDATE, DELETE, VIEW, DOWNLOAD)
+  entity    EntityType // Entidade afetada (Obligation, User, ObligationFile, Company)
+  entityId  String     // ID da entidade afetada
+  metadata  String?    // JSON com informações adicionais
+  ipAddress String?    // IP do usuário
+  userAgent String?    // Browser/dispositivo
+  createdAt DateTime   @default(now())
 
-model ObligationFile {
-  id           String     @id @default(cuid())
-  obligationId String
-  fileName     String
-  originalName String
-  fileSize     Int
-  mimeType     String
-  s3Key        String     @unique // Chave no S3
-  s3Url        String?    // URL pública (se configurada)
-  uploadedBy   String     // ID do usuário que fez upload
-  createdAt    DateTime   @default(now())
-  obligation   Obligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+}
 
-  @@index([obligationId])
-  @@index([uploadedBy])
+enum ActionType {
+  CREATE
+  UPDATE
+  DELETE
+  VIEW
+  DOWNLOAD
+  LOGIN
+  LOGOUT
+  UPLOAD
+  STATUS_CHANGE
+}
+
+enum EntityType {
+  Obligation
+  User
+  ObligationFile
+  Company
+  Auth
 }

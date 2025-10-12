@@ -5,6 +5,7 @@ const {
   updateUserStatus,
   deleteUser
 } = require('./users.service');
+const { logAudit } = require('../../utils/audit.helper');
 
 /**
  * GET /api/users
@@ -53,6 +54,13 @@ async function getUser(req, res) {
 async function updateUserData(req, res) {
   try {
     const updatedUser = await updateUser(req.params.id, req.body, req.user);
+    
+    // Log de auditoria
+    await logAudit(req, 'UPDATE', 'User', req.params.id, { 
+      fields: Object.keys(req.body),
+      email: updatedUser.email 
+    });
+    
     return res.json(updatedUser);
   } catch (err) {
     if (err.message === 'USER_NOT_FOUND') {
@@ -85,6 +93,13 @@ async function changeUserStatus(req, res) {
     }
 
     const updatedUser = await updateUserStatus(req.params.id, status, req.user);
+    
+    // Log de auditoria
+    await logAudit(req, 'STATUS_CHANGE', 'User', req.params.id, { 
+      newStatus: status,
+      email: updatedUser.email 
+    });
+    
     return res.json(updatedUser);
   } catch (err) {
     if (err.message === 'USER_NOT_FOUND') {
@@ -108,6 +123,10 @@ async function changeUserStatus(req, res) {
 async function removeUser(req, res) {
   try {
     const result = await deleteUser(req.params.id, req.user);
+    
+    // Log de auditoria
+    await logAudit(req, 'DELETE', 'User', req.params.id);
+    
     return res.json(result);
   } catch (err) {
     if (err.message === 'USER_NOT_FOUND') {

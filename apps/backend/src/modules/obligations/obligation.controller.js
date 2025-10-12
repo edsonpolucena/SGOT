@@ -1,5 +1,6 @@
 const { createObligation, listObligations, getObligation, updateObligation, deleteObligation } = require('./obligation.service');
 const { createObligationFile, getObligationFiles, getFileViewUrl, getFileDownloadUrl, deleteObligationFile } = require('./obligation-file.service');
+const { logAudit } = require('../../utils/audit.helper');
 
 async function postObligation(req, res) {
   try {
@@ -19,6 +20,9 @@ async function postObligation(req, res) {
       notes,
       companyId: parseInt(companyId)
     });
+    
+    // Log de auditoria
+    await logAudit(req, 'CREATE', 'Obligation', created.id, { title, regime, companyId });
     
     return res.status(201).json(created);
   } catch (error) {
@@ -59,6 +63,10 @@ async function putObligation(req, res) {
   try {
     const updated = await updateObligation(req.userId, req.user.role, req.params.id, req.body);
     if (!updated) return res.status(404).json({ message: 'Obligation not found' });
+    
+    // Log de auditoria
+    await logAudit(req, 'UPDATE', 'Obligation', req.params.id, { fields: Object.keys(req.body) });
+    
     return res.json(updated);
   } catch (error) {
     console.error('Error updating obligation:', error);
@@ -70,6 +78,10 @@ async function deleteObligationById(req, res) {
   try {
     const ok = await deleteObligation(req.userId, req.user.role, req.params.id);
     if (!ok) return res.status(404).json({ message: 'Obligation not found' });
+    
+    // Log de auditoria
+    await logAudit(req, 'DELETE', 'Obligation', req.params.id);
+    
     return res.status(204).send();
   } catch (error) {
     console.error('Error deleting obligation:', error);
@@ -90,6 +102,12 @@ async function uploadFiles(req, res) {
     for (const file of req.files) {
       const fileRecord = await createObligationFile(obligationId, file, req.userId);
       uploadedFiles.push(fileRecord);
+      
+      // Log de auditoria para cada arquivo
+      await logAudit(req, 'UPLOAD', 'ObligationFile', fileRecord.id, { 
+        fileName: file.originalname,
+        obligationId 
+      });
     }
 
     return res.status(201).json({ 
@@ -115,6 +133,10 @@ async function getFiles(req, res) {
 async function viewFile(req, res) {
   try {
     const signedUrl = await getFileViewUrl(req.params.fileId, req.userId);
+    
+    // Log de auditoria
+    await logAudit(req, 'VIEW', 'ObligationFile', req.params.fileId);
+    
     return res.json({ viewUrl: signedUrl });
   } catch (error) {
     console.error('Error generating view URL:', error);
@@ -125,6 +147,10 @@ async function viewFile(req, res) {
 async function downloadFile(req, res) {
   try {
     const signedUrl = await getFileDownloadUrl(req.params.fileId, req.userId);
+    
+    // Log de auditoria
+    await logAudit(req, 'DOWNLOAD', 'ObligationFile', req.params.fileId);
+    
     return res.json({ downloadUrl: signedUrl });
   } catch (error) {
     console.error('Error generating download URL:', error);
@@ -136,6 +162,10 @@ async function deleteFile(req, res) {
   try {
     const success = await deleteObligationFile(req.params.fileId, req.userId);
     if (!success) return res.status(404).json({ message: 'File not found' });
+    
+    // Log de auditoria
+    await logAudit(req, 'DELETE', 'ObligationFile', req.params.fileId);
+    
     return res.status(204).send();
   } catch (error) {
     console.error('Error deleting file:', error);
