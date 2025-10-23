@@ -22,22 +22,24 @@ model User {
 }
 
 model Obligation {
-  id          String           @id @default(cuid())
-  title       String
-  dueDate     DateTime
-  status      ObligationStatus @default(PENDING)
-  notes       String?
-  createdAt   DateTime         @default(now())
-  amount      Decimal?         @db.Decimal(10, 2)
-  periodEnd   DateTime
-  periodStart DateTime
-  regime      Regime
-  updatedAt   DateTime         @updatedAt
-  userId      String
-  companyId   Int
-  company     Empresa          @relation(fields: [companyId], references: [id])
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  files       ObligationFile[]
+  id            String                   @id @default(cuid())
+  title         String
+  dueDate       DateTime
+  status        ObligationStatus         @default(PENDING)
+  notes         String?
+  createdAt     DateTime                 @default(now())
+  amount        Decimal?                 @db.Decimal(10, 2)
+  periodEnd     DateTime
+  periodStart   DateTime
+  regime        Regime
+  updatedAt     DateTime                 @updatedAt
+  userId        String
+  companyId     Int
+  company       Empresa                  @relation(fields: [companyId], references: [id])
+  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  files         ObligationFile[]
+  notifications ObligationNotification[]
+  views         ObligationView[]
 
   @@index([userId])
   @@index([companyId])
@@ -144,4 +146,32 @@ enum EntityType {
   ObligationFile
   Company
   Auth
+}
+
+model ObligationNotification {
+  id           String     @id @default(cuid())
+  obligationId String
+  sentTo       String     // Email do destinatário
+  sentBy       String     // ID do usuário que enviou
+  sentAt       DateTime   @default(now())
+  emailStatus  String     @default("pending") // pending, sent, failed
+  emailError   String?    // Erro do envio (se houver)
+  obligation   Obligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+
+  @@index([obligationId])
+  @@index([sentTo])
+  @@index([sentAt])
+}
+
+model ObligationView {
+  id           String     @id @default(cuid())
+  obligationId String
+  viewedBy     String     // ID do usuário que visualizou
+  viewedAt     DateTime   @default(now())
+  action       String     // VIEW ou DOWNLOAD
+  obligation   Obligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+
+  @@index([obligationId])
+  @@index([viewedBy])
+  @@index([viewedAt])
 }

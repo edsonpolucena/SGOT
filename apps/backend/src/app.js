@@ -4,6 +4,7 @@ const { authRouter } = require('./modules/auth/auth.routes');
 const { obligationRouter } = require('./modules/obligations/obligation.routes');
 const { usersRouter } = require('./modules/users/users.routes');
 const { auditRouter } = require('./modules/audit/audit.routes');
+const { notificationRouter } = require('./modules/notifications/notification.routes');
 const { setupSwagger } = require('./swagger');
 const companyRoutes = require("./modules/company/company.routes.js");
 const analyticsRoutes = require("./modules/analytics/analytics.routes");
@@ -20,6 +21,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/obligations', obligationRouter);
 app.use('/api/audit', auditRouter);
+app.use('/api/notifications', notificationRouter);
 app.use("/api/empresas", companyRoutes);
 
 app.use("/api/analytics", analyticsRoutes);

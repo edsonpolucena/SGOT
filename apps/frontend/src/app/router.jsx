@@ -26,6 +26,8 @@ import UserForm from "../modules/users/view/UserForm.jsx";
 
 import AuditLog from "../modules/audit/view/AuditLog.jsx";
 
+import UnviewedDocs from "../modules/notifications/view/UnviewedDocs.jsx";
+
 export default function AppRouter() {
   return (
     <BrowserRouter>
@@ -81,6 +83,9 @@ export default function AppRouter() {
 
         {/* Área logada - auditoria (apenas ACCOUNTING_SUPER) */}
         <Route path="/audit/logs" element={<ProtectedRoute><AppLayout><AuditLog /></AppLayout></ProtectedRoute>} />
+
+        {/* Área logada - notificações (contabilidade) */}
+        <Route path="/notifications/unviewed" element={<ProtectedRoute><AppLayout><UnviewedDocs /></AppLayout></ProtectedRoute>} />
 
         {/* Opcionais */}
         <Route path="/health" element={<Health />} />

@@ -1,6 +1,7 @@
 const { createObligation, listObligations, getObligation, updateObligation, deleteObligation } = require('./obligation.service');
 const { createObligationFile, getObligationFiles, getFileViewUrl, getFileDownloadUrl, deleteObligationFile } = require('./obligation-file.service');
 const { logAudit } = require('../../utils/audit.helper');
+const { recordView } = require('../notifications/notification.service');
 
 async function postObligation(req, res) {
   try {
@@ -134,6 +135,18 @@ async function viewFile(req, res) {
   try {
     const signedUrl = await getFileViewUrl(req.params.fileId, req.userId);
     
+    // Buscar o arquivo para pegar o obligationId
+    const { prisma } = require('../../prisma');
+    const file = await prisma.obligationFile.findUnique({
+      where: { id: req.params.fileId },
+      select: { obligationId: true }
+    });
+    
+    if (file) {
+      // Registrar visualização
+      await recordView(file.obligationId, req.userId, 'VIEW');
+    }
+    
     // Log de auditoria
     await logAudit(req, 'VIEW', 'ObligationFile', req.params.fileId);
     
@@ -147,6 +160,18 @@ async function viewFile(req, res) {
 async function downloadFile(req, res) {
   try {
     const signedUrl = await getFileDownloadUrl(req.params.fileId, req.userId);
+    
+    // Buscar o arquivo para pegar o obligationId
+    const { prisma } = require('../../prisma');
+    const file = await prisma.obligationFile.findUnique({
+      where: { id: req.params.fileId },
+      select: { obligationId: true }
+    });
+    
+    if (file) {
+      // Registrar download como visualização
+      await recordView(file.obligationId, req.userId, 'DOWNLOAD');
+    }
     
     // Log de auditoria
     await logAudit(req, 'DOWNLOAD', 'ObligationFile', req.params.fileId);
