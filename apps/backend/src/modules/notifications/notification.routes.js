@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const { requireAuth } = require('../../middleware/requireAuth');
 const authorize = require('../../middleware/authorize');
-const { validateParams, idParamSchema } = require('../../middleware/validation');
+const { validateParams, obligationIdParamSchema } = require('../../middleware/validation');
 const {
   listUnviewedObligations,
   resendNotification,
@@ -34,7 +34,7 @@ notificationRouter.get(
 notificationRouter.post(
   '/send/:obligationId',
   authorize(['ACCOUNTING_SUPER', 'ACCOUNTING_ADMIN', 'ACCOUNTING_NORMAL']),
-  validateParams(idParamSchema),
+  validateParams(obligationIdParamSchema),
   resendNotification
 );
 
@@ -45,7 +45,7 @@ notificationRouter.post(
 notificationRouter.get(
   '/:obligationId/history',
   authorize(['ACCOUNTING_SUPER', 'ACCOUNTING_ADMIN', 'ACCOUNTING_NORMAL']),
-  validateParams(idParamSchema),
+  validateParams(obligationIdParamSchema),
   getNotificationHistory
 );
 
@@ -56,7 +56,7 @@ notificationRouter.get(
 notificationRouter.get(
   '/:obligationId/views',
   authorize(['ACCOUNTING_SUPER', 'ACCOUNTING_ADMIN', 'ACCOUNTING_NORMAL']),
-  validateParams(idParamSchema),
+  validateParams(obligationIdParamSchema),
   getViewHistory
 );
 

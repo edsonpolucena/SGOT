@@ -130,6 +130,10 @@ const fileIdParamSchema = Joi.object({
   fileId: Joi.string().required()
 });
 
+const obligationIdParamSchema = Joi.object({
+  obligationId: Joi.string().required()
+});
+
 const obligationFiltersSchema = Joi.object({
   status: Joi.string().valid('PENDING', 'SUBMITTED', 'LATE', 'PAID', 'CANCELED').optional(),
   regime: Joi.string().valid('SIMPLES', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'MEI').optional(),
@@ -150,5 +154,6 @@ module.exports = {
   updateStatusSchema,
   idParamSchema,
   fileIdParamSchema,
+  obligationIdParamSchema,
   obligationFiltersSchema
 };

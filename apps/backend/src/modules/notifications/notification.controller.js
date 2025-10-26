@@ -99,11 +99,17 @@ async function getStats(req, res) {
   }
 }
 
+// Aliases para compatibilidade com routes
+const sendNotification = resendNotification;
+const getNotificationViews = getViewHistory;
+
 module.exports = {
   listUnviewedObligations,
   resendNotification,
+  sendNotification, // Alias
   getNotificationHistory,
   getViewHistory,
+  getNotificationViews, // Alias
   getStats
 };
 

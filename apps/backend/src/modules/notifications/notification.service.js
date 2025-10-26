@@ -135,7 +135,9 @@ async function sendObligationNotification(obligationId, sentBy) {
         },
         user: {
           select: {
-            name: true
+            id: true,
+            name: true,
+            email: true
           }
         }
       }
@@ -156,65 +158,58 @@ async function sendObligationNotification(obligationId, sentBy) {
     const companyName = notes.companyName || obligation.company.nome;
     const uploadedBy = obligation.user.name || 'Sistema';
 
-    // Lista de emails para enviar
-    const usersToNotify = obligation.company.users;
+    // Email remetente: email da contabilidade que fez upload
+    const fromEmail = obligation.user.email || process.env.EMAIL_FROM;
+    
+    // Email destinatário: email da empresa cliente
+    const toEmail = obligation.company.email;
 
-    if (usersToNotify.length === 0) {
-      console.warn('⚠️  Nenhum usuário ativo encontrado para notificar');
+    if (!toEmail) {
+      console.warn('⚠️  Empresa sem email cadastrado');
       return {
-        success: true,
+        success: false,
         sent: 0,
-        message: 'Nenhum usuário para notificar'
+        message: 'Empresa sem email cadastrado'
       };
     }
 
+    // Enviar email para o email da empresa cliente
+    const emailResult = await sendNewDocumentNotification({
+      from: fromEmail,
+      to: toEmail,
+      userName: companyName,
+      companyName,
+      docType,
+      competence,
+      dueDate: obligation.dueDate,
+      uploadedBy
+    });
+
     const results = [];
 
-    // Enviar email para cada usuário
-    for (const user of usersToNotify) {
-      if (!user.email) {
-        console.warn(`⚠️  Usuário ${user.name} sem email cadastrado`);
-        continue;
+    // Registrar notificação no banco
+    const notification = await prisma.obligationNotification.create({
+      data: {
+        obligationId,
+        sentTo: toEmail,
+        sentBy,
+        emailStatus: emailResult.success ? 'sent' : 'failed',
+        emailError: emailResult.error || null
       }
+    });
 
-      // Tentar enviar email
-      const emailResult = await sendNewDocumentNotification({
-        to: user.email,
-        userName: user.name || 'Usuário',
-        companyName,
-        docType,
-        competence,
-        dueDate: obligation.dueDate,
-        uploadedBy
-      });
+    results.push({
+      email: toEmail,
+      success: emailResult.success,
+      notificationId: notification.id
+    });
 
-      // Registrar notificação no banco
-      const notification = await prisma.obligationNotification.create({
-        data: {
-          obligationId,
-          sentTo: user.email,
-          sentBy,
-          emailStatus: emailResult.success ? 'sent' : 'failed',
-          emailError: emailResult.error || null
-        }
-      });
-
-      results.push({
-        userId: user.id,
-        email: user.email,
-        success: emailResult.success,
-        notificationId: notification.id
-      });
-    }
-
-    const successCount = results.filter(r => r.success).length;
-
-    console.log(`✅ Notificações enviadas: ${successCount}/${results.length}`);
-
+    console.log(`✅ Notificação enviada para: ${toEmail}`);
+    
     return {
-      success: true,
-      sent: successCount,
-      total: results.length,
+      success: emailResult.success,
+      sent: emailResult.success ? 1 : 0,
+      total: 1,
       results
     };
   } catch (error) {

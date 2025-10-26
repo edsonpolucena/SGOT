@@ -1,110 +1,123 @@
+// apps/backend/src/services/email.service.js
 const nodemailer = require('nodemailer');
-const { env } = require('../config/env');
-
-/**
- * Configuração do AWS SES com Nodemailer
- * 
- * Variáveis de ambiente necessárias no .env:
- * AWS_SES_REGION=us-east-1
- * AWS_ACCESS_KEY_ID=sua_access_key
- * AWS_SECRET_ACCESS_KEY=sua_secret_key
- * EMAIL_FROM=noreply@seudominio.com
- */
+const { prisma } = require('../prisma');
 
 let transporter = null;
 
-/**
- * Inicializa o transporter do Nodemailer com AWS SES
- */
-function getTransporter() {
-  if (transporter) {
-    return transporter;
+// cache do remetente padrão vindo do BD (Empresa "contabilidade")
+let cachedDefaultFrom = null;
+let cachedAt = 0;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
+
+async function getDefaultFromEmail() {
+  const now = Date.now();
+  if (cachedDefaultFrom && (now - cachedAt) < CACHE_TTL_MS) {
+    return cachedDefaultFrom;
   }
 
-  // Verificar se as credenciais AWS estão configuradas
-  if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-    console.warn('⚠️  AWS SES não configurado. Emails não serão enviados.');
-    return null;
-  }
+  const defaultCompanyId = Number(process.env.COMPANY_DEFAULT_ID || 0);
+  if (!defaultCompanyId) return null;
 
-  try {
-    transporter = nodemailer.createTransport({
-      SES: {
-        region: process.env.AWS_SES_REGION || 'us-east-1',
-        aws: {
-          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-        }
-      }
-    });
+  const company = await prisma.empresa.findUnique({
+    where: { id: defaultCompanyId },
+    select: { email: true }
+  });
 
-    console.log('✅ AWS SES configurado com sucesso');
-    return transporter;
-  } catch (error) {
-    console.error('❌ Erro ao configurar AWS SES:', error);
-    return null;
+  const email = company?.email?.trim() || null;
+  if (email) {
+    cachedDefaultFrom = email;
+    cachedAt = now;
   }
+  return email;
 }
 
 /**
- * Envia email usando AWS SES
- * @param {Object} options - Opções do email
- * @param {string} options.to - Email do destinatário
- * @param {string} options.subject - Assunto do email
- * @param {string} options.html - Conteúdo HTML do email
- * @param {string} options.text - Conteúdo texto do email (fallback)
+ * Inicializa o transporter do Nodemailer com AWS SES via SMTP
+ * Requer no .env:
+ *  - SES_HOST, SES_PORT, SES_SECURE
+ *  - SES_SMTP_USER, SES_SMTP_PASS
+ *  - AWS_SES_REGION (opcional; usado só se SES_HOST não for definido)
  */
-async function sendEmail({ to, subject, html, text }) {
-  const emailTransporter = getTransporter();
+function getTransporter() {
+  if (transporter) return transporter;
 
-  if (!emailTransporter) {
-    console.warn('Email não enviado (AWS SES não configurado):', { to, subject });
-    return { success: false, error: 'AWS SES não configurado' };
+  const smtpUser = process.env.SES_SMTP_USER;
+  const smtpPass = process.env.SES_SMTP_PASS;
+
+  if (!smtpUser || !smtpPass) {
+    console.warn('⚠️  SES SMTP não configurado. Defina SES_SMTP_USER e SES_SMTP_PASS no .env');
+    return null;
   }
 
+  const host =
+    process.env.SES_HOST ||
+    `email-smtp.${process.env.AWS_SES_REGION || 'sa-east-1'}.amazonaws.com`;
+
+  const port = Number(process.env.SES_PORT || 587);
+  const secure = String(process.env.SES_SECURE || 'false') === 'true';
+
+  transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure, // false para 587 (STARTTLS), true para 465 (TLS direto)
+    auth: {
+      user: smtpUser,
+      pass: smtpPass
+    }
+    // opcional: tls: { minVersion: 'TLSv1.2' }
+  });
+
+  console.log('✅ AWS SES (SMTP) configurado com sucesso');
+  return transporter;
+}
+
+/**
+ * Envia email usando AWS SES (SMTP)
+ * @param {Object} options
+ * @param {string} [options.from] - Remetente (se não informar, busca no BD; fallback em EMAIL_FROM)
+ * @param {string} options.to
+ * @param {string} options.subject
+ * @param {string} options.html
+ * @param {string} [options.text]
+ * @param {string} [options.replyTo]
+ */
+async function sendEmail({ from, to, subject, html, text, replyTo }) {
+  const emailTransporter = getTransporter();
+  if (!emailTransporter) return { success: false, error: 'SES SMTP não configurado' };
+
+  // prioridade: parâmetro > banco (empresa padrão) > .env
+  const dbFrom = await getDefaultFromEmail();
+  const finalFrom = (from && from.trim()) || dbFrom || process.env.EMAIL_FROM;
+
+  const mailOptions = {
+    from: finalFrom,
+    to,
+    subject,
+    html,
+    text: text || html.replace(/<[^>]*>/g, ''),
+    ...(replyTo ? { replyTo } : {})
+  };
+
   try {
-    const mailOptions = {
-      from: process.env.EMAIL_FROM || 'noreply@sgot.com',
-      to,
-      subject,
-      html,
-      text: text || html.replace(/<[^>]*>/g, '') // Remove tags HTML se não tiver texto
-    };
-
     const info = await emailTransporter.sendMail(mailOptions);
-    
-    console.log('✅ Email enviado com sucesso:', {
-      to,
-      subject,
-      messageId: info.messageId
-    });
-
-    return {
-      success: true,
-      messageId: info.messageId
-    };
+    console.log('✅ Email enviado:', { from: finalFrom, to, subject, messageId: info.messageId });
+    return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('❌ Erro ao enviar email:', error);
-    return {
-      success: false,
-      error: error.message
-    };
+    return { success: false, error: error.message };
   }
 }
 
 /**
  * Envia email de notificação de novo documento
  */
-async function sendNewDocumentNotification({ to, userName, companyName, docType, competence, dueDate, uploadedBy }) {
+async function sendNewDocumentNotification({ from, to, userName, companyName, docType, competence, dueDate, uploadedBy, replyTo }) {
   const dueDateFormatted = new Date(dueDate).toLocaleDateString('pt-BR');
 
   const subject = `Novo Documento Disponível - ${docType} ${competence}`;
-  
   const html = `
     <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
+    <html><head><meta charset="UTF-8">
       <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -121,61 +134,35 @@ async function sendNewDocumentNotification({ to, userName, companyName, docType,
     </head>
     <body>
       <div class="container">
-        <div class="header">
-          <h1>📄 Novo Documento Disponível</h1>
-        </div>
+        <div class="header"><h1>📄 Novo Documento Disponível</h1></div>
         <div class="content">
           <p>Olá <strong>${userName}</strong>,</p>
           <p>Um novo documento foi postado para <strong>${companyName}</strong> e está aguardando sua visualização.</p>
-          
           <div class="card">
             <h3 style="margin-top: 0; color: #667eea;">Detalhes do Documento</h3>
-            <div class="info-row">
-              <span class="info-label">Tipo:</span>
-              <span class="info-value">${docType}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Competência:</span>
-              <span class="info-value">${competence}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Vencimento:</span>
-              <span class="info-value">${dueDateFormatted}</span>
-            </div>
-            <div class="info-row" style="border-bottom: none;">
-              <span class="info-label">Postado por:</span>
-              <span class="info-value">${uploadedBy}</span>
-            </div>
+            <div class="info-row"><span class="info-label">Tipo:</span><span class="info-value">${docType}</span></div>
+            <div class="info-row"><span class="info-label">Competência:</span><span class="info-value">${competence}</span></div>
+            <div class="info-row"><span class="info-label">Vencimento:</span><span class="info-value">${dueDateFormatted}</span></div>
+            <div class="info-row" style="border-bottom: none;"><span class="info-label">Postado por:</span><span class="info-value">${uploadedBy}</span></div>
           </div>
-
-          <div class="alert">
-            <strong>⚠️ Atenção:</strong> Este documento possui data de vencimento. Acesse o sistema para visualizar e tomar as ações necessárias.
-          </div>
-
+          <div class="alert"><strong>⚠️ Atenção:</strong> Este documento possui data de vencimento. Acesse o sistema para visualizar e tomar as ações necessárias.</div>
           <div style="text-align: center;">
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard" class="button">
-              Acessar Sistema
-            </a>
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard" class="button">Acessar Sistema</a>
           </div>
-
           <div class="footer">
             <p>Este é um email automático. Por favor, não responda.</p>
             <p>Sistema de Gestão de Obrigações Tributárias - SGOT</p>
           </div>
         </div>
       </div>
-    </body>
-    </html>
+    </body></html>
   `;
 
-  return await sendEmail({ to, subject, html });
+  return await sendEmail({ from, to, subject, html, replyTo });
 }
 
 module.exports = {
+  getTransporter,
   sendEmail,
-  sendNewDocumentNotification,
-  getTransporter
+  sendNewDocumentNotification
 };
-
-
-
