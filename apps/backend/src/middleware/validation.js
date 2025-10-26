@@ -33,10 +33,34 @@ const obligationSchema = Joi.object({
 const companySchema = Joi.object({
   codigo: Joi.string().min(2).max(20).required(),
   nome: Joi.string().min(2).max(200).required(),
-  cnpj: Joi.string().pattern(/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/).required(),
-  email: Joi.string().email().optional(),
-  telefone: Joi.string().pattern(/^\(\d{2}\)\s\d{4,5}-\d{4}$/).optional(),
-  endereco: Joi.string().max(500).optional(),
+  cnpj: Joi.alternatives().try(
+    Joi.string().pattern(/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/), // Com máscara
+    Joi.string().pattern(/^\d{14}$/) // Sem máscara (apenas números)
+  ).required(),
+  email: Joi.string().email().optional().allow('', null),
+  telefone: Joi.alternatives().try(
+    Joi.string().pattern(/^\(\d{2}\)\s\d{4,5}-\d{4}$/), // Com máscara
+    Joi.string().pattern(/^\d{10,11}$/), // Sem máscara (apenas números)
+    Joi.string().allow('', null)
+  ).optional(),
+  endereco: Joi.string().max(500).optional().allow('', null),
+  status: Joi.string().valid('ativa', 'inativa').optional()
+});
+
+const updateCompanySchema = Joi.object({
+  codigo: Joi.string().min(2).max(20).optional(),
+  nome: Joi.string().min(2).max(200).optional(),
+  cnpj: Joi.alternatives().try(
+    Joi.string().pattern(/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/), // Com máscara
+    Joi.string().pattern(/^\d{14}$/) // Sem máscara (apenas números)
+  ).optional(),
+  email: Joi.string().email().optional().allow('', null),
+  telefone: Joi.alternatives().try(
+    Joi.string().pattern(/^\(\d{2}\)\s\d{4,5}-\d{4}$/), // Com máscara
+    Joi.string().pattern(/^\d{10,11}$/), // Sem máscara (apenas números)
+    Joi.string().allow('', null)
+  ).optional(),
+  endereco: Joi.string().max(500).optional().allow('', null),
   status: Joi.string().valid('ativa', 'inativa').optional()
 });
 
@@ -150,6 +174,7 @@ module.exports = {
   loginSchema,
   obligationSchema,
   companySchema,
+  updateCompanySchema,
   updateUserSchema,
   updateStatusSchema,
   idParamSchema,

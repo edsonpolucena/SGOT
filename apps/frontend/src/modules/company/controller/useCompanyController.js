@@ -31,5 +31,31 @@ export function useCompanyController() {
     }
   }
 
-  return { createCompany, getCompanies, loading, error };
+  async function updateCompany(id, data) {
+    try {
+      setLoading(true);
+      const res = await http.put(`/api/empresas/${id}`, data);
+      return res.data;
+    } catch (err) {
+      setError(err.response?.data || "Erro ao atualizar empresa");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function getCompanyById(id) {
+    try {
+      setLoading(true);
+      const res = await http.get(`/api/empresas/${id}`);
+      return res.data;
+    } catch (err) {
+      setError(err.response?.data || "Erro ao carregar empresa");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return { createCompany, getCompanies, updateCompany, getCompanyById, loading, error };
 }
