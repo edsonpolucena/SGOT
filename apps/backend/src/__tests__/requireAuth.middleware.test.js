@@ -199,7 +199,7 @@ describe('JWT Middleware Tests', () => {
         .send({ email: 'test@example.com', password: 'password' })
         .expect(401); // 401 porque credenciais são inválidas, mas não por falta de token
 
-      expect(res.body).toHaveProperty('message', 'Invalid credentials');
+      expect(res.body).toHaveProperty('message', 'Credenciais inválidas');
     });
   });
 

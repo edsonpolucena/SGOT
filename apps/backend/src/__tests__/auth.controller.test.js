@@ -1,81 +1,110 @@
 const request = require("supertest");
 const {app} = require("../app");
 const { prisma } = require("../prisma");
-
-jest.mock("../prisma", () => ({
-  prisma: {
-    user: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-    },
-  },
-}));
-
-jest.mock("bcryptjs", () => ({
-  hash: jest.fn().mockResolvedValue("hashed-password"),
-  compare: jest.fn().mockResolvedValue(true),
-}));
-
-jest.mock("jsonwebtoken", () => ({
-  sign: jest.fn().mockReturnValue("fake-jwt-token"),
-}));
+const jwt = require("jsonwebtoken");
+const { env } = require("../config/env");
+const bcrypt = require("bcryptjs");
 
 describe("AuthController", () => {
-  afterEach(() => jest.clearAllMocks());
+  let adminToken;
 
-  test("deve registrar um usuário novo", async () => {
-    prisma.user.findUnique.mockResolvedValue(null);
-    prisma.user.create.mockResolvedValue({ 
-      id: "user-id", 
-      email: "teste@teste.com",
-      name: "Test User",
-      role: "CLIENT_NORMAL"
+  beforeEach(async () => {
+    // Criar usuário admin para testes
+    const adminUser = await prisma.user.upsert({
+      where: { email: 'admin@test.com' },
+      update: {},
+      create: {
+        email: 'admin@test.com',
+        name: 'Admin User',
+        passwordHash: await bcrypt.hash('password123', 10),
+        role: 'ACCOUNTING_SUPER',
+        status: 'ACTIVE'
+      }
     });
 
+    // Gerar token para o admin
+    adminToken = jwt.sign(
+      { sub: adminUser.id, role: adminUser.role },
+      env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+  });
+
+  afterEach(async () => {
+    // Limpar usuários de teste (exceto admin)
+    await prisma.user.deleteMany({
+      where: {
+        email: { not: 'admin@test.com' }
+      }
+    });
+  });
+
+  test("deve registrar um usuário novo (com autenticação admin)", async () => {
     const res = await request(app)
       .post("/api/auth/register")
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ 
-        email: "teste@teste.com", 
+        email: "newuser@test.com", 
         password: "123456",
-        name: "Test User"
+        name: "New User",
+        role: "CLIENT_NORMAL"
       });
 
     expect(res.status).toBe(201);
-    expect(res.body.user.email).toBe("teste@teste.com");
+    expect(res.body.user.email).toBe("newuser@test.com");
   });
 
   test("não deve registrar usuário existente", async () => {
-    prisma.user.findUnique.mockResolvedValue({ 
-      id: "user-id", 
-      email: "teste@teste.com" 
+    // Criar usuário existente
+    await prisma.user.create({
+      data: {
+        email: "existing@test.com",
+        name: "Existing User",
+        passwordHash: await bcrypt.hash("password123", 10),
+        role: "CLIENT_NORMAL",
+        status: "ACTIVE"
+      }
     });
 
     const res = await request(app)
       .post("/api/auth/register")
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ 
-        email: "teste@teste.com", 
+        email: "existing@test.com", 
         password: "123456",
-        name: "Test User"
+        name: "Existing User",
+        role: "CLIENT_NORMAL"
       });
 
     expect(res.status).toBe(409);
   });
 
   test("deve logar usuário válido", async () => {
-    prisma.user.findUnique.mockResolvedValue({
-      id: "user-id",
-      email: "teste@teste.com",
-      passwordHash: "$2b$10$fakehash",
-      name: "Test User",
-      role: "CLIENT_NORMAL"
+    // Criar usuário para login
+    await prisma.user.create({
+      data: {
+        email: "login@test.com",
+        name: "Login User",
+        passwordHash: await bcrypt.hash("123456", 10),
+        role: "CLIENT_NORMAL",
+        status: "ACTIVE"
+      }
     });
 
     const res = await request(app)
       .post("/api/auth/login")
-      .send({ email: "teste@teste.com", password: "123456" });
+      .send({ email: "login@test.com", password: "123456" });
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty("token");
     expect(res.body).toHaveProperty("user");
+  });
+
+  test("não deve logar com credenciais inválidas", async () => {
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ email: "wrong@test.com", password: "wrongpassword" });
+
+    expect(res.status).toBe(401);
   });
 });

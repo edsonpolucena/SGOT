@@ -163,6 +163,7 @@ async function sendNewDocumentNotification({ from, to, userName, companyName, do
 
 module.exports = {
   getTransporter,
+  getDefaultFromEmail,
   sendEmail,
   sendNewDocumentNotification
 };

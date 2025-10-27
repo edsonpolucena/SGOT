@@ -158,8 +158,12 @@ async function sendObligationNotification(obligationId, sentBy) {
     const companyName = notes.companyName || obligation.company.nome;
     const uploadedBy = obligation.user.name || 'Sistema';
 
-    // Email remetente: email da contabilidade que fez upload
-    const fromEmail = obligation.user.email || process.env.EMAIL_FROM;
+    // Email remetente: buscar o email da empresa de contabilidade (EMP001)
+    const accountingCompany = await prisma.empresa.findUnique({
+      where: { codigo: 'EMP001' },
+      select: { email: true }
+    });
+    const fromEmail = accountingCompany?.email || process.env.EMAIL_FROM;
     
     // Email destinatário: email da empresa cliente
     const toEmail = obligation.company.email;

@@ -1,12 +1,11 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import ProtectedRoute from '../routes/ProtectedRoute.jsx';
+import ProtectedRoute, { UsersProtectedRoute } from '../routes/ProtectedRoute.jsx';
 import IndexRedirect from '../routes/IndexRedirect.jsx';
 import AppLayout from "./AppLayout.jsx";
 
 
 import Login from '../modules/auth/view/Login.jsx';
-import Register from '../modules/auth/view/Register.jsx';
 import ForgotPassword from '../modules/auth/view/ForgotPassword.jsx';
 
 import List from '../modules/obligations/view/List.jsx';
@@ -73,13 +72,10 @@ export default function AppRouter() {
         {/* Área logada - perfil da empresa (cliente) */}
         <Route path="/company/profile" element={<ProtectedRoute><AppLayout><CompanyProfile /></AppLayout></ProtectedRoute>} />
 
-        {/* Área logada - logins */}
-       <Route path="/auth/register" element={<ProtectedRoute><AppLayout><Register /></AppLayout></ProtectedRoute>}/>
-
-        {/* Área logada - usuários */}
-        <Route path="/users" element={<ProtectedRoute><AppLayout><UserList /></AppLayout></ProtectedRoute>} />
-        <Route path="/users/new" element={<ProtectedRoute><AppLayout><UserForm /></AppLayout></ProtectedRoute>} />
-        <Route path="/users/edit/:id" element={<ProtectedRoute><AppLayout><UserForm /></AppLayout></ProtectedRoute>} />
+        {/* Área logada - usuários (bloquear CLIENT_NORMAL) */}
+        <Route path="/users" element={<UsersProtectedRoute><AppLayout><UserList /></AppLayout></UsersProtectedRoute>} />
+        <Route path="/users/new" element={<UsersProtectedRoute><AppLayout><UserForm /></AppLayout></UsersProtectedRoute>} />
+        <Route path="/users/edit/:id" element={<UsersProtectedRoute><AppLayout><UserForm /></AppLayout></UsersProtectedRoute>} />
 
         {/* Área logada - auditoria (apenas ACCOUNTING_SUPER) */}
         <Route path="/audit/logs" element={<ProtectedRoute><AppLayout><AuditLog /></AppLayout></ProtectedRoute>} />

@@ -89,6 +89,15 @@ export default function UserList() {
     return '#757575';
   };
 
+  // Verificar se o usuário tem permissão para ver esta página
+  if (!user || (!user.role.startsWith('ACCOUNTING_') && user.role !== 'CLIENT_ADMIN')) {
+    return (
+      <Container>
+        <ErrorMessage>Você não tem permissão para acessar esta página.</ErrorMessage>
+      </Container>
+    );
+  }
+
   if (loading) {
     return (
       <Container>

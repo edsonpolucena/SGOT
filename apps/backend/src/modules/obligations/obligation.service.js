@@ -1,10 +1,5 @@
 const { prisma } = require('../../prisma');
-const { ObligationStatus } = require('@prisma/client');
-
-function computeStatus(dueDate, current = new Date(), original) {
-  if (original === 'PAID' || original === 'CANCELED') return original;
-  return new Date(dueDate) < current ? ObligationStatus.LATE : ObligationStatus.PENDING;
-}
+const { computeStatus } = require('../../utils/obligation.utils');
 
 async function createObligation(userId, data) {
   const status = computeStatus(data.dueDate);

@@ -69,7 +69,9 @@ export default function UserForm() {
         password: '', // Senha não é retornada
         role: userData.role || '',
         status: userData.status || 'ACTIVE',
-        companyId: userData.companyId || ''
+        companyId: userData.companyId || '',
+        // Garantir que o role seja ressetado ao mudar empresa
+        forceRoleReset: true
       });
     } catch (err) {
       console.error('Erro ao carregar usuário:', err);
@@ -78,7 +80,17 @@ export default function UserForm() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Se mudou a empresa, ressetar o role para forçar nova seleção
+    if (name === 'companyId') {
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: value, 
+        role: '' // Reset role quando empresa muda
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   /**
@@ -235,7 +247,7 @@ export default function UserForm() {
                 value={formData.companyId}
                 onChange={handleChange}
                 required
-                disabled={isEditMode && user?.role === 'CLIENT_ADMIN'}
+                disabled={isEditMode}
               >
                 <option value="">Selecione uma empresa</option>
                 {companies.map(company => (

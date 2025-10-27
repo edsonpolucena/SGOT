@@ -143,8 +143,11 @@ async function viewFile(req, res) {
     });
     
     if (file) {
-      // Registrar visualização
-      await recordView(file.obligationId, req.userId, 'VIEW');
+      // Registrar visualização APENAS para clientes (não para contabilidade)
+      const userRole = req.user?.role;
+      if (userRole && (userRole === 'CLIENT_NORMAL' || userRole === 'CLIENT_ADMIN')) {
+        await recordView(file.obligationId, req.userId, 'VIEW');
+      }
     }
     
     // Log de auditoria
@@ -169,8 +172,11 @@ async function downloadFile(req, res) {
     });
     
     if (file) {
-      // Registrar download como visualização
-      await recordView(file.obligationId, req.userId, 'DOWNLOAD');
+      // Registrar download como visualização APENAS para clientes (não para contabilidade)
+      const userRole = req.user?.role;
+      if (userRole && (userRole === 'CLIENT_NORMAL' || userRole === 'CLIENT_ADMIN')) {
+        await recordView(file.obligationId, req.userId, 'DOWNLOAD');
+      }
     }
     
     // Log de auditoria
