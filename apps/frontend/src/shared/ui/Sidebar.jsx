@@ -78,9 +78,8 @@ export default function Sidebar() {
         { to: "/companies", label: "Empresas", icon: <FaBuilding /> },
         { to: "/users", label: "Usuários", icon: <FaUsers /> },
         { to: "/obligations/new", label: "Obrigações", icon: <FaFileInvoice /> },
-        { to: "/notifications/unviewed", label: "Docs Não Visualizados", icon: <FaBell /> },
-        { to: "/reports", label: "Relatórios", icon: <FaChartBar /> },
-        { to: "/settings", label: "Configurações", icon: <FaCog /> },
+        { to: "/notifications/unviewed", label: "Não Visualizados", icon: <FaBell /> },
+        // { to: "/settings", label: "Configurações", icon: <FaCog /> },
       ];
       
       // Adiciona "Logs de Auditoria" apenas para ACCOUNTING_SUPER

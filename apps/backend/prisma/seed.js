@@ -5,14 +5,14 @@ const prisma = new PrismaClient();
 
 async function run() {
   // Primeiro, limpar dados existentes para evitar conflitos
-  await prisma.obligation.deleteMany({});
-  await prisma.user.deleteMany({});
-  await prisma.empresa.deleteMany({});
+  // await prisma.obligation.deleteMany({});
+  // await prisma.user.deleteMany({});
+  // await prisma.empresa.deleteMany({});
 
   const passwordHash = await bcrypt.hash('secret123', 10);
 
   // Criar empresas primeiro
-  const empresa1 = await prisma.empresa.create({
+  const empresa1 = await prisma.empresa.upsert({
     data: {
       codigo: "EMP001",
       nome: "Empresa XYZ Ltda",
@@ -23,7 +23,7 @@ async function run() {
     },
   });
 
-  const empresa2 = await prisma.empresa.create({
+  const empresa2 = await prisma.empresa.upsert({
     data: {
       codigo: "EMP002",
       nome: "Comércio ABC ME",
@@ -35,7 +35,7 @@ async function run() {
   });
 
   // Criar usuários
-  const accountingUser = await prisma.user.create({
+  const accountingUser = await prisma.user.upsert({
     data: {
       email: 'contabilidade@sgot.com', 
       passwordHash, 
@@ -45,44 +45,17 @@ async function run() {
     },
   });
 
-  const clientUser = await prisma.user.create({
+  const clientUser = await prisma.user.upsert({
     data: {
       email: 'cliente@sgot.com', 
       passwordHash, 
       name: 'Cliente Teste',
-      role: 'CLIENT_NORMAL',
+      role: 'CLIENT_ADMIN',
       status: 'ACTIVE',
       companyId: empresa1.id // Associar cliente à primeira empresa
     },
   });
 
-  // Criar obrigações usando os IDs das empresas criadas
-  await prisma.obligation.createMany({
-    data: [
-      {
-        title: 'DAS - Set/2025',
-        regime: 'SIMPLES',
-        periodStart: new Date('2025-09-01T00:00:00Z'),
-        periodEnd:   new Date('2025-09-30T00:00:00Z'),
-        dueDate:     new Date('2025-10-20T00:00:00Z'),
-        notes: 'Padaria Bom Pão ME',
-        userId: clientUser.id,
-        companyId: empresa1.id,
-        amount: 150.00,
-      },
-      {
-        title: 'GFIP - Ago/2025',
-        regime: 'LUCRO_PRESUMIDO',
-        periodStart: new Date('2025-08-01T00:00:00Z'),
-        periodEnd:   new Date('2025-08-31T00:00:00Z'),
-        dueDate:     new Date('2025-09-07T00:00:00Z'),
-        notes: 'Mecânica Boa Vista LTDA',
-        userId: clientUser.id,
-        companyId: empresa2.id,
-        amount: 2500.00,
-      },
-    ],
-  });
 
   console.log('✅ Seed concluído');
 }

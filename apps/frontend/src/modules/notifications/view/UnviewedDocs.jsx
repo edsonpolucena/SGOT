@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { arrayToCsv, downloadBlob, openPrintWindowWithTable } from '../../../shared/utils/exportUtils';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useNotificationController } from '../controller/useNotificationController';
 import { FaPaperPlane, FaCheckCircle, FaClock, FaExclamationTriangle } from 'react-icons/fa';
@@ -21,7 +22,9 @@ import {
   EmptyMessage,
   Badge,
   StatsContainer,
-  StatCard
+  StatCard,
+  ExportActions,
+  ExportButton
 } from '../styles/UnviewedDocs.styles';
 
 export default function UnviewedDocs() {
@@ -121,6 +124,41 @@ export default function UnviewedDocs() {
     }).length
   };
 
+  const exportColumns = [
+    { key: 'createdAt', header: 'Data Upload' },
+    { key: 'company', header: 'Empresa' },
+    { key: 'docType', header: 'Tipo' },
+    { key: 'competence', header: 'Competência' },
+    { key: 'dueDate', header: 'Vencimento' },
+    { key: 'postedBy', header: 'Postado por' },
+  ];
+
+  const handleExportExcel = () => {
+    const rows = unviewedDocs.map(d => ({
+      createdAt: formatDate(d.createdAt),
+      company: `${d.companyCode} - ${d.companyName}`,
+      docType: d.docType,
+      competence: d.competence,
+      dueDate: formatDate(d.dueDate),
+      postedBy: d.user?.name || 'N/A',
+    }));
+    const csv = arrayToCsv(rows);
+    const ts = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 16);
+    downloadBlob(csv, `documentos_nao_visualizados_${ts}.csv`, 'text/csv;charset=utf-8;');
+  };
+
+  const handleExportPdf = () => {
+    const rows = unviewedDocs.map(d => ({
+      createdAt: formatDate(d.createdAt),
+      company: `${d.companyCode} - ${d.companyName}`,
+      docType: d.docType,
+      competence: d.competence,
+      dueDate: formatDate(d.dueDate),
+      postedBy: d.user?.name || 'N/A',
+    }));
+    openPrintWindowWithTable('Documentos Não Visualizados', exportColumns, rows);
+  };
+
   if (loading && unviewedDocs.length === 0) {
     return (
       <Container>
@@ -177,6 +215,11 @@ export default function UnviewedDocs() {
         <FilterButton onClick={handleApplyFilters}>Filtrar</FilterButton>
         <ClearButton onClick={handleClearFilters}>Limpar</ClearButton>
       </FiltersContainer>
+
+      <ExportActions>
+        <ExportButton $variant="pdf" onClick={handleExportPdf}>Exportar PDF</ExportButton>
+        <ExportButton $variant="excel" onClick={handleExportExcel}>Exportar Excel</ExportButton>
+      </ExportActions>
 
       {/* Tabela */}
       {unviewedDocs.length === 0 ? (
@@ -246,6 +289,7 @@ export default function UnviewedDocs() {
     </Container>
   );
 }
+
 
 
 

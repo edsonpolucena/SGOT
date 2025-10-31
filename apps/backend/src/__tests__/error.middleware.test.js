@@ -50,3 +50,5 @@ describe('Error Middleware', () => {
     expect(res.json).toHaveBeenCalledWith({ error: 'Internal Server Error' });
   });
 });
+
+

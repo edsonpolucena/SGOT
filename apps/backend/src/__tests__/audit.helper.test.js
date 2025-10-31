@@ -70,3 +70,5 @@ describe('Audit Helper', () => {
     await expect(logAudit(req, 'VIEW', 'Test', 'test-id')).resolves.not.toThrow();
   });
 });
+
+

@@ -132,6 +132,7 @@ export default function Dashboard() {
           competence: notes.competence || "",
           cnpj: notes.cnpj || "",
           companyName: notes.companyName || "",
+          placeholder: Boolean(notes.placeholder),
         };
       });
 
@@ -327,6 +328,30 @@ export default function Dashboard() {
   const currentItems = filteredObligations.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredObligations.length / itemsPerPage);
 
+  // ===== Compliance (Cumprimento Geral) =====
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const isInCurrentMonth = (o) => {
+    const d = new Date(o.dueDate);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  };
+
+  const monthObligations = obligations.filter(isInCurrentMonth);
+  const totalExpected = monthObligations.length || 0;
+  const completedOrPlaceholder = monthObligations.filter(
+    (o) => o.placeholder || (o.status && o.status !== "PENDING")
+  ).length;
+  const compliancePercent = totalExpected
+    ? Math.round((completedOrPlaceholder / totalExpected) * 100)
+    : 0;
+
+  const complianceColor = compliancePercent >= 90
+    ? "#10b981" // verde
+    : compliancePercent >= 70
+    ? "#f59e0b" // amarelo
+    : "#ef4444"; // vermelho
+
   if (loading) {
     return <DashboardContainer>Carregando dashboard...</DashboardContainer>;
   }
@@ -340,6 +365,18 @@ export default function Dashboard() {
 
 
       <StatsGrid>
+        {/* Indicador principal: Cumprimento Geral de Obrigações (%) */}
+        <StatCard color={complianceColor}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#374151' }}>Obrigações Cumpridas no Mês</div>
+              <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>Competência atual</div>
+            </div>
+            <div style={{ fontSize: '2.2rem', fontWeight: 800, color: complianceColor }}>
+              {compliancePercent}%
+            </div>
+          </div>
+        </StatCard>
         <StatCard color="#667eea">
           <StatNumber color="#667eea">{stats.totalObligations}</StatNumber>
           <StatLabel>Total de Obrigações</StatLabel>

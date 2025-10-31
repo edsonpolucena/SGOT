@@ -102,6 +102,19 @@ export const ClearButton = styled.button`
   }
 `;
 
+export const ExportActions = styled.div`
+  display: flex;
+  gap: 10px;
+  margin: 10px 0 20px 0;
+`;
+
+export const ExportButton = styled(FilterButton)`
+  background: ${props => props.$variant === 'excel' ? '#10b981' : '#ef4444'};
+  &:hover {
+    background: ${props => props.$variant === 'excel' ? '#0e9670' : '#dc2626'};
+  }
+`;
+
 export const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
@@ -242,6 +255,7 @@ export const StatCard = styled.div`
     color: ${props => props.$color || '#333'};
   }
 `;
+
 
 
 

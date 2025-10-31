@@ -20,7 +20,7 @@ export const Title = styled.h1`
 `;
 
 export const FiltersContainer = styled.div`
-  background: white;
+  background: #f8fafc; /* box mais claro */
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -44,6 +44,17 @@ export const FilterInput = styled.input`
   border: 1px solid #ddd;
   border-radius: 6px;
   font-size: 0.95rem;
+  background: #1f2937; 
+  color: #f1f5f9; 
+  
+  &::placeholder {
+    color: #cbd5e1; /* placeholder visível no fundo escuro */
+  }
+  
+  /* Ícone do calendário em inputs type=date */
+  &::-webkit-calendar-picker-indicator {
+    filter: invert(0.9);
+  }
   
   &:focus {
     outline: none;
@@ -59,6 +70,11 @@ export const FilterSelect = styled.select`
   font-size: 0.95rem;
   background: white;
   cursor: pointer;
+  color: #111827; 
+  
+  & > option {
+    color: #111827;
+  }
   
   &:focus {
     outline: none;
@@ -93,6 +109,19 @@ export const ClearButton = styled.button`
   
   &:hover {
     background: #cbd5e0;
+  }
+`;
+
+export const ExportActions = styled.div`
+  display: flex;
+  gap: 10px;
+  margin: 10px 0 20px 0;
+`;
+
+export const ExportButton = styled(FilterButton)`
+  background: ${props => props.$variant === 'excel' ? '#10b981' : '#ef4444'};
+  &:hover {
+    background: ${props => props.$variant === 'excel' ? '#0e9670' : '#dc2626'};
   }
 `;
 

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import http from '../../../shared/services/http';
+import { arrayToCsv, downloadBlob, openPrintWindowWithTable } from '../../../shared/utils/exportUtils';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useAuditController } from '../controller/useAuditController';
 import {
@@ -21,7 +23,9 @@ import {
   Pagination,
   MetadataButton,
   MetadataModal,
-  MetadataContent
+  MetadataContent,
+  ExportActions,
+  ExportButton
 } from '../styles/AuditLog.styles';
 
 export default function AuditLog() {
@@ -75,6 +79,73 @@ export default function AuditLog() {
 
   const handlePageChange = (newPage) => {
     setFilters(prev => ({ ...prev, page: newPage }));
+  };
+
+  const exportColumns = [
+    { key: 'createdAt', header: 'Data e Hora' },
+    { key: 'userName', header: 'Usuário' },
+    { key: 'userEmail', header: 'Email' },
+    { key: 'action', header: 'Ação' },
+    { key: 'entity', header: 'Entidade' },
+    { key: 'entityId', header: 'ID Entidade' },
+  ];
+
+  const fetchAllLogsForExport = async () => {
+    const PREFIX = import.meta.env.VITE_API_PREFIX || '/api';
+    const params = new URLSearchParams();
+    if (filters.action) params.append('action', filters.action);
+    if (filters.entity) params.append('entity', filters.entity);
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    let page = 1;
+    const limit = 500;
+    let aggregated = [];
+    while (true) {
+      const p = new URLSearchParams(params);
+      p.append('page', page);
+      p.append('limit', String(limit));
+      const { data } = await http.get(`${PREFIX}/audit/logs?${p.toString()}`);
+      aggregated = aggregated.concat(data.logs || []);
+      if (page >= (data.totalPages || 1)) break;
+      page += 1;
+    }
+    return aggregated;
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const all = await fetchAllLogsForExport();
+      const rows = all.map(l => ({
+        createdAt: new Date(l.createdAt).toLocaleString('pt-BR'),
+        userName: l.userName || '',
+        userEmail: l.userEmail || '',
+        action: formatAction(l.action),
+        entity: formatEntity(l.entity),
+        entityId: l.entityId || '',
+      }));
+      const csv = arrayToCsv(rows);
+      const ts = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 16);
+      downloadBlob(csv, `logs_auditoria_${ts}.csv`, 'text/csv;charset=utf-8;');
+    } catch (e) {
+      alert('Falha ao exportar Excel.');
+    }
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      const all = await fetchAllLogsForExport();
+      const rows = all.map(l => ({
+        createdAt: new Date(l.createdAt).toLocaleString('pt-BR'),
+        userName: l.userName || '',
+        userEmail: l.userEmail || '',
+        action: formatAction(l.action),
+        entity: formatEntity(l.entity),
+        entityId: l.entityId || '',
+      }));
+      openPrintWindowWithTable('Logs de Auditoria', exportColumns, rows);
+    } catch (e) {
+      alert('Falha ao exportar PDF.');
+    }
   };
 
   const formatAction = (action) => {
@@ -197,6 +268,11 @@ export default function AuditLog() {
         <FilterButton onClick={handleApplyFilters}>Filtrar</FilterButton>
         <ClearButton onClick={handleClearFilters}>Limpar</ClearButton>
       </FiltersContainer>
+
+      <ExportActions>
+        <ExportButton $variant="pdf" onClick={handleExportPdf}>Exportar PDF</ExportButton>
+        <ExportButton $variant="excel" onClick={handleExportExcel}>Exportar Excel</ExportButton>
+      </ExportActions>
 
       {/* Tabela */}
       {logs.length === 0 ? (
