@@ -165,14 +165,18 @@ describe('useNotificationController', () => {
 
       const { result } = renderHook(() => useNotificationController());
 
-      const stats = await result.current.fetchStats();
+      const promise = result.current.fetchStats();
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
 
+      const stats = await promise;
+
       expect(stats).toEqual(mockStats);
-      expect(result.current.stats).toEqual(mockStats);
+      await waitFor(() => {
+        expect(result.current.stats).toEqual(mockStats);
+      });
       expect(http.get).toHaveBeenCalledWith('/api/notifications/stats?');
     });
 
