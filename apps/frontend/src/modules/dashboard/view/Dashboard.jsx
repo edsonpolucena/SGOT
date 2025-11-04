@@ -7,88 +7,26 @@ import WelcomeCard from "../../../shared/ui/WelcomeCard";
 import { FaEye, FaDownload, FaTrashAlt } from "../../../shared/icons";
 import IconButton from "../../../shared/ui/IconButton";
 import IconGroup from "../../../shared/ui/IconGroup";
-
-
-
+import { useObligationActions } from "../../../shared/hooks/useObligationActions";
+import {
+  StatsGrid,
+  StatCard,
+  StatNumber,
+  StatLabel,
+  Table,
+  Th,
+  Td,
+  Pagination
+} from "../../../shared/styles/DashboardCommon.styles";
 
 const DashboardContainer = styled.div`
   padding: 20px;
 `;
 
-
-const StatsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 20px;
-  margin-bottom: 30px;
-`;
-
-const StatCard = styled.div`
-  background: white;
-  padding: 25px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  border-left: 4px solid ${(props) => props.color || "#667eea"};
-`;
-
-const StatNumber = styled.div`
-  font-size: 2.5rem;
-  font-weight: bold;
-  color: ${(props) => props.color || "#333"};
-  margin-bottom: 10px;
-`;
-
-const StatLabel = styled.div`
-  color: #666;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-`;
-
-const Table = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 15px;
-  background: white;
-  border-radius: 8px;
-  overflow: hidden;
-`;
-
-const Th = styled.th`
-  padding: 12px;
-  text-align: left;
-  background: #f9fafb;
-  cursor: pointer;
-`;
-
-const Td = styled.td`
-  padding: 12px;
-  border-bottom: 1px solid #eee;
-`;
-
-const Pagination = styled.div`
-  margin-top: 15px;
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-
-  button {
-    padding: 6px 12px;
-    border: 1px solid #ccc;
-    background: white;
-    cursor: pointer;
-    border-radius: 6px;
-  }
-
-  button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`;
-
 export default function Dashboard() {
   const { user, isAccounting, isClient } = useAuth();
   const navigate = useNavigate();
+  const { handleViewObligation, handleDownloadFiles, handleDeleteObligation } = useObligationActions();
 
   const [stats, setStats] = useState({
     totalObligations: 0,
@@ -151,119 +89,6 @@ export default function Dashboard() {
     }
   };
 
-  // Função para visualizar obrigação
-  const handleViewObligation = async (obligationId) => {
-    try {
-      // Buscar arquivos da obrigação
-      const filesResponse = await http.get(`/api/obligations/${obligationId}/files`);
-      const files = filesResponse.data;
-      
-      if (files.length === 0) {
-        alert('Esta obrigação não possui arquivos anexados.');
-        return;
-      }
-      
-      // Se há apenas um arquivo, abrir diretamente
-      if (files.length === 1) {
-        const viewResponse = await http.get(`/api/obligations/files/${files[0].id}/view`);
-        window.open(viewResponse.data.viewUrl, '_blank');
-        return;
-      }
-      
-      // Se há múltiplos arquivos, mostrar lista simples
-      const fileNames = files.map((file, index) => `${index + 1}. ${file.originalName}`).join('\n');
-      const choice = prompt(`Múltiplos arquivos encontrados:\n\n${fileNames}\n\nDigite o número do arquivo (1-${files.length}):`);
-      
-      const fileIndex = parseInt(choice) - 1;
-      if (fileIndex >= 0 && fileIndex < files.length) {
-        const selectedFile = files[fileIndex];
-        const viewResponse = await http.get(`/api/obligations/files/${selectedFile.id}/view`);
-        window.open(viewResponse.data.viewUrl, '_blank');
-      }
-    } catch (error) {
-      console.error('Erro ao visualizar arquivo:', error);
-      alert('Erro ao visualizar arquivo. Tente novamente.');
-    }
-  };
-
-  // Função para download de arquivos
-  const handleDownloadFiles = async (obligationId) => {
-    try {
-      // Buscar arquivos da obrigação
-      const filesResponse = await http.get(`/api/obligations/${obligationId}/files`);
-      const files = filesResponse.data;
-      
-      if (files.length === 0) {
-        alert('Esta obrigação não possui arquivos anexados.');
-        return;
-      }
-      
-      // Baixar todos os arquivos sequencialmente
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        try {
-          const downloadResponse = await http.get(`/api/obligations/files/${file.id}/download`);
-          
-          // Criar link temporário para download direto
-          const link = document.createElement('a');
-          link.href = downloadResponse.data.downloadUrl;
-          link.download = file.originalName;
-          link.style.display = 'none';
-          
-          // Adicionar ao DOM, clicar e remover
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          // Pequena pausa entre downloads para evitar conflitos
-          if (i < files.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-        } catch (fileError) {
-          console.error(`Erro ao baixar arquivo ${file.originalName}:`, fileError);
-        }
-      }
-      
-      if (files.length > 1) {
-        alert(`${files.length} arquivos iniciaram o download.`);
-      }
-    } catch (error) {
-      console.error('Erro ao baixar arquivos:', error);
-      alert('Erro ao baixar arquivos. Tente novamente.');
-    }
-  };
-
-  // Função para excluir obrigação
-  const handleDeleteObligation = async (obligationId) => {
-    if (!confirm('Tem certeza que deseja excluir esta obrigação? Esta ação não pode ser desfeita.')) {
-      return;
-    }
-    
-    try {
-      // Primeiro, excluir todos os arquivos da obrigação
-      const filesResponse = await http.get(`/api/obligations/${obligationId}/files`);
-      const files = filesResponse.data;
-      
-      for (const file of files) {
-        try {
-          await http.delete(`/api/obligations/files/${file.id}`);
-        } catch (fileError) {
-          console.error(`Erro ao excluir arquivo ${file.originalName}:`, fileError);
-        }
-      }
-      
-      // Depois, excluir a obrigação
-      await http.delete(`/api/obligations/${obligationId}`);
-      
-      // Recarregar dados
-      await loadDashboardData();
-      
-      alert('Obrigação excluída com sucesso!');
-    } catch (error) {
-      console.error('Erro ao excluir obrigação:', error);
-      alert('Erro ao excluir obrigação. Tente novamente.');
-    }
-  };
 
   const handleSort = (col) => {
     const order = sortColumn === col && sortOrder === "asc" ? "desc" : "asc";
@@ -454,7 +279,7 @@ export default function Dashboard() {
                       />
                       <IconButton 
                         icon={FaTrashAlt}
-                        onClick={() => handleDeleteObligation(o.id)}
+                        onClick={() => handleDeleteObligation(o.id, loadDashboardData)}
                         title="Excluir"
                         variant="danger"
                       />

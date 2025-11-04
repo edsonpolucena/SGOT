@@ -7,7 +7,8 @@ export default defineConfig({
     environment: 'jsdom',
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      reporter: ['text', 'json', 'html', 'lcov'],  // Adicionado lcov para SonarQube
+      reportsDirectory: './coverage',
       exclude: [
         'node_modules/',
         'src/test/',

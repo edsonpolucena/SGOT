@@ -16,7 +16,8 @@ async function createObligation(userId, data) {
 async function listObligations(userId, role, filters = {}, companyIdFromToken = null) {
   let where = {};
 
-  if (role === 'CLIENT_NORMAL') {
+  // Usuários CLIENT (ADMIN ou NORMAL) só veem obrigações da própria empresa
+  if (role === 'CLIENT_NORMAL' || role === 'CLIENT_ADMIN') {
     const user = await prisma.user.findUnique({
       where: { id: userId }
     });
@@ -24,7 +25,8 @@ async function listObligations(userId, role, filters = {}, companyIdFromToken = 
     where.companyId = user.companyId;
   } 
   
-  else if (role === 'ACCOUNTING_SUPER') {
+  // Contabilidade pode ver tudo ou filtrar por empresa
+  else if (role.startsWith('ACCOUNTING_')) {
     if (filters.companyId) where.companyId = filters.companyId;
   }
 
@@ -54,7 +56,8 @@ async function getObligation(userId, role, id) {
 
   if (!obligation) return null;
 
-  if (role === 'CLIENT_NORMAL') {
+  // Usuários CLIENT só acessam obrigações da própria empresa
+  if (role === 'CLIENT_NORMAL' || role === 'CLIENT_ADMIN') {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (user?.companyId !== obligation.companyId) {
       return null; // bloqueia acesso a obrigações de outra empresa
