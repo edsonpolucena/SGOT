@@ -215,9 +215,10 @@ export default function ClientDashboard() {
                 const items = obligationsByDate[key] || [];
                 const hasDue = items.length > 0;
                 return (
-                  <div
+                  <button
                     key={wi + '-' + di}
                     onClick={() => hasDue && setSelectedDayInfo({ date: day, items })}
+                    disabled={!hasDue}
                     style={{
                       padding: 4,
                       minHeight: 45,
@@ -225,9 +226,13 @@ export default function ClientDashboard() {
                       border: '1px solid #e5e7eb',
                       borderRadius: 4,
                       cursor: hasDue ? 'pointer' : 'default',
-                      position: 'relative'
+                      position: 'relative',
+                      textAlign: 'left',
+                      width: '100%',
+                      fontFamily: 'inherit'
                     }}
                     title={hasDue ? `${items.length} obrigação(ões) vence(m) neste dia` : ''}
+                    aria-label={hasDue ? `${day.getDate()} - ${items.length} obrigação(ões)` : `${day.getDate()}`}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: 11, color: '#6b7280' }}>{day.getDate()}</span>
@@ -252,7 +257,7 @@ export default function ClientDashboard() {
                         </div>
                       </div>
                     )}
-                  </div>
+                  </button>
                 );
               })
             ))}

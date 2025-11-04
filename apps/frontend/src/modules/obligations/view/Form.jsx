@@ -265,17 +265,25 @@ export default function Form() {
                     boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
                   }}>
                     {filteredCompanies.map(company => (
-                      <div
+                      <button
                         key={company.id}
                         onClick={() => handleCompanySelect(company)}
                         style={{
                           padding: '12px',
                           cursor: 'pointer',
                           borderBottom: '1px solid #f3f4f6',
-                          fontSize: '14px'
+                          fontSize: '14px',
+                          width: '100%',
+                          textAlign: 'left',
+                          background: 'white',
+                          border: 'none',
+                          borderBottom: '1px solid #f3f4f6',
+                          fontFamily: 'inherit',
+                          transition: 'background-color 0.2s'
                         }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                        aria-label={`Selecionar empresa ${company.codigo} - ${company.nome}`}
                       >
                         <div style={{ fontWeight: 'bold', color: '#374151' }}>
                           {company.codigo}
@@ -283,7 +291,7 @@ export default function Form() {
                         <div style={{ color: '#6b7280', fontSize: '12px' }}>
                           {company.nome} — {company.cnpj}
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}
