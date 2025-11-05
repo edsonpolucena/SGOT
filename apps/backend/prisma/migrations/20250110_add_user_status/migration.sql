@@ -27,8 +27,8 @@ BEGIN
           ALTER COLUMN "status" TYPE "UserStatus"
           USING (
             CASE
-              WHEN "status"::text IN (''ACTIVE'',''INACTIVE'') THEN "status"::text::"UserStatus"
-              ELSE ''ACTIVE''::"UserStatus"
+              WHEN "status"::text IN ('ACTIVE','INACTIVE') THEN "status"::text::"UserStatus"
+              ELSE 'ACTIVE'::"UserStatus"
             END
           );
       END IF;
