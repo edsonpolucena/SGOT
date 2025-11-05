@@ -89,12 +89,23 @@ async function sendEmail({ from, to, subject, html, text, replyTo }) {
   const dbFrom = await getDefaultFromEmail();
   const finalFrom = (from && from.trim()) || dbFrom || process.env.EMAIL_FROM;
 
+  // Remove HTML tags de forma segura (sem ReDoS)
+  const stripHtmlTags = (str) => {
+    if (!str) return '';
+    return str
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
   const mailOptions = {
     from: finalFrom,
     to,
     subject,
     html,
-    text: text || html.replace(/<[^>]*>/g, ''),
+    text: text || stripHtmlTags(html),
     ...(replyTo ? { replyTo } : {})
   };
 
