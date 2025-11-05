@@ -1,5 +1,3 @@
-const { prisma } = require('../prisma');
-
 // Mock completo do nodemailer
 const mockSendMail = jest.fn();
 const mockTransporter = {
@@ -10,7 +8,17 @@ jest.mock('nodemailer', () => ({
   createTransport: jest.fn(() => mockTransporter)
 }));
 
+// Mock do Prisma
+jest.mock('../prisma', () => ({
+  prisma: {
+    company: {
+      findUnique: jest.fn()
+    }
+  }
+}));
+
 const nodemailer = require('nodemailer');
+const { prisma } = require('../prisma');
 
 describe('Email Service', () => {
   beforeEach(() => {
@@ -45,11 +53,26 @@ describe('Email Service', () => {
 
   test('getDefaultFromEmail retorna null sem COMPANY_DEFAULT_ID', async () => {
     process.env.COMPANY_DEFAULT_ID = '';
+    prisma.company.findUnique.mockResolvedValue(null);
     delete require.cache[require.resolve('../services/email.service')];
     
     const { getDefaultFromEmail } = require('../services/email.service');
     const email = await getDefaultFromEmail();
     
     expect(email).toBeNull();
+  });
+
+  test('getDefaultFromEmail retorna email da empresa quando COMPANY_DEFAULT_ID existe', async () => {
+    process.env.COMPANY_DEFAULT_ID = 'company-123';
+    prisma.company.findUnique.mockResolvedValue({
+      id: 'company-123',
+      email: 'contato@empresa.com.br'
+    });
+    delete require.cache[require.resolve('../services/email.service')];
+    
+    const { getDefaultFromEmail } = require('../services/email.service');
+    const email = await getDefaultFromEmail();
+    
+    expect(email).toBe('contato@empresa.com.br');
   });
 });

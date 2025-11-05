@@ -9,7 +9,7 @@
     "test": "cross-env NODE_ENV=test DATABASE_URL=postgresql://sgot_test:sgot_test_password@localhost:5434/sgot_test jest --runInBand --detectOpenHandles",
     "test:watch": "cross-env NODE_ENV=test DATABASE_URL=postgresql://sgot_test:sgot_test_password@localhost:5434/sgot_test jest --watch",
     "test:coverage": "cross-env NODE_ENV=test DATABASE_URL=postgresql://sgot_test:sgot_test_password@localhost:5434/sgot_test jest --coverage",
-    "test:ci": "cross-env NODE_ENV=test DATABASE_URL=postgresql://sgot_test:sgot_test_password@localhost:5434/sgot_test jest --ci --coverage --runInBand",
+    "test:ci": "jest --ci --coverage --runInBand",
     "test:db:start": "docker-compose -f docker-compose.test.yml up -d",
     "test:db:stop": "docker-compose -f docker-compose.test.yml down",
     "test:db:reset": "docker-compose -f docker-compose.test.yml down -v && docker-compose -f docker-compose.test.yml up -d && timeout /t 5 /nobreak >nul && cross-env DATABASE_URL=postgresql://sgot_test:sgot_test_password@localhost:5434/sgot_test npx prisma db push",
