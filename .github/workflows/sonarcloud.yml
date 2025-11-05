@@ -59,6 +59,15 @@ jobs:
       - name: Run Tests with Coverage
         run: npm run test:ci
 
+      - name: Verify Coverage File
+        run: |
+          if [ ! -f coverage/lcov.info ]; then
+            echo "❌ ERROR: coverage/lcov.info not found!"
+            exit 1
+          fi
+          echo "✅ Coverage file found: coverage/lcov.info"
+          ls -lh coverage/lcov.info
+
       - name: SonarCloud Scan (backend)
         uses: SonarSource/sonarcloud-github-action@v2
         env:
@@ -90,6 +99,15 @@ jobs:
 
       - name: Run Tests with Coverage
         run: npm run test:ci
+
+      - name: Verify Coverage File
+        run: |
+          if [ ! -f coverage/lcov.info ]; then
+            echo "❌ ERROR: coverage/lcov.info not found!"
+            exit 1
+          fi
+          echo "✅ Coverage file found: coverage/lcov.info"
+          ls -lh coverage/lcov.info
 
       - name: SonarCloud Scan (frontend)
         uses: SonarSource/sonarcloud-github-action@v2
