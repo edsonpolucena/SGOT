@@ -271,7 +271,6 @@ export default function Form() {
                         style={{
                           padding: '12px',
                           cursor: 'pointer',
-                          borderBottom: '1px solid #f3f4f6',
                           fontSize: '14px',
                           width: '100%',
                           textAlign: 'left',
