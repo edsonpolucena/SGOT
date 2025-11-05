@@ -51,11 +51,11 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Push Database Schema
+        run: npx prisma db push --accept-data-loss --skip-generate
+
       - name: Generate Prisma Client
         run: npx prisma generate
-
-      - name: Run Migrations
-        run: npx prisma migrate deploy
 
       - name: Run Tests with Coverage
         run: npm run test:ci
