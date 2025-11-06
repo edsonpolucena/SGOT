@@ -44,30 +44,57 @@ describe("AnalyticsController", () => {
     await prisma.user.deleteMany();
   });
 
-  test("deve retornar erro se empresaId e mes não forem informados", async () => {
+  test("deve retornar erro 400 se empresaId não for informado", async () => {
     const res = await request(app)
-      .get("/api/analytics/monthly-summary")
+      .get("/api/analytics/monthly-summary?mes=2025-01")
       .set('Authorization', `Bearer ${adminToken}`);
 
-    // Pode retornar 400 ou 500 dependendo da implementação
-    expect([400, 500]).toContain(res.status);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("empresaId e mes são obrigatórios");
   });
 
-  test("deve buscar resumo mensal", async () => {
+  test("deve retornar erro 400 se mes não for informado", async () => {
+    const res = await request(app)
+      .get(`/api/analytics/monthly-summary?empresaId=${company.id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("empresaId e mes são obrigatórios");
+  });
+
+  test("deve buscar resumo mensal com sucesso", async () => {
     const res = await request(app)
       .get(`/api/analytics/monthly-summary?empresaId=${company.id}&mes=2025-01`)
       .set('Authorization', `Bearer ${adminToken}`);
 
-    // Pode retornar 200 ou 400 se não houver dados
-    expect([200, 400]).toContain(res.status);
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
   });
 
-  test("deve calcular variação por imposto", async () => {
+  test("deve retornar erro 400 para variação sem empresaId", async () => {
+    const res = await request(app)
+      .get("/api/analytics/monthly-variation-by-tax?mes=2025-01")
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("empresaId e mes são obrigatórios");
+  });
+
+  test("deve retornar erro 400 para variação sem mes", async () => {
+    const res = await request(app)
+      .get(`/api/analytics/monthly-variation-by-tax?empresaId=${company.id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("empresaId e mes são obrigatórios");
+  });
+
+  test("deve calcular variação por imposto com sucesso", async () => {
     const res = await request(app)
       .get(`/api/analytics/monthly-variation-by-tax?empresaId=${company.id}&mes=2025-01`)
       .set('Authorization', `Bearer ${adminToken}`);
 
-    // Pode retornar 200 ou 400 se não houver dados
-    expect([200, 400]).toContain(res.status);
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
   });
 });

@@ -1,19 +1,21 @@
+const mockSend = jest.fn();
+const mockGetSignedUrl = jest.fn();
+
 // Mock AWS SDK v3 antes de importar o serviço
 jest.mock('@aws-sdk/client-s3', () => {
-  const mockSend = jest.fn();
   return {
-    S3Client: jest.fn(() => ({
+    S3Client: jest.fn().mockImplementation(() => ({
       send: mockSend
     })),
-    PutObjectCommand: jest.fn((params) => params),
-    GetObjectCommand: jest.fn((params) => params),
-    DeleteObjectCommand: jest.fn((params) => params),
-    HeadObjectCommand: jest.fn((params) => params),
+    PutObjectCommand: jest.fn((params) => ({ name: 'PutObjectCommand', ...params })),
+    GetObjectCommand: jest.fn((params) => ({ name: 'GetObjectCommand', ...params })),
+    DeleteObjectCommand: jest.fn((params) => ({ name: 'DeleteObjectCommand', ...params })),
+    HeadObjectCommand: jest.fn((params) => ({ name: 'HeadObjectCommand', ...params })),
   };
 });
 
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
-  getSignedUrl: jest.fn()
+  getSignedUrl: mockGetSignedUrl
 }));
 
 jest.mock('../config/env', () => ({
@@ -26,19 +28,9 @@ jest.mock('../config/env', () => ({
 }));
 
 const s3Service = require('../services/s3.service');
-const { S3Client } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 describe('S3 Service Tests', () => {
-  let mockSend;
-  let mockGetSignedUrl;
-
   beforeEach(() => {
-    // Obter a instância mockada do S3Client
-    const s3ClientInstance = S3Client();
-    mockSend = s3ClientInstance.send;
-    mockGetSignedUrl = getSignedUrl;
-    
     jest.clearAllMocks();
   });
 
