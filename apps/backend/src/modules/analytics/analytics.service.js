@@ -113,5 +113,89 @@ async function getMonthlyVariationByTax(empresaId, mesAtual) {
   return { empresaId, mesAtual, impostos };
 }
 
-module.exports = { getMonthlySummary, getMonthlyVariationByTax };
+/**
+ * Dashboard de controle de documentos - todas as empresas em um mês
+ */
+async function getDocumentControlDashboard(month, userRole, userCompanyId) {
+  // Filtra empresas baseado no role
+  let empresaWhere = { status: 'ativa' };
+  if (userRole && userRole.startsWith('CLIENT_')) {
+    empresaWhere.id = userCompanyId;
+  }
+
+  const empresas = await prisma.empresa.findMany({
+    where: empresaWhere,
+    include: {
+      taxProfiles: {
+        where: { isActive: true }
+      },
+      obligations: {
+        where: { referenceMonth: month },
+        include: { files: true }
+      }
+    }
+  });
+
+  const companiesData = empresas.map(empresa => {
+    const expectedTaxes = empresa.taxProfiles.map(p => p.taxType);
+    const obligations = empresa.obligations;
+
+    // Conta por status
+    const posted = obligations.filter(o => 
+      o.status === 'SUBMITTED' || o.status === 'PAID' || o.files.length > 0
+    ).length;
+    const notApplicable = obligations.filter(o => o.status === 'NOT_APPLICABLE').length;
+    const pending = obligations.filter(o => 
+      o.status === 'PENDING' && o.files.length === 0
+    ).length;
+
+    // Impostos que faltam criar obrigação
+    const obligationTaxTypes = obligations.map(o => o.taxType).filter(Boolean);
+    const missing = expectedTaxes.filter(tax => !obligationTaxTypes.includes(tax));
+
+    const treated = posted + notApplicable;
+    const completionRate = expectedTaxes.length > 0 
+      ? treated / expectedTaxes.length 
+      : 1;
+
+    return {
+      companyId: empresa.id,
+      companyName: empresa.nome,
+      expectedTaxes: expectedTaxes.length,
+      posted,
+      notApplicable,
+      pending,
+      missing: missing.length,
+      missingTaxes: missing,
+      completionRate: Number(completionRate.toFixed(2)),
+      status: completionRate === 1 ? 'COMPLETE' : 'INCOMPLETE'
+    };
+  });
+
+  // Summary geral
+  const summary = {
+    totalCompanies: companiesData.length,
+    completeCompanies: companiesData.filter(c => c.status === 'COMPLETE').length,
+    incompleteCompanies: companiesData.filter(c => c.status === 'INCOMPLETE').length,
+    totalObligations: companiesData.reduce((sum, c) => sum + c.posted + c.notApplicable + c.pending, 0),
+    posted: companiesData.reduce((sum, c) => sum + c.posted, 0),
+    notApplicable: companiesData.reduce((sum, c) => sum + c.notApplicable, 0),
+    pending: companiesData.reduce((sum, c) => sum + c.pending, 0),
+    overallCompletion: companiesData.length > 0
+      ? Number((companiesData.reduce((sum, c) => sum + c.completionRate, 0) / companiesData.length).toFixed(2))
+      : 1
+  };
+
+  return {
+    month,
+    companies: companiesData,
+    summary
+  };
+}
+
+module.exports = { 
+  getMonthlySummary, 
+  getMonthlyVariationByTax,
+  getDocumentControlDashboard
+};
 

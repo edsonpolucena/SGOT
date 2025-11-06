@@ -56,3 +56,4 @@ export function openPrintWindowWithTable(title, columns, rows) {
 
 
 
+

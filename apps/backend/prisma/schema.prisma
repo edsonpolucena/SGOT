@@ -22,45 +22,51 @@ model User {
 }
 
 model Obligation {
-  id            String                   @id @default(cuid())
-  title         String
-  dueDate       DateTime
-  status        ObligationStatus         @default(PENDING)
-  notes         String?
-  createdAt     DateTime                 @default(now())
-  amount        Decimal?                 @db.Decimal(10, 2)
-  periodEnd     DateTime
-  periodStart   DateTime
-  regime        Regime
-  updatedAt     DateTime                 @updatedAt
-  userId        String
-  companyId     Int
-  company       Empresa                  @relation(fields: [companyId], references: [id])
-  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  files         ObligationFile[]
-  notifications ObligationNotification[]
-  views         ObligationView[]
+  id                   String                   @id @default(cuid())
+  title                String
+  dueDate              DateTime
+  status               ObligationStatus         @default(PENDING)
+  notes                String?
+  createdAt            DateTime                 @default(now())
+  amount               Decimal?                 @db.Decimal(10, 2)
+  periodEnd            DateTime
+  periodStart          DateTime
+  regime               Regime
+  updatedAt            DateTime                 @updatedAt
+  userId               String
+  companyId            Int
+  taxType              String?                  // ICMS, ISS, IRPJ, etc
+  referenceMonth       String?                  // "2025-01"
+  notApplicableReason  String?                  // Motivo quando NOT_APPLICABLE
+  company              Empresa                  @relation(fields: [companyId], references: [id])
+  user                 User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  files                ObligationFile[]
+  notifications        ObligationNotification[]
+  views                ObligationView[]
 
   @@index([userId])
   @@index([companyId])
   @@index([status])
   @@index([regime])
   @@index([dueDate])
+  @@index([taxType])
+  @@index([referenceMonth])
 }
 
 model Empresa {
-  id          Int          @id @default(autoincrement())
-  codigo      String       @unique
-  nome        String
-  cnpj        String       @unique
-  email       String?
-  telefone    String?
-  endereco    String?
-  status      String       @default("ativa")
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  obligations Obligation[]
-  users       User[]
+  id              Int                 @id @default(autoincrement())
+  codigo          String              @unique
+  nome            String
+  cnpj            String              @unique
+  email           String?
+  telefone        String?
+  endereco        String?
+  status          String              @default("ativa")
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  obligations     Obligation[]
+  users           User[]
+  taxProfiles     CompanyTaxProfile[]
 }
 
 model ObligationFile {
@@ -88,11 +94,12 @@ enum Regime {
 }
 
 enum ObligationStatus {
-  PENDING
-  SUBMITTED
-  LATE
-  PAID
-  CANCELED
+  PENDING         // Criada, aguardando arquivo
+  SUBMITTED       // Enviada/Postada
+  LATE            // Atrasada
+  PAID            // Paga
+  CANCELED        // Cancelada
+  NOT_APPLICABLE  // Não se aplica neste período
 }
 
 enum UserRole {
@@ -174,4 +181,31 @@ model ObligationView {
   @@index([obligationId])
   @@index([viewedBy])
   @@index([viewedAt])
+}
+
+model CompanyTaxProfile {
+  id        String   @id @default(cuid())
+  companyId Int
+  company   Empresa  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  taxType   String   // ICMS, ISS, IRPJ, CSLL, PIS_COFINS, etc
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, taxType])
+  @@index([companyId])
+  @@index([taxType])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
 }

@@ -1,4 +1,12 @@
-const { createObligation, listObligations, getObligation, updateObligation, deleteObligation } = require('./obligation.service');
+const { 
+  createObligation, 
+  listObligations, 
+  getObligation, 
+  updateObligation, 
+  deleteObligation,
+  markAsNotApplicable,
+  getMonthlyControl
+} = require('./obligation.service');
 const { createObligationFile, getObligationFiles, getFileViewUrl, getFileDownloadUrl, deleteObligationFile } = require('./obligation-file.service');
 const { logAudit } = require('../../utils/audit.helper');
 const { recordView } = require('../notifications/notification.service');
@@ -204,6 +212,60 @@ async function deleteFile(req, res) {
   }
 }
 
+/**
+ * PATCH /api/obligations/:id/mark-not-applicable
+ * Marca obrigação como "Não Aplicável" (sem arquivo)
+ */
+async function markNotApplicable(req, res) {
+  try {
+    const { reason } = req.body;
+    const updated = await markAsNotApplicable(req.userId, req.user.role, req.params.id, reason);
+    
+    if (!updated) {
+      return res.status(404).json({ message: 'Obligation not found' });
+    }
+
+    // Log de auditoria
+    await logAudit(req, 'STATUS_CHANGE', 'Obligation', req.params.id, { 
+      status: 'NOT_APPLICABLE',
+      reason 
+    });
+    
+    return res.json(updated);
+  } catch (error) {
+    console.error('Error marking as not applicable:', error);
+    if (error.message.includes('Apenas usuários da contabilidade')) {
+      return res.status(403).json({ message: error.message });
+    }
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+/**
+ * GET /api/obligations/monthly-control?companyId=X&month=2025-01
+ * Controle mensal de documentos
+ */
+async function getMonthlyControlData(req, res) {
+  try {
+    const { companyId, month } = req.query;
+
+    if (!companyId || !month) {
+      return res.status(400).json({ message: 'companyId e month são obrigatórios' });
+    }
+
+    // Verifica permissão
+    if (req.user.role.startsWith('CLIENT_') && req.user.companyId !== parseInt(companyId)) {
+      return res.status(403).json({ message: 'Acesso negado a esta empresa' });
+    }
+
+    const control = await getMonthlyControl(companyId, month);
+    return res.json(control);
+  } catch (error) {
+    console.error('Error getting monthly control:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
 module.exports = { 
   postObligation, 
   getObligations, 
@@ -214,5 +276,7 @@ module.exports = {
   getFiles,
   viewFile,
   downloadFile,
-  deleteFile
+  deleteFile,
+  markNotApplicable,
+  getMonthlyControlData
 };

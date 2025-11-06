@@ -31,6 +31,8 @@ export default function Form() {
 
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [showNotApplicableModal, setShowNotApplicableModal] = useState(false);
+  const [notApplicableReason, setNotApplicableReason] = useState('');
 
   useEffect(() => {
     loadCompanies();
@@ -192,6 +194,68 @@ export default function Form() {
     } catch (error) {
       console.error('Erro ao salvar obrigação:', error);
       setErrorMessage('❌ Erro ao salvar obrigação. Tente novamente.');
+      setSuccessMessage('');
+    }
+  }
+
+  async function handleMarkNotApplicable() {
+    if (!companyId) {
+      setErrorMessage('❌ Por favor, selecione uma empresa primeiro.');
+      setSuccessMessage('');
+      return;
+    }
+
+    if (!notApplicableReason.trim()) {
+      setErrorMessage('❌ Por favor, informe o motivo.');
+      return;
+    }
+
+    try {
+      const companyInfo = {
+        companyCode,
+        cnpj,
+        companyName,
+        docType,
+        competence
+      };
+
+      const obligationData = {
+        title: `${docType} - ${competence}`,
+        regime: 'SIMPLES',
+        periodStart: new Date(),
+        periodEnd: new Date(),
+        dueDate: new Date(dueDate || new Date()),
+        amount: null,
+        notes: JSON.stringify(companyInfo),
+        companyId: companyId,
+        taxType: docType,
+        referenceMonth: competence ? `${competence.substring(3,7)}-${competence.substring(0,2)}` : null,
+        status: 'NOT_APPLICABLE',
+        notApplicableReason: notApplicableReason
+      };
+
+      await api.create(obligationData);
+      
+      setSuccessMessage('✅ Obrigação marcada como "Não Aplicável" com sucesso!');
+      setErrorMessage('');
+      setShowNotApplicableModal(false);
+      setNotApplicableReason('');
+      
+      // Limpar formulário
+      setCompanyCode('');
+      setCnpj('');
+      setCompanyName('');
+      setCompanyId(null);
+      setDocType('DAS');
+      setCompetence('');
+      setDueDate('');
+      setAmount('');
+      setDescription('');
+      
+      setTimeout(() => setSuccessMessage(''), 5000);
+    } catch (error) {
+      console.error('Erro ao marcar como não aplicável:', error);
+      setErrorMessage('❌ Erro ao marcar como não aplicável. Tente novamente.');
       setSuccessMessage('');
     }
   }
@@ -391,9 +455,111 @@ export default function Form() {
             )}
           </Field>
 
-          <Submit>{isEdit ? 'Salvar Alterações' : 'Salvar'}</Submit>
+          <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+            <Submit type="submit">{isEdit ? 'Salvar Alterações' : 'Salvar'}</Submit>
+            {user?.role?.startsWith('ACCOUNTING_') && !isEdit && (
+              <button
+                type="button"
+                onClick={() => setShowNotApplicableModal(true)}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d97706'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f59e0b'}
+              >
+                🚫 Não Aplicável Este Mês
+              </button>
+            )}
+          </div>
         </FormStyled>
       </Card>
+
+      {/* Modal "Não Aplicável" */}
+      {showNotApplicableModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)'
+          }}>
+            <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px', color: '#374151' }}>
+              Por que este imposto não se aplica este mês?
+            </h3>
+            <textarea
+              value={notApplicableReason}
+              onChange={(e) => setNotApplicableReason(e.target.value)}
+              placeholder="Ex: Empresa sem movimento no mês, Imposto não incidente, etc."
+              style={{
+                width: '100%',
+                minHeight: '100px',
+                padding: '12px',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+                resize: 'vertical'
+              }}
+            />
+            <div style={{ display: 'flex', gap: '10px', marginTop: '16px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setShowNotApplicableModal(false);
+                  setNotApplicableReason('');
+                }}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#e5e7eb',
+                  color: '#374151',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleMarkNotApplicable}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Page>
     </>
   );

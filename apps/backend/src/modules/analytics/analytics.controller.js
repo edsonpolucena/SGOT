@@ -41,8 +41,33 @@ async function monthlyVariationByTax(req, res) {
   }
 }
 
+/**
+ * GET /api/analytics/document-control-dashboard?month=2025-01
+ * Dashboard de controle de documentos mensais
+ */
+async function getDocumentControlDashboard(req, res) {
+  try {
+    const { month } = req.query;
 
+    if (!month) {
+      return res.status(400).json({ error: "month é obrigatório (formato: YYYY-MM)" });
+    }
+
+    const dashboard = await analyticsService.getDocumentControlDashboard(
+      month,
+      req.user?.role,
+      req.user?.companyId
+    );
+
+    res.json(dashboard);
+  } catch (error) {
+    console.error("Erro ao buscar dashboard de controle:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+}
 
 module.exports = {
-  getMonthlySummary, monthlyVariationByTax,
+  getMonthlySummary, 
+  monthlyVariationByTax,
+  getDocumentControlDashboard
 };

@@ -27,6 +27,9 @@ import AuditLog from "../modules/audit/view/AuditLog.jsx";
 
 import UnviewedDocs from "../modules/notifications/view/UnviewedDocs.jsx";
 
+import DocumentControlDashboard from "../modules/document-control/view/DocumentControlDashboard.jsx";
+import CompanyTaxMatrix from "../modules/document-control/view/CompanyTaxMatrix.jsx";
+
 export default function AppRouter() {
   return (
     <BrowserRouter>
@@ -82,6 +85,10 @@ export default function AppRouter() {
 
         {/* Área logada - notificações (contabilidade) */}
         <Route path="/notifications/unviewed" element={<ProtectedRoute><AppLayout><UnviewedDocs /></AppLayout></ProtectedRoute>} />
+
+        {/* Área logada - controle de documentos (contabilidade) */}
+        <Route path="/document-control/dashboard" element={<ProtectedRoute><AppLayout><DocumentControlDashboard /></AppLayout></ProtectedRoute>} />
+        <Route path="/document-control/matrix" element={<ProtectedRoute><AppLayout><CompanyTaxMatrix /></AppLayout></ProtectedRoute>} />
 
         {/* Opcionais */}
         <Route path="/health" element={<Health />} />

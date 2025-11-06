@@ -91,11 +91,98 @@ async function deleteObligation(userId, role, id) {
   return true;
 }
 
+/**
+ * Marca uma obrigação como "Não Aplicável" (sem precisar anexar arquivo)
+ */
+async function markAsNotApplicable(userId, role, id, reason) {
+  const existing = await getObligation(userId, role, id);
+  if (!existing) return null;
+
+  // Apenas contabilidade pode marcar como não aplicável
+  if (!role.startsWith('ACCOUNTING_')) {
+    throw new Error('Apenas usuários da contabilidade podem marcar como não aplicável');
+  }
+
+  return prisma.obligation.update({
+    where: { id },
+    data: {
+      status: 'NOT_APPLICABLE',
+      notApplicableReason: reason || 'Não aplicável neste período'
+    }
+  });
+}
+
+/**
+ * Busca obrigações com controle mensal por empresa
+ */
+async function getMonthlyControl(companyId, month) {
+  const companyIdInt = parseInt(companyId);
+
+  // Busca perfil fiscal da empresa (impostos esperados)
+  const taxProfiles = await prisma.companyTaxProfile.findMany({
+    where: {
+      companyId: companyIdInt,
+      isActive: true
+    }
+  });
+
+  const expectedTaxes = taxProfiles.map(p => p.taxType);
+
+  // Busca obrigações do mês
+  const obligations = await prisma.obligation.findMany({
+    where: {
+      companyId: companyIdInt,
+      referenceMonth: month
+    },
+    include: {
+      files: true
+    }
+  });
+
+  // Organiza por tipo de imposto
+  const obligationsByTax = {};
+  obligations.forEach(obl => {
+    if (obl.taxType) {
+      obligationsByTax[obl.taxType] = obl;
+    }
+  });
+
+  // Identifica impostos que faltam criar
+  const missing = expectedTaxes.filter(tax => !obligationsByTax[tax]);
+
+  // Calcula taxa de conclusão
+  const treated = expectedTaxes.length - missing.length;
+  const completionRate = expectedTaxes.length > 0 ? treated / expectedTaxes.length : 1;
+
+  // Busca nome da empresa
+  const company = await prisma.empresa.findUnique({
+    where: { id: companyIdInt }
+  });
+
+  return {
+    companyId,
+    companyName: company?.nome,
+    month,
+    expectedTaxes,
+    obligations: obligations.map(obl => ({
+      taxType: obl.taxType,
+      status: obl.status,
+      dueDate: obl.dueDate,
+      notApplicableReason: obl.notApplicableReason,
+      hasFile: obl.files.length > 0
+    })),
+    missing,
+    completionRate
+  };
+}
+
 module.exports = {
   computeStatus,
   createObligation,
   listObligations,
   getObligation,
   updateObligation,
-  deleteObligation
+  deleteObligation,
+  markAsNotApplicable,
+  getMonthlyControl
 };
