@@ -7,6 +7,7 @@ import AppLayout from "./AppLayout.jsx";
 
 import Login from '../modules/auth/view/Login.jsx';
 import ForgotPassword from '../modules/auth/view/ForgotPassword.jsx';
+import ResetPassword from '../modules/auth/view/ResetPassword.jsx';
 
 import List from '../modules/obligations/view/List.jsx';
 import Form from '../modules/obligations/view/Form.jsx';
@@ -38,6 +39,7 @@ export default function AppRouter() {
 
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         <Route
           path="/dashboard"

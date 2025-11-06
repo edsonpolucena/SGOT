@@ -26,6 +26,7 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
     "multer-s3": "^3.0.1",
+    "node-cron": "^4.2.1",
     "swagger-ui-express": "^5.0.0"
   },
   "devDependencies": {

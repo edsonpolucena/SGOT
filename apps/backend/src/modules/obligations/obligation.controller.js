@@ -10,6 +10,8 @@ const {
 const { createObligationFile, getObligationFiles, getFileViewUrl, getFileDownloadUrl, deleteObligationFile } = require('./obligation-file.service');
 const { logAudit } = require('../../utils/audit.helper');
 const { recordView } = require('../notifications/notification.service');
+const emailService = require('../../services/email.service');
+const { prisma } = require('../../prisma');
 
 async function postObligation(req, res) {
   try {
@@ -117,6 +119,48 @@ async function uploadFiles(req, res) {
         fileName: file.originalname,
         obligationId 
       });
+    }
+
+    // Busca informações da obrigação para enviar email aos clientes
+    const obligation = await prisma.obligation.findUnique({
+      where: { id: obligationId },
+      include: {
+        company: {
+          include: {
+            users: {
+              where: {
+                role: { in: ['CLIENT_ADMIN', 'CLIENT_NORMAL'] },
+                status: 'ACTIVE'
+              }
+            }
+          }
+        },
+        user: {
+          select: { name: true }
+        }
+      }
+    });
+
+    // Envia email para usuários da empresa cliente
+    if (obligation && obligation.company && obligation.company.users.length > 0) {
+      const metadata = JSON.parse(obligation.notes || '{}');
+      
+      for (const user of obligation.company.users) {
+        try {
+          await emailService.sendNewDocumentNotification({
+            to: user.email,
+            userName: user.name || user.email,
+            companyName: obligation.company.nome,
+            docType: metadata.docType || obligation.title,
+            competence: metadata.competence || obligation.referenceMonth,
+            dueDate: obligation.dueDate,
+            uploadedBy: obligation.user.name || 'Contabilidade'
+          });
+        } catch (emailError) {
+          console.error(`Erro ao enviar email para ${user.email}:`, emailError);
+          // Não falha o upload se email não for enviado
+        }
+      }
     }
 
     return res.status(201).json({ 

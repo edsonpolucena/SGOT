@@ -3,7 +3,14 @@ const { requireAuth } = require('../../middleware/requireAuth');
 const authorize = require('../../middleware/authorize');
 const { validate } = require('../../middleware/validation');
 const { registerSchema, loginSchema } = require('../../middleware/validation');
-const { postLogin, postRegister, getMe } = require('./auth.controller');
+const { 
+  postLogin, 
+  postRegister, 
+  getMe,
+  postForgotPassword,
+  getValidateResetToken,
+  postResetPassword
+} = require('./auth.controller');
 
 const authRouter = Router();
 
@@ -21,5 +28,10 @@ authRouter.post(
 );
 
 authRouter.get('/me', requireAuth, getMe);
+
+// Rotas de recuperação de senha (públicas, sem autenticação)
+authRouter.post('/forgot-password', postForgotPassword);
+authRouter.get('/validate-reset-token/:token', getValidateResetToken);
+authRouter.post('/reset-password', postResetPassword);
 
 module.exports = { authRouter };

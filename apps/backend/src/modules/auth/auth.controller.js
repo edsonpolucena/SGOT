@@ -1,4 +1,5 @@
 const { registerUser, loginUser } = require('./auth.service');
+const { requestPasswordReset, validateResetToken, resetPassword } = require('./password-reset.service');
 const { prisma } = require('../../prisma');
 const { logAudit } = require('../../utils/audit.helper');
 
@@ -77,4 +78,80 @@ async function getMe(req, res) {
   });
 }
 
-module.exports = { postRegister, postLogin, getMe };
+/**
+ * POST /api/auth/forgot-password
+ * Solicita recuperação de senha (envia email)
+ */
+async function postForgotPassword(req, res) {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email é obrigatório' });
+    }
+
+    const result = await requestPasswordReset(email);
+    
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error('Erro em forgot-password:', err);
+    if (err.message.includes('inativo')) {
+      return res.status(403).json({ message: err.message });
+    }
+    return res.status(500).json({ message: 'Erro interno' });
+  }
+}
+
+/**
+ * GET /api/auth/validate-reset-token/:token
+ * Valida se um token de recuperação é válido
+ */
+async function getValidateResetToken(req, res) {
+  try {
+    const { token } = req.params;
+
+    if (!token) {
+      return res.status(400).json({ valid: false, reason: 'Token não fornecido' });
+    }
+
+    const result = await validateResetToken(token);
+    
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error('Erro ao validar token:', err);
+    return res.status(500).json({ valid: false, reason: 'Erro interno' });
+  }
+}
+
+/**
+ * POST /api/auth/reset-password
+ * Redefine a senha usando o token
+ */
+async function postResetPassword(req, res) {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: 'Token e nova senha são obrigatórios' });
+    }
+
+    const result = await resetPassword(token, newPassword);
+    
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error('Erro ao redefinir senha:', err);
+    if (err.message.includes('Token') || err.message.includes('senha')) {
+      return res.status(400).json({ message: err.message });
+    }
+    return res.status(500).json({ message: 'Erro interno' });
+  }
+}
+
+module.exports = { 
+  postRegister, 
+  postLogin, 
+  getMe,
+  postForgotPassword,
+  getValidateResetToken,
+  postResetPassword
+};
