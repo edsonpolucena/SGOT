@@ -90,14 +90,28 @@ async function sendEmail({ from, to, subject, html, text, replyTo }) {
   const finalFrom = (from && from.trim()) || dbFrom || process.env.EMAIL_FROM;
 
   // Remove HTML tags de forma segura (sem ReDoS)
+  // Implementação O(n) sem regex complexas para evitar backtracking
   const stripHtmlTags = (str) => {
     if (!str) return '';
-    return str
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    
+    let result = '';
+    let insideTag = false;
+    
+    for (let i = 0; i < str.length; i++) {
+      const char = str[i];
+      
+      if (char === '<') {
+        insideTag = true;
+      } else if (char === '>') {
+        insideTag = false;
+        result += ' '; // Adiciona espaço no lugar da tag
+      } else if (!insideTag) {
+        result += char;
+      }
+    }
+    
+    // Remove espaços múltiplos e trim
+    return result.split(/\s+/).filter(Boolean).join(' ');
   };
 
   const mailOptions = {
