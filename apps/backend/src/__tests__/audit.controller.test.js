@@ -54,18 +54,18 @@ describe("AuditController", () => {
   });
 
   test("deve buscar log por ID", async () => {
-    // Criar um log primeiro
-    const log = await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'CREATE',
-        entity: 'User',
-        entityId: user.id,
-        changes: {},
-        ipAddress: '127.0.0.1',
-        userAgent: 'Test'
-      }
-    });
+  // Criar um log primeiro (sem campo 'changes' - usar 'metadata')
+  const log = await prisma.auditLog.create({
+    data: {
+      userId: user.id,
+      action: 'CREATE',
+      entity: 'USER',
+      entityId: user.id,
+      metadata: JSON.stringify({}),
+      ipAddress: '127.0.0.1',
+      userAgent: 'Test'
+    }
+  });
 
     const res = await request(app)
       .get(`/api/audit/logs/${log.id}`)

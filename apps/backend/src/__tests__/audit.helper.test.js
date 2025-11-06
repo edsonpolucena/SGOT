@@ -33,7 +33,7 @@ describe('Audit Helper', () => {
       }
     };
 
-    await logAudit(req, 'CREATE', 'Test', 'test-id');
+    await logAudit(req, 'CREATE', 'User', 'test-id');
 
     const logs = await prisma.auditLog.findMany({
       where: { userId: user.id }
@@ -41,7 +41,7 @@ describe('Audit Helper', () => {
 
     expect(logs.length).toBeGreaterThan(0);
     expect(logs[0].action).toBe('CREATE');
-    expect(logs[0].entityType).toBe('Test');
+    expect(logs[0].entity).toBe('User');
     expect(logs[0].entityId).toBe('test-id');
   });
 
@@ -56,7 +56,7 @@ describe('Audit Helper', () => {
     };
 
     // Não deve lançar erro
-    await expect(logAudit(req, 'VIEW', 'Test', 'test-id')).resolves.not.toThrow();
+    await expect(logAudit(req, 'VIEW', 'User', 'test-id')).resolves.not.toThrow();
   });
 
   test('deve lidar com req sem headers', async () => {
@@ -67,7 +67,7 @@ describe('Audit Helper', () => {
     };
 
     // Não deve lançar erro
-    await expect(logAudit(req, 'VIEW', 'Test', 'test-id')).resolves.not.toThrow();
+    await expect(logAudit(req, 'VIEW', 'User', 'test-id')).resolves.not.toThrow();
   });
 });
 
