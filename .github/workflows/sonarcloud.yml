@@ -1,4 +1,4 @@
-name: SonarCloud (frontend & backend)
+# name: SonarCloud (monorepo)
 
 on:
   pull_request:
@@ -11,8 +11,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  backend:
-    name: Backend Analysis
+  analysis:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -29,9 +28,6 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-    defaults:
-      run:
-        working-directory: apps/backend
     env:
       DATABASE_URL: postgresql://sgot_test:sgot_test_password@localhost:5432/sgot_test
       NODE_ENV: test
@@ -46,76 +42,44 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache-dependency-path: apps/backend/package-lock.json
 
-      - name: Install
+      # Backend
+      - name: Install backend deps
+        working-directory: apps/backend
         run: npm ci
 
       - name: Push Database Schema
+        working-directory: apps/backend
         run: npx prisma db push --accept-data-loss --skip-generate
 
       - name: Generate Prisma Client
+        working-directory: apps/backend
         run: npx prisma generate
 
-      - name: Run Tests with Coverage
+      - name: Run backend tests with coverage
+        working-directory: apps/backend
         run: npm run test:ci
         continue-on-error: true
 
-      - name: Verify Coverage File
-        run: |
-          if [ ! -f coverage/lcov.info ]; then
-            echo "❌ ERROR: coverage/lcov.info not found!"
-            exit 1
-          fi
-          echo "✅ Coverage file found: coverage/lcov.info"
-          ls -lh coverage/lcov.info
-
-      - name: SonarCloud Scan (backend)
-        uses: SonarSource/sonarcloud-github-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          projectBaseDir: apps/backend
-
-  frontend:
-    name: Frontend Analysis
-    runs-on: ubuntu-latest
-    defaults:
-      run:
+      # Frontend
+      - name: Install frontend deps
         working-directory: apps/frontend
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache-dependency-path: apps/frontend/package-lock.json
-
-      - name: Install
         run: npm ci
 
-      - name: Run Tests with Coverage
+      - name: Run frontend tests with coverage
+        working-directory: apps/frontend
         run: npm run test:ci
         continue-on-error: true
 
-      - name: Verify Coverage File
+      - name: Verify coverage files
         run: |
-          if [ ! -f coverage/lcov.info ]; then
-            echo "❌ ERROR: coverage/lcov.info not found!"
-            exit 1
-          fi
-          echo "✅ Coverage file found: coverage/lcov.info"
-          ls -lh coverage/lcov.info
+          test -f apps/backend/coverage/lcov.info || (echo "❌ backend sem coverage" && exit 1)
+          test -f apps/frontend/coverage/lcov.info || (echo "❌ frontend sem coverage" && exit 1)
+          echo "✅ coverage dos dois apps ok"
 
-      - name: SonarCloud Scan (frontend)
+      - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          projectBaseDir: apps/frontend
+        # NÃO passar projectBaseDir → ele usa a raiz e lê o sonar-project.properties

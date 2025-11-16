@@ -5,7 +5,9 @@ export default defineConfig({
     environment: 'jsdom',
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html', 'lcov'],
+      // garante a criação de coverage/lcov.info para o passo do GitHub Action
+      reportsDirectory: 'coverage',
+      reporter: ['text', 'html', 'lcovonly'],
       include: [
         'src/shared/lib/**/*.js',
         'src/shared/utils/exportUtils.js',
