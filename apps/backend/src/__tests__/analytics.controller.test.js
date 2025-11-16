@@ -394,4 +394,136 @@ describe("AnalyticsController", () => {
 
     expect(res.status).toBe(400);
   });
+
+  // Testes para cobrir blocos catch (erro 500)
+  test("deve tratar erro 500 em getMonthlySummary quando service falha", async () => {
+    // Mock do service para lançar erro
+    const originalService = require('../modules/analytics/analytics.service');
+    const originalGetMonthlySummary = originalService.getMonthlySummary;
+    
+    // Forçar erro no service
+    originalService.getMonthlySummary = jest.fn().mockRejectedValue(new Error('Database error'));
+
+    const res = await request(app)
+      .get(`/api/analytics/monthly-summary?empresaId=${company.id}&mes=2025-01`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Erro ao buscar resumo mensal');
+
+    // Restaurar função original
+    originalService.getMonthlySummary = originalGetMonthlySummary;
+  });
+
+  test("deve tratar erro 500 em monthlyVariationByTax quando service falha", async () => {
+    const originalService = require('../modules/analytics/analytics.service');
+    const originalGetMonthlyVariationByTax = originalService.getMonthlyVariationByTax;
+    
+    originalService.getMonthlyVariationByTax = jest.fn().mockRejectedValue(new Error('Service error'));
+
+    const res = await request(app)
+      .get(`/api/analytics/variation-by-tax?empresaId=${company.id}&mes=2025-01`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Erro interno');
+
+    originalService.getMonthlyVariationByTax = originalGetMonthlyVariationByTax;
+  });
+
+  test("deve tratar erro 500 em getDocumentControlDashboard quando service falha", async () => {
+    const originalService = require('../modules/analytics/analytics.service');
+    const originalGetDocumentControlDashboard = originalService.getDocumentControlDashboard;
+    
+    originalService.getDocumentControlDashboard = jest.fn().mockRejectedValue(new Error('Service error'));
+
+    const res = await request(app)
+      .get("/api/analytics/document-control-dashboard?month=2025-01")
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Erro interno');
+
+    originalService.getDocumentControlDashboard = originalGetDocumentControlDashboard;
+  });
+
+  test("deve tratar erro 500 em getTaxTypeStats quando service falha", async () => {
+    const originalService = require('../modules/analytics/analytics.service');
+    const originalGetTaxTypeStats = originalService.getTaxTypeStats;
+    
+    originalService.getTaxTypeStats = jest.fn().mockRejectedValue(new Error('Service error'));
+
+    const res = await request(app)
+      .get("/api/analytics/tax-type-stats?month=2025-01")
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Erro interno');
+
+    originalService.getTaxTypeStats = originalGetTaxTypeStats;
+  });
+
+  test("deve tratar erro 500 em getClientTaxReport quando service falha", async () => {
+    const originalService = require('../modules/analytics/analytics.service');
+    const originalGetClientTaxReport = originalService.getClientTaxReport;
+    
+    originalService.getClientTaxReport = jest.fn().mockRejectedValue(new Error('Service error'));
+
+    const res = await request(app)
+      .get(`/api/analytics/client-tax-report?companyId=${company.id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Erro interno');
+
+    originalService.getClientTaxReport = originalGetClientTaxReport;
+  });
+
+  test("deve tratar erro 500 em getDeadlineCompliance quando service falha", async () => {
+    const originalService = require('../modules/analytics/analytics.service');
+    const originalGetDeadlineComplianceStats = originalService.getDeadlineComplianceStats;
+    
+    originalService.getDeadlineComplianceStats = jest.fn().mockRejectedValue(new Error('Service error'));
+
+    const res = await request(app)
+      .get("/api/analytics/deadline-compliance?month=2025-01")
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Erro interno');
+
+    originalService.getDeadlineComplianceStats = originalGetDeadlineComplianceStats;
+  });
+
+  test("deve tratar erro 500 em getOverdueAndUpcoming quando service falha", async () => {
+    const originalService = require('../modules/analytics/analytics.service');
+    const originalGetOverdueAndUpcomingTaxes = originalService.getOverdueAndUpcomingTaxes;
+    
+    originalService.getOverdueAndUpcomingTaxes = jest.fn().mockRejectedValue(new Error('Service error'));
+
+    const res = await request(app)
+      .get("/api/analytics/overdue-and-upcoming?month=2025-01")
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Erro interno');
+
+    originalService.getOverdueAndUpcomingTaxes = originalGetOverdueAndUpcomingTaxes;
+  });
+
+  test("deve tratar erro 500 em getUnviewedAlerts quando service falha", async () => {
+    const originalService = require('../modules/analytics/analytics.service');
+    const originalGetUnviewedAlertsForAccounting = originalService.getUnviewedAlertsForAccounting;
+    
+    originalService.getUnviewedAlertsForAccounting = jest.fn().mockRejectedValue(new Error('Service error'));
+
+    const res = await request(app)
+      .get("/api/analytics/unviewed-alerts")
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(500);
+    expect(res.body.message).toBe('Erro ao buscar alertas');
+
+    originalService.getUnviewedAlertsForAccounting = originalGetUnviewedAlertsForAccounting;
+  });
 });

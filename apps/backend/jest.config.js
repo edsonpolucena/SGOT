@@ -12,6 +12,12 @@ module.exports = {
   ],
   collectCoverage: true,               // 🔹 garante coverage sempre
   coverageDirectory: 'coverage',       // 🔹 pasta fixa: apps/backend/coverage
+  coverageProvider: 'v8',              // 🔹 usa v8 para melhor rastreamento
+  coveragePathIgnorePatterns: [       // 🔹 ignora apenas o necessário
+    '/node_modules/',
+    '/coverage/',
+    '/__tests__/'
+  ],
   collectCoverageFrom: [
     // Arquivos base
     'src/app.js',
