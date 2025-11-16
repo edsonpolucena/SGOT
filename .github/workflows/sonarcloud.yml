@@ -1,6 +1,5 @@
 # name: SonarCloud (monorepo)
 
-
 on:
   pull_request:
   push:
@@ -78,9 +77,19 @@ jobs:
           test -f apps/frontend/coverage/lcov.info || (echo "❌ frontend sem coverage" && exit 1)
           echo "✅ coverage dos dois apps ok"
 
+      - name: Fix LCOV paths (backend & frontend)
+        run: |
+          # Backend: caminhos gerados como "SF:src\..." ou "SF:src/..."
+          sed -i 's#SF:src/#SF:apps/backend/src/#g' apps/backend/coverage/lcov.info
+          sed -i 's#SF:src\\#SF:apps/backend/src/#g' apps/backend/coverage/lcov.info
+
+          # Frontend: caminhos gerados como "SF:src\..." ou "SF:src/..."
+          sed -i 's#SF:src/#SF:apps/frontend/src/#g' apps/frontend/coverage/lcov.info
+          sed -i 's#SF:src\\#SF:apps/frontend/src/#g' apps/frontend/coverage/lcov.info
+
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        # NÃO passar projectBaseDir → ele usa a raiz e lê o sonar-project.properties
+          SONAR_HOST_URL: https://sonarcloud.io
