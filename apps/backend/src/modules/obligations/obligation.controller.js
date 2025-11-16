@@ -15,13 +15,13 @@ const { prisma } = require('../../prisma');
 
 async function postObligation(req, res) {
   try {
-    const { title, regime, periodStart, periodEnd, dueDate, amount, notes, companyId } = req.body;
+    const { title, regime, periodStart, periodEnd, dueDate, amount, notes, companyId, taxType, referenceMonth, status, notApplicableReason } = req.body;
     
     if (!title || !regime || !periodStart || !periodEnd || !dueDate || !companyId) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
-    const created = await createObligation(req.userId, {
+    const obligationData = {
       title,
       regime,
       periodStart: new Date(periodStart),
@@ -29,11 +29,17 @@ async function postObligation(req, res) {
       dueDate: new Date(dueDate),
       amount: amount ? parseFloat(amount) : null,
       notes,
-      companyId: parseInt(companyId)
-    });
+      companyId: parseInt(companyId),
+      taxType: taxType || null,
+      referenceMonth: referenceMonth || null,
+      status: status || undefined,
+      notApplicableReason: notApplicableReason || null
+    };
+
+    const created = await createObligation(req.userId, obligationData);
     
     // Log de auditoria
-    await logAudit(req, 'CREATE', 'Obligation', created.id, { title, regime, companyId });
+    await logAudit(req, 'CREATE', 'Obligation', created.id, { title, regime, companyId, taxType, referenceMonth });
     
     return res.status(201).json(created);
   } catch (error) {
@@ -44,11 +50,12 @@ async function postObligation(req, res) {
 
 async function getObligations(req, res) {
   try {
-    const { status, regime, from, to, companyId } = req.query;
+    const { status, regime, from, to, companyId, referenceMonth } = req.query;
     const items = await listObligations(req.userId, req.user.role, {
       status,
       regime,
       companyId: companyId ? parseInt(companyId) : undefined,
+      referenceMonth,
       from: from ? new Date(from) : undefined,
       to: to ? new Date(to) : undefined,
     });
@@ -141,25 +148,56 @@ async function uploadFiles(req, res) {
       }
     });
 
-    // Envia email para usuários da empresa cliente
-    if (obligation && obligation.company && obligation.company.users.length > 0) {
+    // Envia email para o email da empresa cliente
+    if (obligation && obligation.company) {
       const metadata = JSON.parse(obligation.notes || '{}');
-      
-      for (const user of obligation.company.users) {
+      const toEmail = obligation.company.email;
+
+      if (toEmail) {
+        console.log(`📧 Enviando notificação para empresa ${obligation.company.nome}...`);
+        console.log(`   To: ${toEmail}`);
+        
         try {
-          await emailService.sendNewDocumentNotification({
-            to: user.email,
-            userName: user.name || user.email,
+          // Buscar email remetente (empresa contabilidade)
+          const accountingCompany = await prisma.empresa.findUnique({
+            where: { codigo: 'EMP001' },
+            select: { email: true }
+          });
+          const fromEmail = accountingCompany?.email;
+
+          const result = await emailService.sendNewDocumentNotification({
+            from: fromEmail,
+            to: toEmail,
+            userName: obligation.company.nome,
             companyName: obligation.company.nome,
             docType: metadata.docType || obligation.title,
             competence: metadata.competence || obligation.referenceMonth,
             dueDate: obligation.dueDate,
             uploadedBy: obligation.user.name || 'Contabilidade'
           });
+          
+          // Registrar notificação no banco
+          await prisma.obligationNotification.create({
+            data: {
+              obligationId,
+              sentTo: toEmail,
+              sentBy: req.userId,
+              emailStatus: result?.success ? 'sent' : 'failed',
+              emailError: result?.error || null
+            }
+          });
+          
+          if (result?.success) {
+            console.log(`   ✅ Email enviado com sucesso para ${toEmail}`);
+          } else {
+            console.log(`   ❌ Falha ao enviar: ${result?.error}`);
+          }
         } catch (emailError) {
-          console.error(`Erro ao enviar email para ${user.email}:`, emailError);
+          console.error(`   ❌ Erro ao enviar email:`, emailError.message);
           // Não falha o upload se email não for enviado
         }
+      } else {
+        console.log(`⚠️  Empresa ${obligation.company.nome} sem email cadastrado`);
       }
     }
 

@@ -4,6 +4,7 @@
   "scripts": {
     "dev:server": "nodemon src/server.js",
     "start": "node src/server.js",
+    "start:prod": "cross-env NEW_RELIC_ENABLED=true node src/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "test": "cross-env NODE_ENV=test DATABASE_URL=postgresql://sgot_test:sgot_test_password@localhost:5434/sgot_test jest --runInBand --detectOpenHandles",
@@ -26,6 +27,7 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
     "multer-s3": "^3.0.1",
+    "newrelic": "^13.6.4",
     "node-cron": "^4.2.1",
     "swagger-ui-express": "^5.0.0"
   },
@@ -37,6 +39,24 @@
     "nodemon": "^3.1.4",
     "prisma": "^5.16.1",
     "supertest": "^6.3.4"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverage": true,
+    "coverageDirectory": "coverage",
+    "coverageReporters": [
+      "text",
+      "html",
+      "lcov"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 75,
+        "functions": 75,
+        "lines": 75,
+        "statements": 75
+      }
+    }
   },
   "prisma": {
     "seed": "node prisma/seed.js"

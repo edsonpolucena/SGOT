@@ -8,6 +8,7 @@ const { notificationRouter } = require('./modules/notifications/notification.rou
 const { setupSwagger } = require('./swagger');
 const companyRoutes = require("./modules/company/company.routes.js");
 const analyticsRoutes = require("./modules/analytics/analytics.routes");
+const taxCalendarRoutes = require("./modules/tax-calendar/tax-calendar.routes");
 const { startAllCronJobs } = require('./jobs/notification.cron');
 
 const app = express();
@@ -23,6 +24,7 @@ app.use('/api/audit', auditRouter);
 app.use('/api/notifications', notificationRouter);
 app.use("/api/empresas", companyRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/tax-calendar", taxCalendarRoutes);
 
 setupSwagger(app);
 

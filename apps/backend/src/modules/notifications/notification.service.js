@@ -19,9 +19,12 @@ async function getUnviewedObligations(filters = {}) {
     if (filters.endDate) where.dueDate.lte = new Date(filters.endDate);
   }
 
-  // Buscar todas as obrigações
+  // Buscar todas as obrigações (EXCLUIR NOT_APPLICABLE)
   const obligations = await prisma.obligation.findMany({
-    where,
+    where: {
+      ...where,
+      status: { not: 'NOT_APPLICABLE' } // 👈 Não mostra NOT_APPLICABLE
+    },
     include: {
       company: {
         select: {
@@ -165,17 +168,22 @@ async function sendObligationNotification(obligationId, sentBy) {
     });
     const fromEmail = accountingCompany?.email || process.env.EMAIL_FROM;
     
-    // Email destinatário: email da empresa cliente
+    // Email destinatário: email da EMPRESA cliente (não dos usuários)
     const toEmail = obligation.company.email;
 
     if (!toEmail) {
-      console.warn('⚠️  Empresa sem email cadastrado');
+      console.warn(`⚠️  Empresa ${obligation.company.nome} sem email cadastrado`);
       return {
         success: false,
         sent: 0,
+        total: 1,
         message: 'Empresa sem email cadastrado'
       };
     }
+
+    console.log(`📧 Enviando notificação para empresa ${obligation.company.nome}...`);
+    console.log(`   From: ${fromEmail}`);
+    console.log(`   To: ${toEmail}`);
 
     // Enviar email para o email da empresa cliente
     const emailResult = await sendNewDocumentNotification({
@@ -189,8 +197,6 @@ async function sendObligationNotification(obligationId, sentBy) {
       uploadedBy
     });
 
-    const results = [];
-
     // Registrar notificação no banco
     const notification = await prisma.obligationNotification.create({
       data: {
@@ -202,19 +208,21 @@ async function sendObligationNotification(obligationId, sentBy) {
       }
     });
 
-    results.push({
-      email: toEmail,
-      success: emailResult.success,
-      notificationId: notification.id
-    });
-
-    console.log(`✅ Notificação enviada para: ${toEmail}`);
+    if (emailResult.success) {
+      console.log(`   ✅ Email enviado com sucesso para ${toEmail}`);
+    } else {
+      console.log(`   ❌ Falha ao enviar: ${emailResult.error}`);
+    }
     
     return {
       success: emailResult.success,
       sent: emailResult.success ? 1 : 0,
       total: 1,
-      results
+      results: [{
+        email: toEmail,
+        success: emailResult.success,
+        notificationId: notification.id
+      }]
     };
   } catch (error) {
     console.error('❌ Erro ao enviar notificações:', error);
@@ -240,6 +248,54 @@ async function getObligationViews(obligationId) {
     where: { obligationId },
     orderBy: { viewedAt: 'desc' }
   });
+}
+
+/**
+ * Busca histórico de visualizações/downloads APENAS de usuários CLIENT (não contabilidade)
+ * Retorna nome do usuário, data/hora e ação
+ */
+async function getClientViewsHistory(obligationId) {
+  // Primeiro buscar todas as views da obrigação
+  const allViews = await prisma.obligationView.findMany({
+    where: { obligationId },
+    orderBy: { viewedAt: 'desc' }
+  });
+
+  // Buscar informações dos usuários que visualizaram
+  const userIds = [...new Set(allViews.map(v => v.viewedBy))];
+  const users = await prisma.user.findMany({
+    where: {
+      id: { in: userIds },
+      role: {
+        in: ['CLIENT_NORMAL', 'CLIENT_ADMIN']
+      }
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true
+    }
+  });
+
+  // Criar mapa de usuários
+  const userMap = {};
+  users.forEach(user => {
+    userMap[user.id] = user;
+  });
+
+  // Filtrar apenas views de clientes e formatar
+  const clientViews = allViews
+    .filter(view => userMap[view.viewedBy])
+    .map(view => ({
+      id: view.id,
+      userName: userMap[view.viewedBy].name || userMap[view.viewedBy].email,
+      userEmail: userMap[view.viewedBy].email,
+      action: view.action, // VIEW ou DOWNLOAD
+      viewedAt: view.viewedAt
+    }));
+
+  return clientViews;
 }
 
 /**
@@ -299,6 +355,7 @@ module.exports = {
   sendObligationNotification,
   getObligationNotifications,
   getObligationViews,
+  getClientViewsHistory,
   getNotificationStats
 };
 

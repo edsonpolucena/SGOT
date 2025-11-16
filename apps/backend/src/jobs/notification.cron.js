@@ -19,8 +19,9 @@ function startDocumentReminderJob() {
       
       // Busca obrigações que:
       // 1. Vencem em até 3 dias
-      // 2. Têm arquivo anexado (status SUBMITTED/PAID)
+      // 2. Têm arquivo anexado
       // 3. Ainda não foram visualizadas
+      // 4. Não são marcadas como "não aplicável"
       const obligations = await prisma.obligation.findMany({
         where: {
           dueDate: {
@@ -28,26 +29,20 @@ function startDocumentReminderJob() {
             lte: threeDaysFromNow
           },
           status: {
-            in: ['SUBMITTED', 'PAID']
+            not: 'NOT_APPLICABLE'
           },
           views: {
             none: {} // Nenhuma visualização
           },
           files: {
             some: {} // Tem pelo menos um arquivo
+          },
+          company: {
+            codigo: { not: 'EMP001' } // Exclui contabilidade
           }
         },
         include: {
-          company: {
-            include: {
-              users: {
-                where: {
-                  role: { in: ['CLIENT_ADMIN', 'CLIENT_NORMAL'] },
-                  status: 'ACTIVE'
-                }
-              }
-            }
-          },
+          company: true,
           files: true
         }
       });
@@ -57,37 +52,36 @@ function startDocumentReminderJob() {
         return;
       }
 
-      // Agrupa obrigações por usuário
-      const obligationsByUser = {};
+      // Agrupa obrigações por empresa
+      const obligationsByCompany = {};
       
       obligations.forEach(obligation => {
-        if (obligation.company && obligation.company.users) {
-          obligation.company.users.forEach(user => {
-            if (!obligationsByUser[user.email]) {
-              obligationsByUser[user.email] = {
-                userName: user.name || user.email,
-                obligations: []
-              };
-            }
-            
-            obligationsByUser[user.email].obligations.push({
-              taxType: obligation.taxType || obligation.title,
-              title: obligation.title,
-              dueDate: obligation.dueDate,
+        if (obligation.company) {
+          const companyEmail = obligation.company.email;
+          
+          if (!obligationsByCompany[companyEmail]) {
+            obligationsByCompany[companyEmail] = {
               companyName: obligation.company.nome,
-              createdAt: obligation.createdAt
-            });
+              obligations: []
+            };
+          }
+          
+          obligationsByCompany[companyEmail].obligations.push({
+            taxType: obligation.taxType || obligation.title,
+            title: obligation.title,
+            dueDate: obligation.dueDate,
+            createdAt: obligation.createdAt
           });
         }
       });
 
-      // Envia email para cada usuário
+      // Envia email para cada empresa
       let emailsSent = 0;
-      for (const [email, data] of Object.entries(obligationsByUser)) {
+      for (const [email, data] of Object.entries(obligationsByCompany)) {
         try {
           await emailService.sendDocumentReminderEmail({
             to: email,
-            userName: data.userName,
+            companyName: data.companyName,
             obligations: data.obligations
           });
           emailsSent++;

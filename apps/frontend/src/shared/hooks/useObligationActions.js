@@ -1,31 +1,87 @@
+import { useState } from 'react';
+import React from 'react';
 import http from '../services/http';
+import { useAuth } from '../context/AuthContext';
+import ClientActionAlert from '../ui/ClientActionAlert';
 
-/**
- * Hook compartilhado para ações de obrigações
- * Usado em Dashboard.jsx e ClientDashBoard.jsx
- */
 export function useObligationActions() {
-  /**
-   * Visualiza um arquivo de uma obrigação
-   */
+  const { user, isClient } = useAuth();
+  const [alertData, setAlertData] = useState({ isOpen: false, history: [], actionType: 'VIEW', onClose: null });
+
+  const checkClientHistory = async (obligationId, actionType) => {
+    if (!isClient || !user) {
+      return { shouldShow: false, history: [] };
+    }
+
+    try {
+      const response = await http.get(`/api/obligations/${obligationId}/client-views`);
+      const history = response.data || [];
+
+      const otherUsersHistory = history.filter(item => item.userEmail !== user.email);
+
+      return {
+        shouldShow: otherUsersHistory.length > 0,
+        history: otherUsersHistory
+      };
+    } catch (error) {
+      return { shouldShow: false, history: [] };
+    }
+  };
+
   const handleViewObligation = async (obligationId) => {
     try {
+      console.log('🔍 Iniciando visualização da obrigação:', obligationId);
+      if (isClient && user) {
+        try {
+          console.log('🔍 Verificando histórico para cliente...');
+          const { shouldShow, history } = await checkClientHistory(obligationId, 'VIEW');
+          console.log('📊 Resultado da verificação:', { shouldShow, historyLength: history?.length });
+          
+          if (shouldShow && history && history.length > 0) {
+            console.log('⚠️ Mostrando alerta de histórico...');
+            await new Promise((resolve) => {
+              const handleClose = () => {
+                console.log('✅ Alerta fechado pelo usuário');
+                setAlertData({ isOpen: false, history: [], actionType: 'VIEW', onClose: null });
+                resolve();
+              };
+              
+              setAlertData({ 
+                isOpen: true, 
+                history, 
+                actionType: 'VIEW',
+                onClose: handleClose
+              });
+            });
+            console.log('✅ Continuando após alerta...');
+          } else {
+            console.log('ℹ️ Nenhum histórico para mostrar');
+          }
+        } catch (historyError) {
+          console.warn('⚠️ Erro ao verificar histórico (continuando mesmo assim):', historyError);
+        }
+      } else {
+        console.log('ℹ️ Não é cliente ou usuário não logado, pulando verificação de histórico');
+      }
+
+      console.log('📁 Buscando arquivos da obrigação...');
       const filesResponse = await http.get(`/api/obligations/${obligationId}/files`);
       const files = filesResponse.data;
+      console.log('📁 Arquivos encontrados:', files.length);
       
       if (files.length === 0) {
         alert('Esta obrigação não possui arquivos anexados.');
         return;
       }
-      
-      // Se há apenas um arquivo, abrir diretamente
+
       if (files.length === 1) {
+        console.log('📄 Gerando URL de visualização para arquivo único...');
         const viewResponse = await http.get(`/api/obligations/files/${files[0].id}/view`);
+        console.log('✅ URL gerada, abrindo...', viewResponse.data.viewUrl);
         window.open(viewResponse.data.viewUrl, '_blank');
         return;
       }
-      
-      // Se há múltiplos arquivos, mostrar lista simples
+
       const fileNames = files.map((file, index) => `${index + 1}. ${file.originalName}`).join('\n');
       const choice = prompt(`Múltiplos arquivos encontrados:\n\n${fileNames}\n\nDigite o número do arquivo (1-${files.length}):`);
       
@@ -36,16 +92,47 @@ export function useObligationActions() {
         window.open(viewResponse.data.viewUrl, '_blank');
       }
     } catch (error) {
-      console.error('Erro ao visualizar arquivo:', error);
       alert('Erro ao visualizar arquivo. Tente novamente.');
     }
   };
 
-  /**
-   * Faz download de todos os arquivos de uma obrigação
-   */
   const handleDownloadFiles = async (obligationId) => {
     try {
+      console.log('🔍 Iniciando download da obrigação:', obligationId);
+      if (isClient && user) {
+        try {
+          console.log('🔍 Verificando histórico para cliente...');
+          const { shouldShow, history } = await checkClientHistory(obligationId, 'DOWNLOAD');
+          console.log('📊 Resultado da verificação:', { shouldShow, historyLength: history?.length });
+          
+          if (shouldShow && history && history.length > 0) {
+            console.log('⚠️ Mostrando alerta de histórico...');
+            await new Promise((resolve) => {
+              const handleClose = () => {
+                console.log('✅ Alerta fechado pelo usuário');
+                setAlertData({ isOpen: false, history: [], actionType: 'VIEW', onClose: null });
+                resolve();
+              };
+              
+              setAlertData({ 
+                isOpen: true, 
+                history, 
+                actionType: 'DOWNLOAD',
+                onClose: handleClose
+              });
+            });
+            console.log('✅ Continuando após alerta...');
+          } else {
+            console.log('ℹ️ Nenhum histórico para mostrar');
+          }
+        } catch (historyError) {
+          console.warn('⚠️ Erro ao verificar histórico (continuando mesmo assim):', historyError);
+        }
+      } else {
+        console.log('ℹ️ Não é cliente ou usuário não logado, pulando verificação de histórico');
+      }
+
+      console.log('📁 Buscando arquivos da obrigação...');
       const filesResponse = await http.get(`/api/obligations/${obligationId}/files`);
       const files = filesResponse.data;
       
@@ -53,25 +140,21 @@ export function useObligationActions() {
         alert('Esta obrigação não possui arquivos anexados.');
         return;
       }
-      
-      // Baixar todos os arquivos sequencialmente
+
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         try {
           const downloadResponse = await http.get(`/api/obligations/files/${file.id}/download`);
           
-          // Criar link temporário para download direto
           const link = document.createElement('a');
           link.href = downloadResponse.data.downloadUrl;
           link.download = file.originalName;
           link.style.display = 'none';
-          
-          // Adicionar ao DOM, clicar e remover
+
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
-          
-          // Pequena pausa entre downloads para evitar conflitos
+
           if (i < files.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 500));
           }
@@ -84,23 +167,16 @@ export function useObligationActions() {
         alert(`${files.length} arquivos iniciaram o download.`);
       }
     } catch (error) {
-      console.error('Erro ao baixar arquivos:', error);
       alert('Erro ao baixar arquivos. Tente novamente.');
     }
   };
 
-  /**
-   * Exclui uma obrigação e seus arquivos
-   * @param {string} obligationId - ID da obrigação
-   * @param {Function} onSuccess - Callback chamado após sucesso
-   */
   const handleDeleteObligation = async (obligationId, onSuccess) => {
     if (!confirm('Tem certeza que deseja excluir esta obrigação? Esta ação não pode ser desfeita.')) {
       return;
     }
     
     try {
-      // Primeiro, excluir todos os arquivos da obrigação
       const filesResponse = await http.get(`/api/obligations/${obligationId}/files`);
       const files = filesResponse.data;
       
@@ -112,24 +188,33 @@ export function useObligationActions() {
         }
       }
       
-      // Depois, excluir a obrigação
       await http.delete(`/api/obligations/${obligationId}`);
       
       alert('Obrigação excluída com sucesso!');
       
-      // Chamar callback de sucesso
       if (onSuccess) {
         onSuccess();
       }
     } catch (error) {
-      console.error('Erro ao excluir obrigação:', error);
       alert('Erro ao excluir obrigação. Tente novamente.');
     }
   };
 
+  const alertComponent = React.createElement(ClientActionAlert, {
+    key: `alert-${alertData.isOpen}-${alertData.history?.length || 0}-${alertData.actionType}`,
+    isOpen: alertData.isOpen,
+    onClose: alertData.onClose || (() => {
+      console.log('🔒 Fechando alerta via fallback');
+      setAlertData({ isOpen: false, history: [], actionType: 'VIEW', onClose: null });
+    }),
+    history: alertData.history || [],
+    actionType: alertData.actionType || 'VIEW'
+  });
+
   return {
     handleViewObligation,
     handleDownloadFiles,
-    handleDeleteObligation
+    handleDeleteObligation,
+    alertComponent
   };
 }

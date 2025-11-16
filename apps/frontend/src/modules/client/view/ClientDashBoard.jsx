@@ -33,12 +33,10 @@ import {
 export default function ClientDashboard() {
   const { user } = useAuth();
   const empresaId = user?.company?.id;
-  const { handleViewObligation, handleDownloadFiles } = useObligationActions();
+  const { handleViewObligation, handleDownloadFiles, alertComponent } = useObligationActions();
   
-  // Obter mês atual no formato YYYY-MM
   const currentMonth = new Date().toISOString().slice(0, 7);
   
-  // Hooks de analytics - só executam se empresaId existir
   const { data: analyticsData, loading: analyticsLoading, error: analyticsError } =
     useMonthlySummary(empresaId, currentMonth);
   const { data: variationByTaxData, loading: variationByTaxLoading, error: variationByTaxError } =
@@ -49,8 +47,6 @@ export default function ClientDashboard() {
   const stats = {
   totalObligations: obligations.length,
   pendingObligations: obligations.filter(o => o.status === "PENDING").length,
-  lateObligations: obligations.filter(o => o.status === "LATE").length,
-  paidObligations: obligations.filter(o => o.status === "PAID").length,
 };
   const [loading, setLoading] = useState(true);
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -124,7 +120,6 @@ export default function ClientDashboard() {
   const currentItems = filteredObligations.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredObligations.length / itemsPerPage);
 
-  // ==== Calendário de vencimentos ====
   const formatYmd = (d) => {
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -146,7 +141,7 @@ export default function ClientDashboard() {
   const buildMonthMatrix = (monthDate) => {
     const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
     const start = new Date(firstDay);
-    const startWeekday = (start.getDay() + 6) % 7; // segunda-feira = 0
+    const startWeekday = (start.getDay() + 6) % 7;
     start.setDate(start.getDate() - startWeekday);
     const weeks = [];
     let cursor = new Date(start);
@@ -180,7 +175,6 @@ export default function ClientDashboard() {
       <Wrapper>
 
       <StatsGrid>
-        {/* Calendário de Vencimentos */}
         <StatCard color="#ef4444">
           <h4 style={{ marginBottom: "8px", color: "#ef4444", fontSize: "0.95rem" }}>
             Calendário de Vencimentos
@@ -390,6 +384,7 @@ export default function ClientDashboard() {
           </>
         )}
       </Wrapper>
+      {alertComponent}
     </>
   );
 }

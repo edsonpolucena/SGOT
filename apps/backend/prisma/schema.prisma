@@ -94,11 +94,7 @@ enum Regime {
 }
 
 enum ObligationStatus {
-  PENDING         // Criada, aguardando arquivo
-  SUBMITTED       // Enviada/Postada
-  LATE            // Atrasada
-  PAID            // Paga
-  CANCELED        // Cancelada
+  PENDING         // Criada, aguardando envio
   NOT_APPLICABLE  // Não se aplica neste período
 }
 
@@ -208,4 +204,18 @@ model PasswordResetToken {
   @@index([token])
   @@index([userId])
   @@index([expiresAt])
+}
+
+model TaxCalendar {
+  id          String   @id @default(cuid())
+  taxType     String   // DAS, ISS_RETIDO, FGTS, DCTFWeb (OUTRO não tem controle)
+  dueDay      Int      // Dia do vencimento (1-31)
+  description String?  // Descrição opcional (ex: "DAS - Todo dia 20")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([taxType])
+  @@index([taxType])
+  @@index([isActive])
 }

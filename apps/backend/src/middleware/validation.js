@@ -25,9 +25,13 @@ const obligationSchema = Joi.object({
   periodStart: Joi.date().iso().required(),
   periodEnd: Joi.date().iso().required(),
   dueDate: Joi.date().iso().required(),
-  amount: Joi.number().precision(2).min(0).optional(),
+  amount: Joi.number().precision(2).min(0).optional().allow(null),
   notes: Joi.string().max(1000).optional(),
-  companyId: Joi.number().integer().positive().required()
+  companyId: Joi.number().integer().positive().required(),
+  status: Joi.string().valid('PENDING', 'NOT_APPLICABLE').optional(),
+  taxType: Joi.string().max(50).optional(),
+  referenceMonth: Joi.string().pattern(/^\d{4}-\d{2}$/).optional(),
+  notApplicableReason: Joi.string().max(500).optional()
 });
 
 const companySchema = Joi.object({
@@ -159,9 +163,10 @@ const obligationIdParamSchema = Joi.object({
 });
 
 const obligationFiltersSchema = Joi.object({
-  status: Joi.string().valid('PENDING', 'SUBMITTED', 'LATE', 'PAID', 'CANCELED').optional(),
+  status: Joi.string().valid('PENDING', 'NOT_APPLICABLE').optional(),
   regime: Joi.string().valid('SIMPLES', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'MEI').optional(),
   companyId: Joi.number().integer().positive().optional(),
+  referenceMonth: Joi.string().pattern(/^\d{4}-\d{2}$/).optional(),
   from: Joi.date().iso().optional(),
   to: Joi.date().iso().optional()
 });

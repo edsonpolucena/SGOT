@@ -2,7 +2,8 @@ const { prisma } = require('../../prisma');
 const { computeStatus } = require('../../utils/obligation.utils');
 
 async function createObligation(userId, data) {
-  const status = computeStatus(data.dueDate);
+  // Se o status já foi definido (ex: NOT_APPLICABLE), respeita ele
+  const status = data.status ? computeStatus(data.dueDate, new Date(), data.status) : computeStatus(data.dueDate);
 
   return prisma.obligation.create({
     data: {
@@ -32,11 +33,19 @@ async function listObligations(userId, role, filters = {}, companyIdFromToken = 
 
   if (filters.status) where.status = filters.status;
   if (filters.regime) where.regime = filters.regime;
+  if (filters.referenceMonth) where.referenceMonth = filters.referenceMonth;
   if (filters.from || filters.to) {
     where.dueDate = {
       gte: filters.from || undefined,
       lte: filters.to || undefined
     };
+  }
+
+  // 👈 IMPORTANTE: Excluir obrigações NOT_APPLICABLE das listagens normais
+  // Elas são apenas para controle interno e não devem aparecer nas listas
+  // EXCETO se estiver filtrando especificamente por referenceMonth (para a matriz)
+  if (!filters.referenceMonth) {
+    where.status = { not: 'NOT_APPLICABLE' };
   }
 
   return prisma.obligation.findMany({

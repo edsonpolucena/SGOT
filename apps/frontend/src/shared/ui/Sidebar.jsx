@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { FaHome, FaBuilding, FaUsers, FaFileInvoice, FaChartBar, FaCog, FaSignOutAlt, FaClipboardList, FaBell, FaClipboardCheck, FaTable } from "react-icons/fa";
+import { FaHome, FaBuilding, FaUsers, FaFileInvoice, FaChartBar, FaCog, FaSignOutAlt, FaClipboardList, FaBell, FaTable, FaChartLine, FaCalendarAlt } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 
 const SidebarContainer = styled.div`
@@ -78,10 +78,9 @@ export default function Sidebar() {
         { to: "/companies", label: "Empresas", icon: <FaBuilding /> },
         { to: "/users", label: "Usuários", icon: <FaUsers /> },
         { to: "/obligations/new", label: "Obrigações", icon: <FaFileInvoice /> },
-        { to: "/document-control/dashboard", label: "Controle Mensal", icon: <FaClipboardCheck /> },
-        { to: "/document-control/matrix", label: "Matriz Impostos", icon: <FaTable /> },
+        { to: "/tax-matrix", label: "Impostos Postados", icon: <FaTable /> },
+        { to: "/tax-calendar", label: "Vencimentos Fiscais", icon: <FaCalendarAlt /> },
         { to: "/notifications/unviewed", label: "Não Visualizados", icon: <FaBell /> },
-        // { to: "/settings", label: "Configurações", icon: <FaCog /> },
       ];
       
       // Adiciona "Logs de Auditoria" apenas para ACCOUNTING_SUPER
@@ -95,6 +94,7 @@ export default function Sidebar() {
       const menu = [
         { to: "/dashboard", label: "Dashboard", icon: <FaHome /> },
         { to: "/company/profile", label: "Perfil da Empresa", icon: <FaBuilding /> },
+        { to: "/client/tax-report", label: "Relatório de Impostos", icon: <FaChartLine /> },
       ];
       
       // Adiciona "Usuários" se for CLIENT_ADMIN

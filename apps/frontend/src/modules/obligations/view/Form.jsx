@@ -8,6 +8,7 @@ import {
 import http from '../../../shared/services/http';
 import { useAuth } from "../../../shared/context/AuthContext";
 import WelcomeCard from "../../../shared/ui/WelcomeCard";
+import { FaClipboardList } from "react-icons/fa";
 
 export default function Form() {
   const {user} = useAuth();
@@ -138,6 +139,14 @@ export default function Form() {
       return;
     }
 
+    // 👈 Validar se tem arquivo OU valor
+    // COMENTADO para permitir criar obrigações vazias (para testar alertas)
+    // if (!file && !amount) {
+    //   setErrorMessage('❌ Por favor, anexe um arquivo OU informe o valor da obrigação.');
+    //   setSuccessMessage('');
+    //   return;
+    // }
+
     try {
       const companyInfo = {
         companyCode,
@@ -147,15 +156,22 @@ export default function Form() {
         competence
       };
 
+      // Calcular referenceMonth baseado no VENCIMENTO (não na competência digitada)
+      // Isso garante que o dashboard use o mês correto automaticamente
+      const dueDateObj = new Date(dueDate);
+      const referenceMonth = `${dueDateObj.getFullYear()}-${String(dueDateObj.getMonth() + 1).padStart(2, '0')}`;
+
       const obligationData = {
         title: `${docType} - ${competence}`,
         regime: 'SIMPLES',
         periodStart: new Date(),
         periodEnd: new Date(),
-        dueDate: new Date(dueDate),
+        dueDate: dueDateObj,
         amount: amount ? parseFloat(amount.replace(/[^\d,]/g, '').replace(',', '.')) : null,
         notes: JSON.stringify(companyInfo),
-        companyId: companyId // 👈 Usar o ID da empresa selecionada
+        companyId: companyId,
+        taxType: docType, // 👈 Tipo de imposto para o dashboard
+        referenceMonth: referenceMonth // 👈 Calculado automaticamente do vencimento
       };
 
       const response = await api.create(obligationData);
@@ -219,17 +235,21 @@ export default function Form() {
         competence
       };
 
+      // Calcular referenceMonth baseado no vencimento
+      const dueDateObj = new Date(dueDate || new Date());
+      const referenceMonth = `${dueDateObj.getFullYear()}-${String(dueDateObj.getMonth() + 1).padStart(2, '0')}`;
+
       const obligationData = {
         title: `${docType} - ${competence}`,
         regime: 'SIMPLES',
         periodStart: new Date(),
         periodEnd: new Date(),
-        dueDate: new Date(dueDate || new Date()),
+        dueDate: dueDateObj,
         amount: null,
         notes: JSON.stringify(companyInfo),
         companyId: companyId,
         taxType: docType,
-        referenceMonth: competence ? `${competence.substring(3,7)}-${competence.substring(0,2)}` : null,
+        referenceMonth: referenceMonth, // 👈 Calculado do vencimento
         status: 'NOT_APPLICABLE',
         notApplicableReason: notApplicableReason
       };
@@ -264,7 +284,7 @@ export default function Form() {
        <>
         <WelcomeCard
           title={`Bem-vindo(a), ${user?.name}`}
-          subtitle="Gerencie as empresas cadastradas no sistema"
+          subtitle="Cadastre as obrigações fiscais no sistema"
         />
     <Page>
       <Card>
@@ -297,7 +317,7 @@ export default function Form() {
         )}
 
         <FormStyled onSubmit={onSubmit}>
-          <Title>{isEdit ? 'Editar obrigação' : 'Nova obrigação'}</Title>
+          <Title> <FaClipboardList/> {isEdit ? 'Editar obrigação' : 'Nova obrigação'}</Title>
 
           {/* Empresa */}
           <FieldRow>
@@ -388,7 +408,7 @@ export default function Form() {
                 <option value="DAS">DAS</option>
                 <option value="ISS_RETIDO">ISS Retido</option>
                 <option value="FGTS">FGTS</option>
-                <option value="DCTFWeb">DCTFWeb	</option>
+                <option value="DCTFWeb">DCTFWeb</option>
                 <option value="OUTRO">Outro</option>
               </Select>
             </Field>

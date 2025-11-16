@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useUserController } from '../controller/useUserController';
+import WelcomeCard from '../../../shared/ui/WelcomeCard';
 import http from '../../../shared/services/http';
 import {
   Container,
@@ -231,9 +232,14 @@ export default function UserForm() {
   const selectedCompany = companies.find(c => c.id === parseInt(formData.companyId));
 
   return (
-    <Container>
-      <Card>
-        <Title>{isEditMode ? 'Editar Usuário' : 'Novo Usuário'}</Title>
+    <>
+      <WelcomeCard
+        title={`Bem-vindo(a), ${user?.name}`}
+        subtitle={isEditMode ? 'Editar informações do usuário' : 'Cadastrar novo usuário no sistema'}
+      />
+      <Container>
+        <Card>
+          <Title>{isEditMode ? 'Editar Usuário' : 'Novo Usuário'}</Title>
 
         {error && <ErrorMessage>{error}</ErrorMessage>}
 
@@ -360,6 +366,7 @@ export default function UserForm() {
         </Form>
       </Card>
     </Container>
+    </>
   );
 }
 

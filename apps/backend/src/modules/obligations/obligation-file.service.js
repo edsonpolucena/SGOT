@@ -25,22 +25,43 @@ async function createObligationFile(obligationId, fileInfo, uploadedBy) {
 
 async function getObligationFiles(obligationId, userId) {
   try {
-    const obligation = await prisma.obligation.findFirst({
-      where: {
-        id: obligationId,
-        OR: [
-          { userId: userId },
-          { 
-            user: { 
-              role: 'ACCOUNTING_SUPER'
-            }
-          }
-        ]
+    // Buscar informações do usuário atual
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, companyId: true }
+    });
+
+    if (!currentUser) {
+      throw new Error('Usuário não encontrado');
+    }
+
+    // Buscar obrigação
+    const obligation = await prisma.obligation.findUnique({
+      where: { id: obligationId },
+      include: {
+        company: true,
+        user: true
       }
     });
 
     if (!obligation) {
-      throw new Error('Obrigação não encontrada ou acesso negado');
+      throw new Error('Obrigação não encontrada');
+    }
+
+    // Verificar acesso:
+    // 1. Se é o criador da obrigação
+    // 2. Se é ACCOUNTING (contabilidade tem acesso a tudo)
+    // 3. Se é CLIENT e pertence à mesma empresa da obrigação
+    const isAccounting = currentUser.role?.startsWith('ACCOUNTING');
+    const isCreator = obligation.userId === userId;
+    const isSameCompany = currentUser.companyId && 
+                          obligation.companyId && 
+                          currentUser.companyId === obligation.companyId;
+
+    const hasAccess = isCreator || isAccounting || isSameCompany;
+
+    if (!hasAccess) {
+      throw new Error('Acesso negado à obrigação');
     }
 
     const files = await prisma.obligationFile.findMany({
@@ -68,7 +89,8 @@ async function getFileViewUrl(fileId, userId) {
       include: {
         obligation: {
           include: {
-            user: true
+            user: true,
+            company: true
           }
         }
       }
@@ -78,8 +100,27 @@ async function getFileViewUrl(fileId, userId) {
       throw new Error('Arquivo não encontrado');
     }
 
-    const hasAccess = file.obligation.userId === userId || 
-                     file.obligation.user.role === 'ACCOUNTING_SUPER';
+    // Buscar informações do usuário atual
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, companyId: true }
+    });
+
+    if (!currentUser) {
+      throw new Error('Usuário não encontrado');
+    }
+
+    // Verificar acesso:
+    // 1. Se é o criador da obrigação
+    // 2. Se é ACCOUNTING (contabilidade tem acesso a tudo)
+    // 3. Se é CLIENT e pertence à mesma empresa da obrigação
+    const isAccounting = currentUser.role?.startsWith('ACCOUNTING');
+    const isCreator = file.obligation.userId === userId;
+    const isSameCompany = currentUser.companyId && 
+                          file.obligation.companyId && 
+                          currentUser.companyId === file.obligation.companyId;
+
+    const hasAccess = isCreator || isAccounting || isSameCompany;
 
     if (!hasAccess) {
       throw new Error('Acesso negado ao arquivo');
@@ -107,7 +148,8 @@ async function getFileDownloadUrl(fileId, userId) {
       include: {
         obligation: {
           include: {
-            user: true
+            user: true,
+            company: true
           }
         }
       }
@@ -117,8 +159,27 @@ async function getFileDownloadUrl(fileId, userId) {
       throw new Error('Arquivo não encontrado');
     }
 
-    const hasAccess = file.obligation.userId === userId || 
-                     file.obligation.user.role === 'ACCOUNTING_SUPER';
+    // Buscar informações do usuário atual
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, companyId: true }
+    });
+
+    if (!currentUser) {
+      throw new Error('Usuário não encontrado');
+    }
+
+    // Verificar acesso:
+    // 1. Se é o criador da obrigação
+    // 2. Se é ACCOUNTING (contabilidade tem acesso a tudo)
+    // 3. Se é CLIENT e pertence à mesma empresa da obrigação
+    const isAccounting = currentUser.role?.startsWith('ACCOUNTING');
+    const isCreator = file.obligation.userId === userId;
+    const isSameCompany = currentUser.companyId && 
+                          file.obligation.companyId && 
+                          currentUser.companyId === file.obligation.companyId;
+
+    const hasAccess = isCreator || isAccounting || isSameCompany;
 
     if (!hasAccess) {
       throw new Error('Acesso negado ao arquivo');

@@ -3,6 +3,8 @@ import http from '../../../shared/services/http';
 import { arrayToCsv, downloadBlob, openPrintWindowWithTable } from '../../../shared/utils/exportUtils';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useAuditController } from '../controller/useAuditController';
+import WelcomeCard from '../../../shared/ui/WelcomeCard';
+import { FaUserShield } from "react-icons/fa";
 import {
   Container,
   Header,
@@ -204,10 +206,15 @@ export default function AuditLog() {
   }
 
   return (
-    <Container>
-      <Header>
-        <Title>Logs de Auditoria</Title>
-      </Header>
+    <>
+      <WelcomeCard
+        title={`Bem-vindo(a), ${user?.name}`}
+        subtitle="Rastreie todas as ações realizadas no sistema"
+      />
+      <Container>
+        <Header>
+          <Title> <FaUserShield/> Logs de Auditoria</Title>
+        </Header>
 
       {error && <ErrorMessage>{error}</ErrorMessage>}
 
@@ -359,6 +366,7 @@ export default function AuditLog() {
         </MetadataModal>
       )}
     </Container>
+    </>
   );
 }
 

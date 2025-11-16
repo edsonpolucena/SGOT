@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useUserController } from '../controller/useUserController';
+import WelcomeCard from '../../../shared/ui/WelcomeCard';
+import { FaUsersCog } from "react-icons/fa";
 import {
   Container,
   Header,
@@ -107,10 +109,15 @@ export default function UserList() {
   }
 
   return (
-    <Container>
-      <Header>
-        <div>
-          <Title>Gerenciamento de Usuários</Title>
+    <>
+      <WelcomeCard
+        title={`Bem-vindo(a), ${user?.name}`}
+        subtitle="Gerencie os usuários do sistema"
+      />
+      <Container>
+        <Header>
+          <div>
+          <Title> <FaUsersCog /> Gerenciamento de Usuários</Title>
         </div>
         {canCreateUsers() && (
           <NewButton onClick={() => nav('/users/new')}>
@@ -202,6 +209,7 @@ export default function UserList() {
         </Table>
       )}
     </Container>
+    </>
   );
 }
 

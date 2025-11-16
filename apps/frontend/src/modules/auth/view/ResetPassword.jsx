@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthController } from '../controller/useAuthController';
 import AuthLayout from './AuthLayout';
-import { FaLock, FaCheckCircle } from "../../../shared/icons";
+import { FaLock } from "../../../shared/icons";
+import { FaCheckCircle } from "react-icons/fa";
 import { Title, Subtitle, Form, Field, Label, Box, Input, Submit, Error, Footer, TextLink } from './AuthStyles';
 
 export default function ResetPassword() {

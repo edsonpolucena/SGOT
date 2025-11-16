@@ -1,3 +1,9 @@
+// New Relic APM - DEVE ser a primeira linha antes de qualquer outro require
+if (process.env.NEW_RELIC_ENABLED === 'true' && process.env.NODE_ENV !== 'test') {
+  require('newrelic');
+  console.log('🔍 New Relic APM ativado');
+}
+
 const { app } = require("./app");
 const { env } = require("./config/env");
 

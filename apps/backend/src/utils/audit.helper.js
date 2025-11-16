@@ -12,15 +12,15 @@ const { createAuditLog } = require('../modules/audit/audit.service');
  */
 async function logAudit(req, action, entity, entityId, metadata = null) {
   try {
-    // Obter IP do cliente
-    const ipAddress = req.ip || 
-                     req.headers['x-forwarded-for']?.split(',')[0] || 
-                     req.connection?.remoteAddress || 
-                     req.socket?.remoteAddress ||
+    // Obter IP do cliente (com verificações seguras)
+    const ipAddress = req?.ip || 
+                     req?.headers?.['x-forwarded-for']?.split(',')[0] || 
+                     req?.connection?.remoteAddress || 
+                     req?.socket?.remoteAddress ||
                      'unknown';
 
-    // Obter User Agent
-    const userAgent = req.headers['user-agent'] || 'unknown';
+    // Obter User Agent (com verificação segura)
+    const userAgent = req?.headers?.['user-agent'] || 'unknown';
 
     // Obter userId (pode vir de req.userId ou req.user.id)
     const userId = req.userId || req.user?.id;

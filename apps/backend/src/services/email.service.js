@@ -41,6 +41,12 @@ async function getDefaultFromEmail() {
 function getTransporter() {
   if (transporter) return transporter;
 
+  // Se EMAIL_ENABLED=false no .env, não envia emails (útil em desenvolvimento)
+  if (process.env.EMAIL_ENABLED === 'false') {
+    console.warn('⚠️  Envio de emails DESABILITADO (EMAIL_ENABLED=false)');
+    return null;
+  }
+
   const smtpUser = process.env.SES_SMTP_USER;
   const smtpPass = process.env.SES_SMTP_PASS;
 
@@ -83,11 +89,15 @@ function getTransporter() {
  */
 async function sendEmail({ from, to, subject, html, text, replyTo }) {
   const emailTransporter = getTransporter();
-  if (!emailTransporter) return { success: false, error: 'SES SMTP não configurado' };
+  if (!emailTransporter) {
+    console.log('⚠️  Email não enviado: transporter não configurado');
+    return { success: false, error: 'SES SMTP não configurado' };
+  }
 
   // prioridade: parâmetro > banco (empresa padrão) > .env
   const dbFrom = await getDefaultFromEmail();
   const finalFrom = (from && from.trim()) || dbFrom || process.env.EMAIL_FROM;
+
 
   // Remove HTML tags de forma segura (sem ReDoS)
   // Implementação O(n) sem regex complexas para evitar backtracking
@@ -307,7 +317,7 @@ async function sendPasswordChangedConfirmation({ to, userName }) {
 /**
  * Envia lembrete de documento não visualizado (3 dias antes do vencimento)
  */
-async function sendDocumentReminderEmail({ to, userName, obligations }) {
+async function sendDocumentReminderEmail({ to, companyName, obligations }) {
   const from = getDefaultFromEmail();
   const subject = `⏰ Lembrete: ${obligations.length} documento(s) próximos do vencimento`;
   
@@ -330,11 +340,11 @@ async function sendDocumentReminderEmail({ to, userName, obligations }) {
     <body>
       <div class="container">
         <div class="header">
-          <h1>⏰ Documentos Pendentes</h1>
+          <h1>⏰ Documentos Pendentes de Visualização</h1>
         </div>
         <div class="content">
-          <p>Olá <strong>${userName}</strong>,</p>
-          <p>Os seguintes documentos foram postados e ainda não foram visualizados. Alguns estão próximos do vencimento:</p>
+          <p>Olá, <strong>${companyName}</strong>!</p>
+          <p>Os seguintes documentos foram postados pela contabilidade e ainda não foram visualizados. <strong>Alguns vencem em até 3 dias:</strong></p>
           
           ${obligations.map(obl => {
             const daysRemaining = Math.ceil((new Date(obl.dueDate) - new Date()) / (1000 * 60 * 60 * 24));
@@ -342,9 +352,8 @@ async function sendDocumentReminderEmail({ to, userName, obligations }) {
             
             return `
               <div class="card ${isUrgent ? 'urgent' : ''}">
-                <div class="doc-title">${isUrgent ? '🚨 ' : ''}${obl.taxType || obl.title}</div>
-                <div class="doc-info">📅 Vencimento: ${new Date(obl.dueDate).toLocaleDateString('pt-BR')} (${daysRemaining} dia${daysRemaining !== 1 ? 's' : ''})</div>
-                <div class="doc-info">🏢 Empresa: ${obl.companyName}</div>
+                <div class="doc-title">${isUrgent ? '🚨 ' : '📄 '}${obl.taxType || obl.title}</div>
+                <div class="doc-info">📅 Vencimento: ${new Date(obl.dueDate).toLocaleDateString('pt-BR')} (em ${daysRemaining} dia${daysRemaining !== 1 ? 's' : ''})</div>
                 <div class="doc-info">📤 Postado há: ${Math.ceil((new Date() - new Date(obl.createdAt)) / (1000 * 60 * 60 * 24))} dia(s)</div>
               </div>
             `;

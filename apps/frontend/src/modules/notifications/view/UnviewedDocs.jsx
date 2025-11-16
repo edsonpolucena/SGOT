@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { arrayToCsv, downloadBlob, openPrintWindowWithTable } from '../../../shared/utils/exportUtils';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useNotificationController } from '../controller/useNotificationController';
+import WelcomeCard from '../../../shared/ui/WelcomeCard';
+import { FaFile } from "react-icons/fa";
 import { FaPaperPlane, FaCheckCircle, FaClock, FaExclamationTriangle } from 'react-icons/fa';
 import {
   Container,
@@ -168,11 +170,16 @@ export default function UnviewedDocs() {
   }
 
   return (
-    <Container>
-      <Header>
-        <div>
-          <Title>📄 Documentos Não Visualizados</Title>
-          <SubTitle>Documentos postados que ainda não foram visualizados pelos clientes</SubTitle>
+    <>
+      <WelcomeCard
+        title={`Bem-vindo(a), ${user?.name}`}
+        subtitle="Documentos postados aguardando visualização dos clientes"
+      />
+      <Container>
+        <Header>
+          <div>
+            <Title> <FaFile/> Documentos Não Visualizados</Title>
+            <SubTitle>Documentos postados que ainda não foram visualizados pelos clientes</SubTitle>
         </div>
       </Header>
 
@@ -287,6 +294,7 @@ export default function UnviewedDocs() {
         </Table>
       )}
     </Container>
+    </>
   );
 }
 

@@ -3,6 +3,7 @@ const {
   sendObligationNotification,
   getObligationNotifications,
   getObligationViews,
+  getClientViewsHistory,
   getNotificationStats
 } = require('./notification.service');
 
@@ -81,6 +82,21 @@ async function getViewHistory(req, res) {
 }
 
 /**
+ * GET /api/obligations/:obligationId/client-views
+ * Busca histórico de visualizações/downloads APENAS de usuários CLIENT (não contabilidade)
+ */
+async function getClientViewsHistoryController(req, res) {
+  try {
+    const { obligationId } = req.params;
+    const history = await getClientViewsHistory(obligationId);
+    return res.json(history);
+  } catch (err) {
+    console.error('Erro ao buscar histórico de clientes:', err);
+    return res.status(500).json({ message: 'Erro ao buscar histórico' });
+  }
+}
+
+/**
  * GET /api/notifications/stats
  * Retorna estatísticas de notificações e visualizações
  */
@@ -110,6 +126,7 @@ module.exports = {
   getNotificationHistory,
   getViewHistory,
   getNotificationViews, // Alias
+  getClientViewsHistory: getClientViewsHistoryController,
   getStats
 };
 
