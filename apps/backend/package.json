@@ -7,10 +7,10 @@
     "start:prod": "cross-env NEW_RELIC_ENABLED=true node src/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "test": "cross-env NODE_ENV=test DATABASE_URL=postgresql://sgot_test:sgot_test_password@localhost:5434/sgot_test jest --runInBand --detectOpenHandles",
-    "test:watch": "cross-env NODE_ENV=test DATABASE_URL=postgresql://sgot_test:sgot_test_password@localhost:5434/sgot_test jest --watch",
-    "test:coverage": "cross-env NODE_ENV=test DATABASE_URL=postgresql://sgot_test:sgot_test_password@localhost:5434/sgot_test jest --coverage",
-    "test:ci": "jest --ci --coverage --runInBand",
+    "test": "cross-env NODE_ENV=test DATABASE_URL=postgresql://sgot_test:sgot_test_password@localhost:5434/sgot_test jest --runInBand --detectOpenHandles --config jest.config.js",
+    "test:watch": "cross-env NODE_ENV=test DATABASE_URL=postgresql://sgot_test:sgot_test_password@localhost:5434/sgot_test jest --watch --config jest.config.js",
+    "test:coverage": "cross-env NODE_ENV=test DATABASE_URL=postgresql://sgot_test:sgot_test_password@localhost:5434/sgot_test jest --coverage --config jest.config.js",
+    "test:ci": "cross-env NODE_ENV=test DATABASE_URL=postgresql://sgot_test:sgot_test_password@localhost:5434/sgot_test jest --ci --coverage --runInBand --config jest.config.js",
     "test:db:start": "docker-compose -f docker-compose.test.yml up -d",
     "test:db:stop": "docker-compose -f docker-compose.test.yml down",
     "test:db:reset": "docker-compose -f docker-compose.test.yml down -v && docker-compose -f docker-compose.test.yml up -d && timeout /t 5 /nobreak >nul && cross-env DATABASE_URL=postgresql://sgot_test:sgot_test_password@localhost:5434/sgot_test npx prisma db push",
@@ -39,29 +39,6 @@
     "nodemon": "^3.1.4",
     "prisma": "^5.16.1",
     "supertest": "^6.3.4"
-  },
-  "jest": {
-    "testEnvironment": "node",
-    "collectCoverage": true,
-    "passWithNoTests": true,
-    "collectCoverageFrom": [
-      "src/**/*.js",
-      "!src/**/__tests__/**"
-    ],
-    "coverageDirectory": "coverage",
-    "coverageReporters": [
-      "text",
-      "html",
-      "lcov"
-    ],
-    "coverageThreshold": {
-      "global": {
-        "branches": 75,
-        "functions": 75,
-        "lines": 75,
-        "statements": 75
-      }
-    }
   },
   "prisma": {
     "seed": "node prisma/seed.js"

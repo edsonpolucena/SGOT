@@ -18,7 +18,11 @@ jest.mock('../prisma', () => ({
       delete: jest.fn()
     },
     obligation: {
+      findUnique: jest.fn(),
       findFirst: jest.fn()
+    },
+    user: {
+      findUnique: jest.fn()
     }
   }
 }));
@@ -94,7 +98,8 @@ describe('Obligation File Service', () => {
     it('deve retornar arquivos de obrigação com sucesso', async () => {
       const mockObligation = {
         id: 'obl-123',
-        userId: 'user-123'
+        userId: 'user-123',
+        companyId: 10
       };
 
       const mockFiles = [
@@ -102,13 +107,18 @@ describe('Obligation File Service', () => {
         { id: 'file-2', fileName: 'doc2.pdf' }
       ];
 
-      prisma.obligation.findFirst.mockResolvedValue(mockObligation);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-123',
+        role: 'CLIENT_NORMAL',
+        companyId: 10
+      });
+      prisma.obligation.findUnique.mockResolvedValue(mockObligation);
       prisma.obligationFile.findMany.mockResolvedValue(mockFiles);
 
       const result = await getObligationFiles('obl-123', 'user-123');
 
       expect(result).toEqual(mockFiles);
-      expect(prisma.obligation.findFirst).toHaveBeenCalled();
+      expect(prisma.obligation.findUnique).toHaveBeenCalled();
       expect(prisma.obligationFile.findMany).toHaveBeenCalledWith({
         where: { obligationId: 'obl-123' },
         orderBy: { createdAt: 'desc' }
@@ -116,10 +126,15 @@ describe('Obligation File Service', () => {
     });
 
     it('deve lançar erro se obrigação não for encontrada', async () => {
-      prisma.obligation.findFirst.mockResolvedValue(null);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-123',
+        role: 'CLIENT_NORMAL',
+        companyId: 10
+      });
+      prisma.obligation.findUnique.mockResolvedValue(null);
 
       await expect(getObligationFiles('obl-123', 'user-123'))
-        .rejects.toThrow('Obrigação não encontrada ou acesso negado');
+        .rejects.toThrow('Obrigação não encontrada');
     });
   });
 
@@ -137,6 +152,11 @@ describe('Obligation File Service', () => {
       const mockSignedUrl = 'https://s3.signed-url.com/view';
 
       prisma.obligationFile.findUnique.mockResolvedValue(mockFile);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-123',
+        role: 'CLIENT_NORMAL',
+        companyId: 1
+      });
       s3Service.getSignedUrl.mockReturnValue(mockSignedUrl);
 
       const result = await getFileViewUrl('file-123', 'user-123');
@@ -158,6 +178,11 @@ describe('Obligation File Service', () => {
       const mockSignedUrl = 'https://s3.signed-url.com/view';
 
       prisma.obligationFile.findUnique.mockResolvedValue(mockFile);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'admin-user',
+        role: 'ACCOUNTING_SUPER',
+        companyId: 1
+      });
       s3Service.getSignedUrl.mockReturnValue(mockSignedUrl);
 
       const result = await getFileViewUrl('file-123', 'admin-user');
@@ -167,6 +192,11 @@ describe('Obligation File Service', () => {
 
     it('deve lançar erro se arquivo não for encontrado', async () => {
       prisma.obligationFile.findUnique.mockResolvedValue(null);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-123',
+        role: 'CLIENT_NORMAL',
+        companyId: 1
+      });
 
       await expect(getFileViewUrl('file-123', 'user-123'))
         .rejects.toThrow('Arquivo não encontrado');
@@ -183,6 +213,11 @@ describe('Obligation File Service', () => {
       };
 
       prisma.obligationFile.findUnique.mockResolvedValue(mockFile);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-123',
+        role: 'CLIENT_NORMAL',
+        companyId: 1
+      });
 
       await expect(getFileViewUrl('file-123', 'user-123'))
         .rejects.toThrow('Acesso negado ao arquivo');
@@ -203,6 +238,11 @@ describe('Obligation File Service', () => {
       const mockSignedUrl = 'https://s3.signed-url.com/download';
 
       prisma.obligationFile.findUnique.mockResolvedValue(mockFile);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-123',
+        role: 'CLIENT_NORMAL',
+        companyId: 1
+      });
       s3Service.getSignedUrl.mockReturnValue(mockSignedUrl);
 
       const result = await getFileDownloadUrl('file-123', 'user-123');
@@ -213,6 +253,11 @@ describe('Obligation File Service', () => {
 
     it('deve lançar erro se arquivo não for encontrado', async () => {
       prisma.obligationFile.findUnique.mockResolvedValue(null);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-123',
+        role: 'CLIENT_NORMAL',
+        companyId: 1
+      });
 
       await expect(getFileDownloadUrl('file-123', 'user-123'))
         .rejects.toThrow('Arquivo não encontrado');

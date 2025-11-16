@@ -73,7 +73,7 @@ describe("AnalyticsController", () => {
 
   test("deve retornar erro 400 para variação sem empresaId", async () => {
     const res = await request(app)
-      .get("/api/analytics/monthly-variation-by-tax?mes=2025-01")
+      .get("/api/analytics/variation-by-tax?mes=2025-01")
       .set('Authorization', `Bearer ${adminToken}`);
 
     expect(res.status).toBe(400);
@@ -82,7 +82,7 @@ describe("AnalyticsController", () => {
 
   test("deve retornar erro 400 para variação sem mes", async () => {
     const res = await request(app)
-      .get(`/api/analytics/monthly-variation-by-tax?empresaId=${company.id}`)
+      .get(`/api/analytics/variation-by-tax?empresaId=${company.id}`)
       .set('Authorization', `Bearer ${adminToken}`);
 
     expect(res.status).toBe(400);
@@ -91,7 +91,7 @@ describe("AnalyticsController", () => {
 
   test("deve calcular variação por imposto com sucesso", async () => {
     const res = await request(app)
-      .get(`/api/analytics/monthly-variation-by-tax?empresaId=${company.id}&mes=2025-01`)
+      .get(`/api/analytics/variation-by-tax?empresaId=${company.id}&mes=2025-01`)
       .set('Authorization', `Bearer ${adminToken}`);
 
     expect(res.status).toBe(200);

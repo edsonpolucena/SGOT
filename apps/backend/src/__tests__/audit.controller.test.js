@@ -1,9 +1,10 @@
 const request = require("supertest");
-const {app} = require("../app");
+const { app } = require("../app");
 const { prisma } = require("../prisma");
 const jwt = require("jsonwebtoken");
 const { env } = require("../config/env");
 const bcrypt = require("bcryptjs");
+const { EntityType } = require("@prisma/client");
 
 describe("AuditController", () => {
   let adminToken;
@@ -54,18 +55,18 @@ describe("AuditController", () => {
   });
 
   test("deve buscar log por ID", async () => {
-  // Criar um log primeiro (sem campo 'changes' - usar 'metadata')
-  const log = await prisma.auditLog.create({
-    data: {
-      userId: user.id,
-      action: 'CREATE',
-      entity: 'USER',
-      entityId: user.id,
-      metadata: JSON.stringify({}),
-      ipAddress: '127.0.0.1',
-      userAgent: 'Test'
-    }
-  });
+    // Criar um log primeiro (usando enum EntityType)
+    const log = await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'CREATE',
+        entity: EntityType.USER,
+        entityId: user.id,
+        metadata: JSON.stringify({}),
+        ipAddress: '127.0.0.1',
+        userAgent: 'Test'
+      }
+    });
 
     const res = await request(app)
       .get(`/api/audit/logs/${log.id}`)
