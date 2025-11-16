@@ -43,6 +43,11 @@
   "jest": {
     "testEnvironment": "node",
     "collectCoverage": true,
+    "passWithNoTests": true,
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/**/__tests__/**"
+    ],
     "coverageDirectory": "coverage",
     "coverageReporters": [
       "text",
