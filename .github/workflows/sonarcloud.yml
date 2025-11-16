@@ -77,15 +77,36 @@ jobs:
           test -f apps/frontend/coverage/lcov.info || (echo "❌ frontend sem coverage" && exit 1)
           echo "✅ coverage dos dois apps ok"
 
+      - name: Debug LCOV paths (backend)
+        run: |
+          echo "📋 Primeiras 20 linhas do LCOV backend:"
+          head -20 apps/backend/coverage/lcov.info || echo "Arquivo não encontrado"
+          echo ""
+          echo "🔍 Procurando por analytics.controller.js no LCOV:"
+          grep -i "analytics.controller" apps/backend/coverage/lcov.info | head -5 || echo "Não encontrado"
+
       - name: Fix LCOV paths (backend & frontend)
         run: |
           # Backend: caminhos gerados como "SF:src\..." ou "SF:src/..."
+          # IMPORTANTE: SonarCloud precisa de caminhos relativos à raiz do projeto
+          # Primeiro corrige barras invertidas para barras normais
+          sed -i 's#\\#/#g' apps/backend/coverage/lcov.info
+          # Depois adiciona o prefixo apps/backend/
           sed -i 's#SF:src/#SF:apps/backend/src/#g' apps/backend/coverage/lcov.info
-          sed -i 's#SF:src\\#SF:apps/backend/src/#g' apps/backend/coverage/lcov.info
+          sed -i 's#SF:apps/backend/src/../#SF:apps/backend/src/#g' apps/backend/coverage/lcov.info
 
           # Frontend: caminhos gerados como "SF:src\..." ou "SF:src/..."
+          sed -i 's#\\#/#g' apps/frontend/coverage/lcov.info
           sed -i 's#SF:src/#SF:apps/frontend/src/#g' apps/frontend/coverage/lcov.info
-          sed -i 's#SF:src\\#SF:apps/frontend/src/#g' apps/frontend/coverage/lcov.info
+          sed -i 's#SF:apps/frontend/src/../#SF:apps/frontend/src/#g' apps/frontend/coverage/lcov.info
+
+      - name: Verify fixed LCOV paths
+        run: |
+          echo "📋 Verificando caminhos corrigidos (backend):"
+          grep "SF:apps/backend/src/modules/analytics" apps/backend/coverage/lcov.info | head -3 || echo "Não encontrado"
+          echo ""
+          echo "📋 Verificando caminhos corrigidos (frontend):"
+          grep "SF:apps/frontend/src/modules/analytics" apps/frontend/coverage/lcov.info | head -3 || echo "Não encontrado"
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2

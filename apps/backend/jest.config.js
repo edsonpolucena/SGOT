@@ -44,7 +44,7 @@ module.exports = {
     'src/modules/tax-calendar/**/*.js',
     'src/modules/users/**/*.js'
   ],
-  coverageReporters: ['text', 'lcov', 'html'],
+  coverageReporters: ['text', 'lcov', 'html', 'json'],
   coverageThreshold: {
     global: {
       branches: 75,
