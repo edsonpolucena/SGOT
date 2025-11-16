@@ -12,6 +12,8 @@ export default defineConfig({
         'src/shared/lib/**/*.js',
         'src/shared/utils/exportUtils.js',
         'src/shared/hooks/useApiRequest.js',
+        // Módulos de analytics
+        'src/modules/analytics/**/*.js',
         // incluir algumas áreas sem testes para reduzir % de cobertura
         'src/app/**/*.jsx',
         'src/routes/**/*.jsx',
