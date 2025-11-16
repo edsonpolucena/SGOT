@@ -121,6 +121,71 @@ describe("UsersController", () => {
 
     expect(Array.isArray(res.body)).toBe(true);
   });
+
+  test("deve filtrar usuários por status", async () => {
+    const res = await request(app)
+      .get("/api/users?status=ACTIVE")
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.every(u => u.status === 'ACTIVE')).toBe(true);
+  });
+
+  test("deve filtrar usuários por companyId", async () => {
+    const res = await request(app)
+      .get(`/api/users?companyId=${testCompany.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  test("deve retornar 404 se usuário não existir", async () => {
+    const res = await request(app)
+      .get("/api/users/99999")
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(404);
+  });
+
+  test("deve retornar 404 ao atualizar usuário inexistente", async () => {
+    const res = await request(app)
+      .put("/api/users/99999")
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: "Test" })
+      .expect(404);
+  });
+
+  test("deve deletar usuário (soft delete)", async () => {
+    const testUser = await prisma.user.create({
+      data: {
+        email: `delete${Date.now()}@test.com`,
+        name: 'Delete User',
+        passwordHash: await bcrypt.hash('password', 10),
+        role: 'CLIENT_NORMAL',
+        status: 'ACTIVE',
+        companyId: testCompany.id
+      }
+    });
+
+    const res = await request(app)
+      .delete(`/api/users/${testUser.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    const deleted = await prisma.user.findUnique({ where: { id: testUser.id } });
+    expect(deleted.status).toBe('INACTIVE');
+  });
+
+  test("não deve permitir que usuário delete a si mesmo", async () => {
+    const admin = await prisma.user.findUnique({ where: { email: 'admin@userstest.com' } });
+    const res = await request(app)
+      .delete(`/api/users/${admin.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(400);
+
+    expect(res.body.message).toContain('não pode');
+  });
 });
 
 

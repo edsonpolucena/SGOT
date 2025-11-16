@@ -83,6 +83,54 @@ describe('Notification Service', () => {
       const result = await recordView(obligation.id, clientUser.id, 'VIEW');
       expect(result).toBeDefined();
     });
+
+    test('deve registrar download', async () => {
+      const result = await recordView(obligation.id, clientUser.id, 'DOWNLOAD');
+      expect(result).toBeDefined();
+      expect(result.action).toBe('DOWNLOAD');
+    });
+  });
+
+  describe('getObligationNotifications', () => {
+    test('deve buscar histórico de notificações', async () => {
+      const { getObligationNotifications } = require('../modules/notifications/notification.service');
+      const notifications = await getObligationNotifications(obligation.id);
+      expect(Array.isArray(notifications)).toBe(true);
+    });
+  });
+
+  describe('getObligationViews', () => {
+    test('deve buscar histórico de visualizações', async () => {
+      const { getObligationViews } = require('../modules/notifications/notification.service');
+      const views = await getObligationViews(obligation.id);
+      expect(Array.isArray(views)).toBe(true);
+    });
+  });
+
+  describe('getClientViewsHistory', () => {
+    test('deve buscar histórico de visualizações de clientes', async () => {
+      const { getClientViewsHistory } = require('../modules/notifications/notification.service');
+      await recordView(obligation.id, clientUser.id, 'VIEW');
+      const history = await getClientViewsHistory(obligation.id);
+      expect(Array.isArray(history)).toBe(true);
+      if (history.length > 0) {
+        expect(history[0]).toHaveProperty('userName');
+        expect(history[0]).toHaveProperty('action');
+        expect(history[0]).toHaveProperty('viewedAt');
+      }
+    });
+  });
+
+  describe('sendObligationNotification', () => {
+    test('deve enviar notificação de obrigação', async () => {
+      const { sendObligationNotification } = require('../modules/notifications/notification.service');
+      // Mock do email service para não enviar email real
+      jest.spyOn(require('../services/email.service'), 'sendNewDocumentNotification').mockResolvedValue({ success: true });
+      
+      const result = await sendObligationNotification(obligation.id, adminUser.id);
+      expect(result).toHaveProperty('success');
+      expect(result).toHaveProperty('sent');
+    });
   });
 });
 

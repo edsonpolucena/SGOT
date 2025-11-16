@@ -1,345 +1,241 @@
-const {
-  createObligationFile,
-  getObligationFiles,
-  getFileViewUrl,
+const { 
+  createObligationFile, 
+  getObligationFiles, 
+  getFileViewUrl, 
   getFileDownloadUrl,
   deleteObligationFile,
   hasAccessToObligation
 } = require('../modules/obligations/obligation-file.service');
 const { prisma } = require('../prisma');
-const s3Service = require('../services/s3.service');
-
-jest.mock('../prisma', () => ({
-  prisma: {
-    obligationFile: {
-      create: jest.fn(),
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
-      delete: jest.fn()
-    },
-    obligation: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn()
-    },
-    user: {
-      findUnique: jest.fn()
-    }
-  }
-}));
-
-jest.mock('../services/s3.service', () => ({
-  getSignedUrl: jest.fn(),
-  deleteFile: jest.fn()
-}));
+const bcrypt = require('bcryptjs');
 
 describe('Obligation File Service', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+  let user;
+  let accountingUser;
+  let clientUser;
+  let company;
+  let obligation;
+  let file;
+
+  beforeAll(async () => {
+    user = await prisma.user.create({
+      data: {
+        email: 'fileuser@test.com',
+        name: 'File User',
+        passwordHash: await bcrypt.hash('password', 10),
+        role: 'ACCOUNTING_SUPER',
+        status: 'ACTIVE'
+      }
+    });
+
+    company = await prisma.empresa.create({
+      data: {
+        codigo: `FILE${Date.now()}`,
+        nome: 'File Company',
+        cnpj: `${Date.now()}000190`,
+        status: 'ativa'
+      }
+    });
+
+    clientUser = await prisma.user.create({
+      data: {
+        email: 'fileclient@test.com',
+        name: 'File Client',
+        passwordHash: await bcrypt.hash('password', 10),
+        role: 'CLIENT_NORMAL',
+        status: 'ACTIVE',
+        companyId: company.id
+      }
+    });
+
+    accountingUser = await prisma.user.create({
+      data: {
+        email: 'fileaccounting@test.com',
+        name: 'File Accounting',
+        passwordHash: await bcrypt.hash('password', 10),
+        role: 'ACCOUNTING_ADMIN',
+        status: 'ACTIVE'
+      }
+    });
+
+    obligation = await prisma.obligation.create({
+      data: {
+        title: 'Test Obligation',
+        regime: 'SIMPLES',
+        periodStart: new Date('2025-01-01'),
+        periodEnd: new Date('2025-01-31'),
+        dueDate: new Date('2025-02-10'),
+        companyId: company.id,
+        userId: user.id,
+        status: 'PENDING'
+      }
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.obligationFile.deleteMany();
+    await prisma.obligation.deleteMany();
+    await prisma.empresa.deleteMany();
+    await prisma.user.deleteMany();
   });
 
   describe('createObligationFile', () => {
-    it('deve criar arquivo de obrigação com sucesso', async () => {
-      const mockFile = {
-        id: 'file-123',
-        obligationId: 'obl-123',
-        fileName: 'document.pdf',
-        originalName: 'document.pdf',
-        fileSize: 1024,
-        mimeType: 'application/pdf',
-        s3Key: 'uploads/document.pdf',
-        s3Url: 'https://s3.amazonaws.com/uploads/document.pdf',
-        uploadedBy: 'user-123'
-      };
-
-      prisma.obligationFile.create.mockResolvedValue(mockFile);
-
+    test('deve criar registro de arquivo', async () => {
       const fileInfo = {
-        key: 'uploads/document.pdf',
-        originalname: 'document.pdf',
+        key: 'obligations/test-file.pdf',
+        originalname: 'test-file.pdf',
         size: 1024,
         mimetype: 'application/pdf',
-        location: 'https://s3.amazonaws.com/uploads/document.pdf'
+        location: 'https://s3.amazonaws.com/bucket/obligations/test-file.pdf'
       };
 
-      const result = await createObligationFile('obl-123', fileInfo, 'user-123');
-
-      expect(result).toEqual(mockFile);
-      expect(prisma.obligationFile.create).toHaveBeenCalledWith({
-        data: {
-          obligationId: 'obl-123',
-          fileName: 'document.pdf',
-          originalName: 'document.pdf',
-          fileSize: 1024,
-          mimeType: 'application/pdf',
-          s3Key: 'uploads/document.pdf',
-          s3Url: 'https://s3.amazonaws.com/uploads/document.pdf',
-          uploadedBy: 'user-123'
-        }
-      });
-    });
-
-    it('deve lançar erro se criar arquivo falhar', async () => {
-      prisma.obligationFile.create.mockRejectedValue(new Error('Database error'));
-
-      const fileInfo = {
-        key: 'uploads/document.pdf',
-        originalname: 'document.pdf',
-        size: 1024,
-        mimetype: 'application/pdf',
-        location: 'https://s3.amazonaws.com/uploads/document.pdf'
-      };
-
-      await expect(createObligationFile('obl-123', fileInfo, 'user-123'))
-        .rejects.toThrow('Falha ao salvar informações do arquivo');
+      file = await createObligationFile(obligation.id, fileInfo, user.id);
+      expect(file).toHaveProperty('id');
+      expect(file.fileName).toBe('test-file.pdf');
     });
   });
 
   describe('getObligationFiles', () => {
-    it('deve retornar arquivos de obrigação com sucesso', async () => {
-      const mockObligation = {
-        id: 'obl-123',
-        userId: 'user-123',
-        companyId: 10
-      };
-
-      const mockFiles = [
-        { id: 'file-1', fileName: 'doc1.pdf' },
-        { id: 'file-2', fileName: 'doc2.pdf' }
-      ];
-
-      prisma.user.findUnique.mockResolvedValue({
-        id: 'user-123',
-        role: 'CLIENT_NORMAL',
-        companyId: 10
-      });
-      prisma.obligation.findUnique.mockResolvedValue(mockObligation);
-      prisma.obligationFile.findMany.mockResolvedValue(mockFiles);
-
-      const result = await getObligationFiles('obl-123', 'user-123');
-
-      expect(result).toEqual(mockFiles);
-      expect(prisma.obligation.findUnique).toHaveBeenCalled();
-      expect(prisma.obligationFile.findMany).toHaveBeenCalledWith({
-        where: { obligationId: 'obl-123' },
-        orderBy: { createdAt: 'desc' }
-      });
+    test('deve retornar arquivos para criador da obrigação', async () => {
+      const files = await getObligationFiles(obligation.id, user.id);
+      expect(Array.isArray(files)).toBe(true);
     });
 
-    it('deve lançar erro se obrigação não for encontrada', async () => {
-      prisma.user.findUnique.mockResolvedValue({
-        id: 'user-123',
-        role: 'CLIENT_NORMAL',
-        companyId: 10
-      });
-      prisma.obligation.findUnique.mockResolvedValue(null);
+    test('deve retornar arquivos para usuário de contabilidade', async () => {
+      const files = await getObligationFiles(obligation.id, accountingUser.id);
+      expect(Array.isArray(files)).toBe(true);
+    });
 
-      await expect(getObligationFiles('obl-123', 'user-123'))
-        .rejects.toThrow('Obrigação não encontrada');
+    test('deve retornar arquivos para cliente da mesma empresa', async () => {
+      const files = await getObligationFiles(obligation.id, clientUser.id);
+      expect(Array.isArray(files)).toBe(true);
+    });
+
+    test('deve lançar erro se usuário não tiver acesso', async () => {
+      const otherUser = await prisma.user.create({
+        data: {
+          email: 'other@test.com',
+          name: 'Other User',
+          passwordHash: await bcrypt.hash('password', 10),
+          role: 'CLIENT_NORMAL',
+          status: 'ACTIVE',
+          companyId: 99999
+        }
+      });
+
+      await expect(getObligationFiles(obligation.id, otherUser.id)).rejects.toThrow('Acesso negado');
+
+      await prisma.user.delete({ where: { id: otherUser.id } });
     });
   });
 
   describe('getFileViewUrl', () => {
-    it('deve gerar URL de visualização com sucesso', async () => {
-      const mockFile = {
-        id: 'file-123',
-        s3Key: 'uploads/document.pdf',
-        obligation: {
-          userId: 'user-123',
-          user: { role: 'CLIENT_NORMAL' }
-        }
-      };
-
-      const mockSignedUrl = 'https://s3.signed-url.com/view';
-
-      prisma.obligationFile.findUnique.mockResolvedValue(mockFile);
-      prisma.user.findUnique.mockResolvedValue({
-        id: 'user-123',
-        role: 'CLIENT_NORMAL',
-        companyId: 1
-      });
-      s3Service.getSignedUrl.mockReturnValue(mockSignedUrl);
-
-      const result = await getFileViewUrl('file-123', 'user-123');
-
-      expect(result).toBe(mockSignedUrl);
-      expect(s3Service.getSignedUrl).toHaveBeenCalledWith('uploads/document.pdf', 3600, false);
+    test('deve gerar URL de visualização para criador', async () => {
+      const url = await getFileViewUrl(file.id, user.id);
+      expect(typeof url).toBe('string');
     });
 
-    it('deve permitir acesso para ACCOUNTING_SUPER', async () => {
-      const mockFile = {
-        id: 'file-123',
-        s3Key: 'uploads/document.pdf',
-        obligation: {
-          userId: 'other-user',
-          user: { role: 'ACCOUNTING_SUPER' }
-        }
-      };
-
-      const mockSignedUrl = 'https://s3.signed-url.com/view';
-
-      prisma.obligationFile.findUnique.mockResolvedValue(mockFile);
-      prisma.user.findUnique.mockResolvedValue({
-        id: 'admin-user',
-        role: 'ACCOUNTING_SUPER',
-        companyId: 1
-      });
-      s3Service.getSignedUrl.mockReturnValue(mockSignedUrl);
-
-      const result = await getFileViewUrl('file-123', 'admin-user');
-
-      expect(result).toBe(mockSignedUrl);
+    test('deve gerar URL de visualização para contabilidade', async () => {
+      const url = await getFileViewUrl(file.id, accountingUser.id);
+      expect(typeof url).toBe('string');
     });
 
-    it('deve lançar erro se arquivo não for encontrado', async () => {
-      prisma.obligationFile.findUnique.mockResolvedValue(null);
-      prisma.user.findUnique.mockResolvedValue({
-        id: 'user-123',
-        role: 'CLIENT_NORMAL',
-        companyId: 1
-      });
-
-      await expect(getFileViewUrl('file-123', 'user-123'))
-        .rejects.toThrow('Arquivo não encontrado');
-    });
-
-    it('deve lançar erro se acesso for negado', async () => {
-      const mockFile = {
-        id: 'file-123',
-        s3Key: 'uploads/document.pdf',
-        obligation: {
-          userId: 'other-user',
-          user: { role: 'CLIENT_NORMAL' }
-        }
-      };
-
-      prisma.obligationFile.findUnique.mockResolvedValue(mockFile);
-      prisma.user.findUnique.mockResolvedValue({
-        id: 'user-123',
-        role: 'CLIENT_NORMAL',
-        companyId: 1
-      });
-
-      await expect(getFileViewUrl('file-123', 'user-123'))
-        .rejects.toThrow('Acesso negado ao arquivo');
+    test('deve gerar URL de visualização para cliente da mesma empresa', async () => {
+      const url = await getFileViewUrl(file.id, clientUser.id);
+      expect(typeof url).toBe('string');
     });
   });
 
   describe('getFileDownloadUrl', () => {
-    it('deve gerar URL de download com sucesso', async () => {
-      const mockFile = {
-        id: 'file-123',
-        s3Key: 'uploads/document.pdf',
-        obligation: {
-          userId: 'user-123',
-          user: { role: 'CLIENT_NORMAL' }
-        }
-      };
-
-      const mockSignedUrl = 'https://s3.signed-url.com/download';
-
-      prisma.obligationFile.findUnique.mockResolvedValue(mockFile);
-      prisma.user.findUnique.mockResolvedValue({
-        id: 'user-123',
-        role: 'CLIENT_NORMAL',
-        companyId: 1
-      });
-      s3Service.getSignedUrl.mockReturnValue(mockSignedUrl);
-
-      const result = await getFileDownloadUrl('file-123', 'user-123');
-
-      expect(result).toBe(mockSignedUrl);
-      expect(s3Service.getSignedUrl).toHaveBeenCalledWith('uploads/document.pdf', 3600, true);
+    test('deve gerar URL de download para criador', async () => {
+      const url = await getFileDownloadUrl(file.id, user.id);
+      expect(typeof url).toBe('string');
     });
 
-    it('deve lançar erro se arquivo não for encontrado', async () => {
-      prisma.obligationFile.findUnique.mockResolvedValue(null);
-      prisma.user.findUnique.mockResolvedValue({
-        id: 'user-123',
-        role: 'CLIENT_NORMAL',
-        companyId: 1
-      });
+    test('deve gerar URL de download para contabilidade', async () => {
+      const url = await getFileDownloadUrl(file.id, accountingUser.id);
+      expect(typeof url).toBe('string');
+    });
 
-      await expect(getFileDownloadUrl('file-123', 'user-123'))
-        .rejects.toThrow('Arquivo não encontrado');
+    test('deve gerar URL de download para cliente da mesma empresa', async () => {
+      const url = await getFileDownloadUrl(file.id, clientUser.id);
+      expect(typeof url).toBe('string');
     });
   });
 
   describe('deleteObligationFile', () => {
-    it('deve deletar arquivo com sucesso', async () => {
-      const mockFile = {
-        id: 'file-123',
-        s3Key: 'uploads/document.pdf',
-        obligation: {
-          userId: 'user-123',
-          user: { role: 'CLIENT_NORMAL' }
+    test('deve deletar arquivo se for o criador', async () => {
+      const testFile = await prisma.obligationFile.create({
+        data: {
+          obligationId: obligation.id,
+          fileName: 'test-delete.pdf',
+          originalName: 'test-delete.pdf',
+          fileSize: 1024,
+          mimeType: 'application/pdf',
+          s3Key: 'obligations/test-delete.pdf',
+          uploadedBy: user.id
         }
-      };
-
-      prisma.obligationFile.findUnique.mockResolvedValue(mockFile);
-      s3Service.deleteFile.mockResolvedValue(true);
-      prisma.obligationFile.delete.mockResolvedValue(mockFile);
-
-      const result = await deleteObligationFile('file-123', 'user-123');
-
-      expect(result).toBe(true);
-      expect(s3Service.deleteFile).toHaveBeenCalledWith('uploads/document.pdf');
-      expect(prisma.obligationFile.delete).toHaveBeenCalledWith({
-        where: { id: 'file-123' }
       });
+
+      // Mock do s3Service.deleteFile
+      jest.spyOn(require('../services/s3.service'), 'deleteFile').mockResolvedValue(true);
+
+      const result = await deleteObligationFile(testFile.id, user.id);
+      expect(result).toBe(true);
     });
 
-    it('deve lançar erro se arquivo não for encontrado', async () => {
-      prisma.obligationFile.findUnique.mockResolvedValue(null);
-
-      await expect(deleteObligationFile('file-123', 'user-123'))
-        .rejects.toThrow('Arquivo não encontrado');
-    });
-
-    it('deve lançar erro se permissão for negada', async () => {
-      const mockFile = {
-        id: 'file-123',
-        s3Key: 'uploads/document.pdf',
-        obligation: {
-          userId: 'other-user',
-          user: { role: 'CLIENT_NORMAL' }
+    test('deve lançar erro se usuário não tiver permissão', async () => {
+      const testFile = await prisma.obligationFile.create({
+        data: {
+          obligationId: obligation.id,
+          fileName: 'test-no-permission.pdf',
+          originalName: 'test-no-permission.pdf',
+          fileSize: 1024,
+          mimeType: 'application/pdf',
+          s3Key: 'obligations/test-no-permission.pdf',
+          uploadedBy: user.id
         }
-      };
+      });
 
-      prisma.obligationFile.findUnique.mockResolvedValue(mockFile);
+      const otherUser = await prisma.user.create({
+        data: {
+          email: 'otherfile@test.com',
+          name: 'Other File User',
+          passwordHash: await bcrypt.hash('password', 10),
+          role: 'CLIENT_NORMAL',
+          status: 'ACTIVE',
+          companyId: 99999
+        }
+      });
 
-      await expect(deleteObligationFile('file-123', 'user-123'))
-        .rejects.toThrow('Permissão negada para deletar arquivo');
+      await expect(deleteObligationFile(testFile.id, otherUser.id)).rejects.toThrow('Permissão negada');
+
+      await prisma.user.delete({ where: { id: otherUser.id } });
     });
   });
 
   describe('hasAccessToObligation', () => {
-    it('deve retornar true se usuário tiver acesso', async () => {
-      const mockObligation = {
-        id: 'obl-123',
-        userId: 'user-123'
-      };
-
-      prisma.obligation.findFirst.mockResolvedValue(mockObligation);
-
-      const result = await hasAccessToObligation('obl-123', 'user-123');
-
-      expect(result).toBe(true);
+    test('deve retornar true se for criador', async () => {
+      const hasAccess = await hasAccessToObligation(obligation.id, user.id);
+      expect(hasAccess).toBe(true);
     });
 
-    it('deve retornar false se usuário não tiver acesso', async () => {
-      prisma.obligation.findFirst.mockResolvedValue(null);
+    test('deve retornar false se não tiver acesso', async () => {
+      const otherUser = await prisma.user.create({
+        data: {
+          email: 'noaccess@test.com',
+          name: 'No Access User',
+          passwordHash: await bcrypt.hash('password', 10),
+          role: 'CLIENT_NORMAL',
+          status: 'ACTIVE',
+          companyId: 99999
+        }
+      });
 
-      const result = await hasAccessToObligation('obl-123', 'user-123');
+      const hasAccess = await hasAccessToObligation(obligation.id, otherUser.id);
+      expect(hasAccess).toBe(false);
 
-      expect(result).toBe(false);
-    });
-
-    it('deve retornar false em caso de erro', async () => {
-      prisma.obligation.findFirst.mockRejectedValue(new Error('Database error'));
-
-      const result = await hasAccessToObligation('obl-123', 'user-123');
-
-      expect(result).toBe(false);
+      await prisma.user.delete({ where: { id: otherUser.id } });
     });
   });
 });

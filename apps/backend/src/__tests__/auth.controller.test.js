@@ -107,4 +107,81 @@ describe("AuthController", () => {
 
     expect(res.status).toBe(401);
   });
+
+  test("deve retornar erro 400 se email ou senha não forem fornecidos no login", async () => {
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ email: "test@test.com" });
+
+    expect(res.status).toBe(400);
+  });
+
+  test("não deve logar usuário inativo", async () => {
+    const inactiveUser = await prisma.user.create({
+      data: {
+        email: "inactive@test.com",
+        name: "Inactive User",
+        passwordHash: await bcrypt.hash("123456", 10),
+        role: "CLIENT_NORMAL",
+        status: "INACTIVE"
+      }
+    });
+
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ email: "inactive@test.com", password: "123456" });
+
+    expect(res.status).toBe(403);
+  });
+
+  test("deve retornar dados do usuário autenticado", async () => {
+    const res = await request(app)
+      .get("/api/auth/me")
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty("email");
+    expect(res.body).toHaveProperty("role");
+  });
+
+  test("deve retornar erro 400 se email não for fornecido no forgot-password", async () => {
+    const res = await request(app)
+      .post("/api/auth/forgot-password")
+      .send({});
+
+    expect(res.status).toBe(400);
+  });
+
+  test("deve solicitar recuperação de senha", async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: "forgot@test.com",
+        name: "Forgot User",
+        passwordHash: await bcrypt.hash("123456", 10),
+        role: "CLIENT_NORMAL",
+        status: "ACTIVE"
+      }
+    });
+
+    const res = await request(app)
+      .post("/api/auth/forgot-password")
+      .send({ email: "forgot@test.com" });
+
+    expect(res.status).toBe(200);
+  });
+
+  test("deve retornar erro 400 se token não for fornecido no validate-reset-token", async () => {
+    const res = await request(app)
+      .get("/api/auth/validate-reset-token/");
+
+    expect(res.status).toBe(404);
+  });
+
+  test("deve retornar erro 400 se token ou senha não forem fornecidos no reset-password", async () => {
+    const res = await request(app)
+      .post("/api/auth/reset-password")
+      .send({ token: "test-token" });
+
+    expect(res.status).toBe(400);
+  });
 });

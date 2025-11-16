@@ -54,5 +54,31 @@ describe('Auth Service', () => {
       await expect(loginUser('invalid@test.com', 'wrongpassword'))
         .rejects.toThrow('INVALID_CREDENTIALS');
     });
+
+    test('não deve fazer login com usuário inativo', async () => {
+      const timestamp = Date.now();
+      await registerUser('Inactive User', `inactive${timestamp}@test.com`, 'password123', 'CLIENT_NORMAL', null, 'INACTIVE', true);
+      
+      await expect(loginUser(`inactive${timestamp}@test.com`, 'password123'))
+        .rejects.toThrow('USER_INACTIVE');
+    });
+  });
+
+  describe('registerUser sem token', () => {
+    test('deve registrar usuário sem gerar token quando generateToken é false', async () => {
+      const timestamp = Date.now();
+      const result = await registerUser(
+        'Test User No Token',
+        `notoken${timestamp}@test.com`,
+        'password123',
+        'CLIENT_NORMAL',
+        null,
+        'ACTIVE',
+        false
+      );
+
+      expect(result.user).toBeDefined();
+      expect(result.token).toBeUndefined();
+    });
   });
 });

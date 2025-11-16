@@ -162,4 +162,189 @@ describe("ObligationController", () => {
 
     expect(Array.isArray(res.body)).toBe(true);
   });
+
+  test("deve filtrar obrigações por regime", async () => {
+    const res = await request(app)
+      .get("/api/obligations?regime=SIMPLES")
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  test("deve filtrar obrigações por referenceMonth", async () => {
+    const res = await request(app)
+      .get("/api/obligations?referenceMonth=2025-08")
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  test("deve retornar 404 se obrigação não existir", async () => {
+    const res = await request(app)
+      .get("/api/obligations/99999")
+      .set('Authorization', `Bearer ${token}`)
+      .expect(404);
+  });
+
+  test("deve retornar 404 ao atualizar obrigação inexistente", async () => {
+    const res = await request(app)
+      .put("/api/obligations/99999")
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: "Test" })
+      .expect(404);
+  });
+
+  test("deve marcar obrigação como não aplicável", async () => {
+    const newObligation = await prisma.obligation.create({
+      data: {
+        title: "Not Applicable Test",
+        regime: "SIMPLES",
+        periodStart: new Date("2025-01-01"),
+        periodEnd: new Date("2025-01-31"),
+        dueDate: new Date("2025-02-10"),
+        companyId: company.id,
+        userId: (await prisma.user.findUnique({ where: { email: 'test@obligation.com' } })).id
+      }
+    });
+
+    const res = await request(app)
+      .patch(`/api/obligations/${newObligation.id}/not-applicable`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ reason: "Não se aplica" })
+      .expect(200);
+
+    expect(res.body.status).toBe('NOT_APPLICABLE');
+  });
+
+  test("deve buscar controle mensal", async () => {
+    const res = await request(app)
+      .get("/api/obligations/monthly-control?month=2025-01")
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(res.body).toHaveProperty('month');
+  });
+
+  test("deve retornar erro 400 ao fazer upload sem arquivos", async () => {
+    const newObligation = await prisma.obligation.create({
+      data: {
+        title: "Upload Test",
+        regime: "SIMPLES",
+        periodStart: new Date("2025-01-01"),
+        periodEnd: new Date("2025-01-31"),
+        dueDate: new Date("2025-02-10"),
+        companyId: company.id,
+        userId: (await prisma.user.findUnique({ where: { email: 'test@obligation.com' } })).id
+      }
+    });
+
+    const res = await request(app)
+      .post(`/api/obligations/${newObligation.id}/files`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(400);
+
+    expect(res.body.message).toContain('No files');
+  });
+
+  test("deve listar arquivos de obrigação", async () => {
+    const newObligation = await prisma.obligation.create({
+      data: {
+        title: "Files Test",
+        regime: "SIMPLES",
+        periodStart: new Date("2025-01-01"),
+        periodEnd: new Date("2025-01-31"),
+        dueDate: new Date("2025-02-10"),
+        companyId: company.id,
+        userId: (await prisma.user.findUnique({ where: { email: 'test@obligation.com' } })).id
+      }
+    });
+
+    const res = await request(app)
+      .get(`/api/obligations/${newObligation.id}/files`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  test("deve retornar erro 400 se month não for fornecido no monthly-control", async () => {
+    const res = await request(app)
+      .get("/api/obligations/monthly-control")
+      .set('Authorization', `Bearer ${token}`)
+      .expect(400);
+  });
+
+  test("deve gerar URL de visualização de arquivo", async () => {
+    const newObligation = await prisma.obligation.create({
+      data: {
+        title: "View File Test",
+        regime: "SIMPLES",
+        periodStart: new Date("2025-01-01"),
+        periodEnd: new Date("2025-01-31"),
+        dueDate: new Date("2025-02-10"),
+        companyId: company.id,
+        userId: (await prisma.user.findUnique({ where: { email: 'test@obligation.com' } })).id
+      }
+    });
+
+    const testFile = await prisma.obligationFile.create({
+      data: {
+        obligationId: newObligation.id,
+        fileName: 'test-view.pdf',
+        originalName: 'test-view.pdf',
+        fileSize: 1024,
+        mimeType: 'application/pdf',
+        s3Key: 'obligations/test-view.pdf',
+        uploadedBy: (await prisma.user.findUnique({ where: { email: 'test@obligation.com' } })).id
+      }
+    });
+
+    // Mock do s3Service
+    jest.spyOn(require('../services/s3.service'), 'getSignedUrl').mockReturnValue('https://s3.amazonaws.com/test-url');
+
+    const res = await request(app)
+      .get(`/api/obligations/files/${testFile.id}/view`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(res.body).toHaveProperty('viewUrl');
+  });
+
+  test("deve gerar URL de download de arquivo", async () => {
+    const newObligation = await prisma.obligation.create({
+      data: {
+        title: "Download File Test",
+        regime: "SIMPLES",
+        periodStart: new Date("2025-01-01"),
+        periodEnd: new Date("2025-01-31"),
+        dueDate: new Date("2025-02-10"),
+        companyId: company.id,
+        userId: (await prisma.user.findUnique({ where: { email: 'test@obligation.com' } })).id
+      }
+    });
+
+    const testFile = await prisma.obligationFile.create({
+      data: {
+        obligationId: newObligation.id,
+        fileName: 'test-download.pdf',
+        originalName: 'test-download.pdf',
+        fileSize: 1024,
+        mimeType: 'application/pdf',
+        s3Key: 'obligations/test-download.pdf',
+        uploadedBy: (await prisma.user.findUnique({ where: { email: 'test@obligation.com' } })).id
+      }
+    });
+
+    // Mock do s3Service
+    jest.spyOn(require('../services/s3.service'), 'getSignedUrl').mockReturnValue('https://s3.amazonaws.com/test-url');
+
+    const res = await request(app)
+      .get(`/api/obligations/files/${testFile.id}/download`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(res.body).toHaveProperty('downloadUrl');
+  });
 });

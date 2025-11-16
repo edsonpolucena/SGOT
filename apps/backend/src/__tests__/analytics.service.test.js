@@ -1,4 +1,13 @@
-const { getMonthlySummary, getMonthlyVariationByTax } = require('../modules/analytics/analytics.service');
+const { 
+  getMonthlySummary, 
+  getMonthlyVariationByTax,
+  getDocumentControlDashboard,
+  getTaxTypeStats,
+  getClientTaxReport,
+  getDeadlineComplianceStats,
+  getOverdueAndUpcomingTaxes,
+  getUnviewedAlertsForAccounting
+} = require('../modules/analytics/analytics.service');
 const { prisma } = require('../prisma');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -130,6 +139,92 @@ describe('Analytics Service', () => {
         expect(imposto).toHaveProperty('valorAtual');
         expect(imposto).toHaveProperty('variacao');
       }
+    });
+  });
+
+  describe('getDocumentControlDashboard', () => {
+    test('deve retornar estrutura correta do dashboard', async () => {
+      const result = await getDocumentControlDashboard('2025-01', 'ACCOUNTING_SUPER', null);
+      
+      expect(result).toHaveProperty('month');
+      expect(result).toHaveProperty('companies');
+      expect(result).toHaveProperty('summary');
+      expect(Array.isArray(result.companies)).toBe(true);
+    });
+
+    test('deve filtrar por empresa quando for CLIENT', async () => {
+      const result = await getDocumentControlDashboard('2025-01', 'CLIENT_ADMIN', company.id);
+      
+      expect(result).toHaveProperty('month');
+      expect(result).toHaveProperty('companies');
+    });
+  });
+
+  describe('getTaxTypeStats', () => {
+    test('deve retornar estatísticas por tipo de imposto', async () => {
+      const result = await getTaxTypeStats('2025-01');
+      
+      expect(result).toHaveProperty('month');
+      expect(result).toHaveProperty('totalCompanies');
+      expect(result).toHaveProperty('taxStats');
+      expect(Array.isArray(result.taxStats)).toBe(true);
+    });
+  });
+
+  describe('getClientTaxReport', () => {
+    test('deve retornar relatório de impostos do cliente', async () => {
+      const result = await getClientTaxReport(company.id, 12);
+      
+      expect(result).toHaveProperty('companyId');
+      expect(result).toHaveProperty('companyName');
+      expect(result).toHaveProperty('monthlyData');
+      expect(result).toHaveProperty('taxTypeTotals');
+      expect(result).toHaveProperty('grandTotal');
+    });
+
+    test('deve lançar erro se empresa não existir', async () => {
+      await expect(getClientTaxReport(99999, 12)).rejects.toThrow('Empresa não encontrada');
+    });
+  });
+
+  describe('getDeadlineComplianceStats', () => {
+    test('deve retornar estatísticas de cumprimento de prazos', async () => {
+      const result = await getDeadlineComplianceStats('2025-01');
+      
+      expect(result).toHaveProperty('month');
+      expect(result).toHaveProperty('total');
+      expect(result).toHaveProperty('onTime');
+      expect(result).toHaveProperty('late');
+      expect(result).toHaveProperty('complianceRate');
+      expect(result).toHaveProperty('details');
+    });
+  });
+
+  describe('getOverdueAndUpcomingTaxes', () => {
+    test('deve retornar impostos atrasados e próximos ao vencimento', async () => {
+      const result = await getOverdueAndUpcomingTaxes('2025-01');
+      
+      expect(result).toHaveProperty('month');
+      expect(result).toHaveProperty('overdue');
+      expect(result).toHaveProperty('dueSoon');
+      expect(result.overdue).toHaveProperty('count');
+      expect(result.overdue).toHaveProperty('items');
+      expect(result.dueSoon).toHaveProperty('count');
+      expect(result.dueSoon).toHaveProperty('items');
+    });
+  });
+
+  describe('getUnviewedAlertsForAccounting', () => {
+    test('deve retornar alertas de documentos não visualizados', async () => {
+      const result = await getUnviewedAlertsForAccounting();
+      
+      expect(result).toHaveProperty('threeDays');
+      expect(result).toHaveProperty('twoDays');
+      expect(result).toHaveProperty('oneDay');
+      expect(result).toHaveProperty('total');
+      expect(Array.isArray(result.threeDays)).toBe(true);
+      expect(Array.isArray(result.twoDays)).toBe(true);
+      expect(Array.isArray(result.oneDay)).toBe(true);
     });
   });
 });

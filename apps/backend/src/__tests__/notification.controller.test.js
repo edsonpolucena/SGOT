@@ -109,4 +109,54 @@ describe('Notification Controller', () => {
       expect(Array.isArray(res.body)).toBe(true);
     });
   });
+
+  describe('GET /api/notifications/:obligationId/client-views', () => {
+    test('deve retornar histórico de visualizações de clientes', async () => {
+      const res = await request(app)
+        .get(`/api/notifications/${obligation.id}/client-views`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(Array.isArray(res.body)).toBe(true);
+    });
+  });
+
+  describe('POST /api/notifications/:obligationId/send', () => {
+    test('deve enviar notificação de obrigação', async () => {
+      // Mock do email service
+      jest.spyOn(require('../services/email.service'), 'sendNewDocumentNotification').mockResolvedValue({ success: true });
+
+      const res = await request(app)
+        .post(`/api/notifications/${obligation.id}/send`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(res.body).toHaveProperty('success');
+    });
+  });
+
+  describe('GET /api/notifications/unviewed com filtros', () => {
+    test('deve filtrar por companyId', async () => {
+      const res = await request(app)
+        .get(`/api/notifications/unviewed?companyId=${company.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(Array.isArray(res.body)).toBe(true);
+    });
+  });
+
+  describe('POST /api/notifications/:obligationId/resend', () => {
+    test('deve reenviar notificação', async () => {
+      // Mock do email service
+      jest.spyOn(require('../services/email.service'), 'sendNewDocumentNotification').mockResolvedValue({ success: true });
+
+      const res = await request(app)
+        .post(`/api/notifications/${obligation.id}/resend`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(res.body).toHaveProperty('success');
+    });
+  });
 });
