@@ -4,8 +4,14 @@ const registerSchema = Joi.object({
   name: Joi.string().min(2).max(100).optional(),
   email: Joi.string().email().required(),
   password: Joi.string().min(6).max(100).required(),
-  role: Joi.string().valid('ACCOUNTING', 'CLIENT').optional(),
-  companyId: Joi.number().integer().positive().optional()
+  role: Joi.string().valid(
+    'ACCOUNTING_SUPER',
+    'ACCOUNTING_ADMIN',
+    'ACCOUNTING_NORMAL',
+    'CLIENT_ADMIN',
+    'CLIENT_NORMAL').default('CLIENT_NORMAL'),
+  companyId: Joi.number().integer().positive().optional(),
+  status: Joi.string().valid('ACTIVE', 'INACTIVE').default('ACTIVE')
 });
 
 const loginSchema = Joi.object({
@@ -19,19 +25,66 @@ const obligationSchema = Joi.object({
   periodStart: Joi.date().iso().required(),
   periodEnd: Joi.date().iso().required(),
   dueDate: Joi.date().iso().required(),
-  amount: Joi.number().precision(2).min(0).optional(),
+  amount: Joi.number().precision(2).min(0).optional().allow(null),
   notes: Joi.string().max(1000).optional(),
-  companyId: Joi.number().integer().positive().required()
+  companyId: Joi.number().integer().positive().required(),
+  status: Joi.string().valid('PENDING', 'NOT_APPLICABLE').optional(),
+  taxType: Joi.string().max(50).optional(),
+  referenceMonth: Joi.string().pattern(/^\d{4}-\d{2}$/).optional(),
+  notApplicableReason: Joi.string().max(500).optional()
 });
 
 const companySchema = Joi.object({
   codigo: Joi.string().min(2).max(20).required(),
   nome: Joi.string().min(2).max(200).required(),
-  cnpj: Joi.string().pattern(/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/).required(),
-  email: Joi.string().email().optional(),
-  telefone: Joi.string().pattern(/^\(\d{2}\)\s\d{4,5}-\d{4}$/).optional(),
-  endereco: Joi.string().max(500).optional(),
+  cnpj: Joi.alternatives().try(
+    Joi.string().pattern(/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/), // Com máscara
+    Joi.string().pattern(/^\d{14}$/) // Sem máscara (apenas números)
+  ).required(),
+  email: Joi.string().email().optional().allow('', null),
+  telefone: Joi.alternatives().try(
+    Joi.string().pattern(/^\(\d{2}\)\s\d{4,5}-\d{4}$/), // Com máscara
+    Joi.string().pattern(/^\d{10,11}$/), // Sem máscara (apenas números)
+    Joi.string().allow('', null)
+  ).optional(),
+  endereco: Joi.string().max(500).optional().allow('', null),
   status: Joi.string().valid('ativa', 'inativa').optional()
+});
+
+const updateCompanySchema = Joi.object({
+  codigo: Joi.string().min(2).max(20).optional(),
+  nome: Joi.string().min(2).max(200).optional(),
+  cnpj: Joi.alternatives().try(
+    Joi.string().pattern(/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/), // Com máscara
+    Joi.string().pattern(/^\d{14}$/) // Sem máscara (apenas números)
+  ).optional(),
+  email: Joi.string().email().optional().allow('', null),
+  telefone: Joi.alternatives().try(
+    Joi.string().pattern(/^\(\d{2}\)\s\d{4,5}-\d{4}$/), // Com máscara
+    Joi.string().pattern(/^\d{10,11}$/), // Sem máscara (apenas números)
+    Joi.string().allow('', null)
+  ).optional(),
+  endereco: Joi.string().max(500).optional().allow('', null),
+  status: Joi.string().valid('ativa', 'inativa').optional()
+});
+
+const updateUserSchema = Joi.object({
+  name: Joi.string().min(2).max(100).optional(),
+  email: Joi.string().email().optional(),
+  password: Joi.string().min(6).max(100).optional(),
+  role: Joi.string().valid(
+    'ACCOUNTING_SUPER',
+    'ACCOUNTING_ADMIN',
+    'ACCOUNTING_NORMAL',
+    'CLIENT_ADMIN',
+    'CLIENT_NORMAL'
+  ).optional(),
+  status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
+  companyId: Joi.number().integer().positive().optional().allow(null)
+});
+
+const updateStatusSchema = Joi.object({
+  status: Joi.string().valid('ACTIVE', 'INACTIVE').required()
 });
 
 function validate(schema) {
@@ -105,10 +158,15 @@ const fileIdParamSchema = Joi.object({
   fileId: Joi.string().required()
 });
 
+const obligationIdParamSchema = Joi.object({
+  obligationId: Joi.string().required()
+});
+
 const obligationFiltersSchema = Joi.object({
-  status: Joi.string().valid('PENDING', 'SUBMITTED', 'LATE', 'PAID', 'CANCELED').optional(),
+  status: Joi.string().valid('PENDING', 'NOT_APPLICABLE').optional(),
   regime: Joi.string().valid('SIMPLES', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'MEI').optional(),
   companyId: Joi.number().integer().positive().optional(),
+  referenceMonth: Joi.string().pattern(/^\d{4}-\d{2}$/).optional(),
   from: Joi.date().iso().optional(),
   to: Joi.date().iso().optional()
 });
@@ -121,7 +179,11 @@ module.exports = {
   loginSchema,
   obligationSchema,
   companySchema,
+  updateCompanySchema,
+  updateUserSchema,
+  updateStatusSchema,
   idParamSchema,
   fileIdParamSchema,
+  obligationIdParamSchema,
   obligationFiltersSchema
 };

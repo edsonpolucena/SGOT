@@ -1,4 +1,5 @@
-name: SonarCloud (frontend & backend)
+# name: SonarCloud (monorepo)
+
 
 on:
   pull_request:
@@ -11,74 +12,106 @@ permissions:
   pull-requests: write
 
 jobs:
-  backend:
-    name: Backend Analysis
+  analysis:
     runs-on: ubuntu-latest
-    defaults:
-      run:
+    services:
+      postgres:
+        image: postgres:14
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: sgot_test
+          POSTGRES_PASSWORD: sgot_test_password
+          POSTGRES_DB: sgot_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://sgot_test:sgot_test_password@localhost:5432/sgot_test
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Backend
+      - name: Install backend deps
         working-directory: apps/backend
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache-dependency-path: apps/backend/package-lock.json
-
-      - name: Install
         run: npm ci
 
-      - name: Build
-        run: npm run build --if-present
+      - name: Push Database Schema
+        working-directory: apps/backend
+        run: npx prisma db push --accept-data-loss --skip-generate
 
-      - name: Test
-        run: npm run test:ci || echo "no tests yet"
+      - name: Generate Prisma Client
+        working-directory: apps/backend
+        run: npx prisma generate
 
-      - name: SonarCloud Scan (backend)
-        uses: SonarSource/sonarcloud-github-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_ORG: ${{ secrets.SONAR_ORG }}
-        with:
-          projectBaseDir: apps/backend
+      - name: Run backend tests with coverage
+        working-directory: apps/backend
+        run: npm run test:ci
+        continue-on-error: true
 
-  frontend:
-    name: Frontend Analysis
-    runs-on: ubuntu-latest
-    defaults:
-      run:
+      # Frontend
+      - name: Install frontend deps
         working-directory: apps/frontend
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache-dependency-path: apps/frontend/package-lock.json
-
-      - name: Install
         run: npm ci
 
-      - name: Build
-        run: npm run build --if-present
+      - name: Run frontend tests with coverage
+        working-directory: apps/frontend
+        run: npm run test:ci
+        continue-on-error: true
 
-      - name: Test
-        run: npm run test:ci || echo "no tests yet"
+      - name: Verify coverage files
+        run: |
+          test -f apps/backend/coverage/lcov.info || (echo "❌ backend sem coverage" && exit 1)
+          test -f apps/frontend/coverage/lcov.info || (echo "❌ frontend sem coverage" && exit 1)
+          echo "✅ coverage dos dois apps ok"
 
-      - name: SonarCloud Scan (frontend)
+      - name: Debug LCOV paths (backend)
+        run: |
+          echo "📋 Primeiras 20 linhas do LCOV backend:"
+          head -20 apps/backend/coverage/lcov.info || echo "Arquivo não encontrado"
+          echo ""
+          echo "🔍 Procurando por analytics.controller.js no LCOV:"
+          grep -i "analytics.controller" apps/backend/coverage/lcov.info | head -5 || echo "Não encontrado"
+
+      - name: Fix LCOV paths (backend & frontend)
+        run: |
+          # Backend: caminhos gerados como "SF:src\..." ou "SF:src/..."
+          # IMPORTANTE: SonarCloud precisa de caminhos relativos à raiz do projeto
+          # Primeiro corrige barras invertidas para barras normais
+          sed -i 's#\\#/#g' apps/backend/coverage/lcov.info
+          # Depois adiciona o prefixo apps/backend/
+          sed -i 's#SF:src/#SF:apps/backend/src/#g' apps/backend/coverage/lcov.info
+          sed -i 's#SF:apps/backend/src/../#SF:apps/backend/src/#g' apps/backend/coverage/lcov.info
+
+          # Frontend: caminhos gerados como "SF:src\..." ou "SF:src/..."
+          sed -i 's#\\#/#g' apps/frontend/coverage/lcov.info
+          sed -i 's#SF:src/#SF:apps/frontend/src/#g' apps/frontend/coverage/lcov.info
+          sed -i 's#SF:apps/frontend/src/../#SF:apps/frontend/src/#g' apps/frontend/coverage/lcov.info
+
+      - name: Verify fixed LCOV paths
+        run: |
+          echo "📋 Verificando caminhos corrigidos (backend):"
+          grep "SF:apps/backend/src/modules/analytics" apps/backend/coverage/lcov.info | head -3 || echo "Não encontrado"
+          echo ""
+          echo "📋 Verificando caminhos corrigidos (frontend):"
+          grep "SF:apps/frontend/src/modules/analytics" apps/frontend/coverage/lcov.info | head -3 || echo "Não encontrado"
+
+      - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_ORG: ${{ secrets.SONAR_ORG }}
-        with:
-          projectBaseDir: apps/frontend
+          SONAR_HOST_URL: https://sonarcloud.io

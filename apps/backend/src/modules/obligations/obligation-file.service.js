@@ -25,22 +25,43 @@ async function createObligationFile(obligationId, fileInfo, uploadedBy) {
 
 async function getObligationFiles(obligationId, userId) {
   try {
-    const obligation = await prisma.obligation.findFirst({
-      where: {
-        id: obligationId,
-        OR: [
-          { userId: userId },
-          { 
-            user: { 
-              role: 'ACCOUNTING'
-            }
-          }
-        ]
+    // Buscar informações do usuário atual
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, companyId: true }
+    });
+
+    if (!currentUser) {
+      throw new Error('Usuário não encontrado');
+    }
+
+    // Buscar obrigação
+    const obligation = await prisma.obligation.findUnique({
+      where: { id: obligationId },
+      include: {
+        company: true,
+        user: true
       }
     });
 
     if (!obligation) {
-      throw new Error('Obrigação não encontrada ou acesso negado');
+      throw new Error('Obrigação não encontrada');
+    }
+
+    // Verificar acesso:
+    // 1. Se é o criador da obrigação
+    // 2. Se é ACCOUNTING (contabilidade tem acesso a tudo)
+    // 3. Se é CLIENT e pertence à mesma empresa da obrigação
+    const isAccounting = currentUser.role?.startsWith('ACCOUNTING');
+    const isCreator = obligation.userId === userId;
+    const isSameCompany = currentUser.companyId && 
+                          obligation.companyId && 
+                          currentUser.companyId === obligation.companyId;
+
+    const hasAccess = isCreator || isAccounting || isSameCompany;
+
+    if (!hasAccess) {
+      throw new Error('Acesso negado à obrigação');
     }
 
     const files = await prisma.obligationFile.findMany({
@@ -56,7 +77,66 @@ async function getObligationFiles(obligationId, userId) {
 }
 
 /**
- * Gerar URL assinada para download
+ * Gerar URL assinada para visualização (abre no navegador)
+ * @param {string} fileId - ID do arquivo
+ * @param {string} userId - ID do usuário
+ * @returns {Promise<string>} URL assinada
+ */
+async function getFileViewUrl(fileId, userId) {
+  try {
+    const file = await prisma.obligationFile.findUnique({
+      where: { id: fileId },
+      include: {
+        obligation: {
+          include: {
+            user: true,
+            company: true
+          }
+        }
+      }
+    });
+
+    if (!file) {
+      throw new Error('Arquivo não encontrado');
+    }
+
+    // Buscar informações do usuário atual
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, companyId: true }
+    });
+
+    if (!currentUser) {
+      throw new Error('Usuário não encontrado');
+    }
+
+    // Verificar acesso:
+    // 1. Se é o criador da obrigação
+    // 2. Se é ACCOUNTING (contabilidade tem acesso a tudo)
+    // 3. Se é CLIENT e pertence à mesma empresa da obrigação
+    const isAccounting = currentUser.role?.startsWith('ACCOUNTING');
+    const isCreator = file.obligation.userId === userId;
+    const isSameCompany = currentUser.companyId && 
+                          file.obligation.companyId && 
+                          currentUser.companyId === file.obligation.companyId;
+
+    const hasAccess = isCreator || isAccounting || isSameCompany;
+
+    if (!hasAccess) {
+      throw new Error('Acesso negado ao arquivo');
+    }
+
+    const signedUrl = s3Service.getSignedUrl(file.s3Key, 3600, false); // false = não força download
+    
+    return signedUrl;
+  } catch (error) {
+    console.error('Erro ao gerar URL de visualização:', error);
+    throw error;
+  }
+}
+
+/**
+ * Gerar URL assinada para download (força download)
  * @param {string} fileId - ID do arquivo
  * @param {string} userId - ID do usuário
  * @returns {Promise<string>} URL assinada
@@ -68,7 +148,8 @@ async function getFileDownloadUrl(fileId, userId) {
       include: {
         obligation: {
           include: {
-            user: true
+            user: true,
+            company: true
           }
         }
       }
@@ -78,14 +159,33 @@ async function getFileDownloadUrl(fileId, userId) {
       throw new Error('Arquivo não encontrado');
     }
 
-    const hasAccess = file.obligation.userId === userId || 
-                     file.obligation.user.role === 'ACCOUNTING';
+    // Buscar informações do usuário atual
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, companyId: true }
+    });
+
+    if (!currentUser) {
+      throw new Error('Usuário não encontrado');
+    }
+
+    // Verificar acesso:
+    // 1. Se é o criador da obrigação
+    // 2. Se é ACCOUNTING (contabilidade tem acesso a tudo)
+    // 3. Se é CLIENT e pertence à mesma empresa da obrigação
+    const isAccounting = currentUser.role?.startsWith('ACCOUNTING');
+    const isCreator = file.obligation.userId === userId;
+    const isSameCompany = currentUser.companyId && 
+                          file.obligation.companyId && 
+                          currentUser.companyId === file.obligation.companyId;
+
+    const hasAccess = isCreator || isAccounting || isSameCompany;
 
     if (!hasAccess) {
       throw new Error('Acesso negado ao arquivo');
     }
 
-    const signedUrl = s3Service.getSignedUrl(file.s3Key, 3600);
+    const signedUrl = s3Service.getSignedUrl(file.s3Key, 3600, true); // true = forceDownload
     
     return signedUrl;
   } catch (error) {
@@ -118,7 +218,7 @@ async function deleteObligationFile(fileId, userId) {
     }
 
     const canDelete = file.obligation.userId === userId || 
-                     file.obligation.user.role === 'ACCOUNTING';
+                     file.obligation.user.role === 'ACCOUNTING_SUPER';
 
     if (!canDelete) {
       throw new Error('Permissão negada para deletar arquivo');
@@ -152,7 +252,7 @@ async function hasAccessToObligation(obligationId, userId) {
           { userId: userId },
           { 
             user: { 
-              role: 'ACCOUNTING'
+              role: 'ACCOUNTING_SUPER'
             }
           }
         ]
@@ -169,6 +269,7 @@ async function hasAccessToObligation(obligationId, userId) {
 module.exports = {
   createObligationFile,
   getObligationFiles,
+  getFileViewUrl,
   getFileDownloadUrl,
   deleteObligationFile,
   hasAccessToObligation

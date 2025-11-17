@@ -26,5 +26,39 @@ export function useAuthController() {
     finally { setLoading(false); }
   }
 
-  return { login, register, forgotPassword, loading, err, setErr };
+  async function validateResetToken(token) {
+    setErr(null);
+    try { 
+      const { data } = await auth.validateResetToken(token); 
+      return data; 
+    }
+    catch (e) { 
+      setErr(e?.response?.data?.reason || 'Token inválido'); 
+      throw e; 
+    }
+  }
+
+  async function resetPassword({ token, newPassword }) {
+    setErr(null); setLoading(true);
+    try { 
+      const { data } = await auth.resetPassword({ token, newPassword }); 
+      return data; 
+    }
+    catch (e) { 
+      setErr(e?.response?.data?.message || 'Falha ao redefinir senha'); 
+      throw e; 
+    }
+    finally { setLoading(false); }
+  }
+
+  return { 
+    login, 
+    register, 
+    forgotPassword, 
+    validateResetToken,
+    resetPassword,
+    loading, 
+    err, 
+    setErr 
+  };
 }

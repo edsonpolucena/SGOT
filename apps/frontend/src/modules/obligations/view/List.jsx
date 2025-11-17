@@ -62,6 +62,7 @@ export default function List() {
                   <th>Competência</th>
                   <th>Vencimento</th>
                   <th>Valor</th>
+                  <th>Postado</th>
                   <th>Status</th>
                   <th style={{width:160}}>Ações</th>
                 </tr>

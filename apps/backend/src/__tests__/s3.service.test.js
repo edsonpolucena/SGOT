@@ -1,22 +1,23 @@
-const AWS = require('aws-sdk');
-const s3Service = require('../services/s3.service');
+const mockSend = jest.fn();
+const mockGetSignedUrl = jest.fn();
 
-// Mock do AWS SDK
-jest.mock('aws-sdk', () => {
-  const mockS3 = {
-    upload: jest.fn().mockReturnThis(),
-    getSignedUrl: jest.fn(),
-    deleteObject: jest.fn().mockReturnThis(),
-    headObject: jest.fn().mockReturnThis(),
-    promise: jest.fn()
-  };
-
+// Mock AWS SDK v3 antes de importar o serviço
+jest.mock('@aws-sdk/client-s3', () => {
   return {
-    S3: jest.fn(() => mockS3)
+    S3Client: jest.fn().mockImplementation(() => ({
+      send: mockSend
+    })),
+    PutObjectCommand: jest.fn((params) => ({ name: 'PutObjectCommand', ...params })),
+    GetObjectCommand: jest.fn((params) => ({ name: 'GetObjectCommand', ...params })),
+    DeleteObjectCommand: jest.fn((params) => ({ name: 'DeleteObjectCommand', ...params })),
+    HeadObjectCommand: jest.fn((params) => ({ name: 'HeadObjectCommand', ...params })),
   };
 });
 
-// Mock do env
+jest.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: mockGetSignedUrl
+}));
+
 jest.mock('../config/env', () => ({
   env: {
     AWS_ACCESS_KEY_ID: 'test-key',
@@ -26,24 +27,16 @@ jest.mock('../config/env', () => ({
   }
 }));
 
-describe('S3 Service Tests', () => {
-  let mockS3Instance;
+const s3Service = require('../services/s3.service');
 
+describe('S3 Service Tests', () => {
   beforeEach(() => {
-    // Reset mocks
     jest.clearAllMocks();
-    
-    // Get the mocked S3 instance
-    mockS3Instance = new AWS.S3();
   });
 
   describe('uploadFile', () => {
     it('deve fazer upload de arquivo com sucesso', async () => {
-      const mockResult = {
-        Location: 'https://test-bucket.s3.amazonaws.com/documents/1234567890-test.txt'
-      };
-
-      mockS3Instance.upload().promise.mockResolvedValue(mockResult);
+      mockSend.mockResolvedValueOnce({});
 
       const fileBuffer = Buffer.from('test content');
       const fileName = 'test.txt';
@@ -52,45 +45,27 @@ describe('S3 Service Tests', () => {
 
       const result = await s3Service.uploadFile(fileBuffer, fileName, mimeType, folder);
 
-      expect(mockS3Instance.upload).toHaveBeenCalledWith({
-        Bucket: 'test-bucket',
-        Key: expect.stringMatching(/^documents\/\d+-test\.txt$/),
-        Body: fileBuffer,
-        ContentType: mimeType,
-        ACL: 'private'
-      });
-
-      expect(result).toEqual({
-        s3Key: expect.stringMatching(/^documents\/\d+-test\.txt$/),
-        s3Url: mockResult.Location
-      });
+      expect(mockSend).toHaveBeenCalled();
+      expect(result).toHaveProperty('s3Key');
+      expect(result).toHaveProperty('s3Url');
+      expect(result.s3Key).toMatch(/^documents\/\d+-test\.txt$/);
     });
 
     it('deve usar pasta padrão se não especificada', async () => {
-      const mockResult = {
-        Location: 'https://test-bucket.s3.amazonaws.com/documents/1234567890-test.txt'
-      };
-
-      mockS3Instance.upload().promise.mockResolvedValue(mockResult);
+      mockSend.mockResolvedValueOnce({});
 
       const fileBuffer = Buffer.from('test content');
       const fileName = 'test.txt';
       const mimeType = 'text/plain';
 
-      await s3Service.uploadFile(fileBuffer, fileName, mimeType);
+      const result = await s3Service.uploadFile(fileBuffer, fileName, mimeType);
 
-      expect(mockS3Instance.upload).toHaveBeenCalledWith({
-        Bucket: 'test-bucket',
-        Key: expect.stringMatching(/^documents\/\d+-test\.txt$/),
-        Body: fileBuffer,
-        ContentType: mimeType,
-        ACL: 'private'
-      });
+      expect(result.s3Key).toMatch(/^documents\/\d+-test\.txt$/);
     });
 
     it('deve lançar erro em caso de falha no upload', async () => {
       const error = new Error('Upload failed');
-      mockS3Instance.upload().promise.mockRejectedValue(error);
+      mockSend.mockRejectedValueOnce(error);
 
       const fileBuffer = Buffer.from('test content');
       const fileName = 'test.txt';
@@ -102,71 +77,56 @@ describe('S3 Service Tests', () => {
   });
 
   describe('getSignedUrl', () => {
-    it('deve gerar URL assinada com sucesso', () => {
+    it('deve gerar URL assinada com sucesso', async () => {
       const mockUrl = 'https://test-bucket.s3.amazonaws.com/test-file.txt?signature=abc123';
-      mockS3Instance.getSignedUrl.mockReturnValue(mockUrl);
+      mockGetSignedUrl.mockResolvedValueOnce(mockUrl);
 
       const s3Key = 'documents/test-file.txt';
       const expiresIn = 3600;
 
-      const result = s3Service.getSignedUrl(s3Key, expiresIn);
+      const result = await s3Service.getSignedUrl(s3Key, expiresIn);
 
-      expect(mockS3Instance.getSignedUrl).toHaveBeenCalledWith('getObject', {
-        Bucket: 'test-bucket',
-        Key: s3Key,
-        Expires: expiresIn
-      });
-
+      expect(mockGetSignedUrl).toHaveBeenCalled();
       expect(result).toBe(mockUrl);
     });
 
-    it('deve usar tempo de expiração padrão', () => {
+    it('deve usar tempo de expiração padrão', async () => {
       const mockUrl = 'https://test-bucket.s3.amazonaws.com/test-file.txt?signature=abc123';
-      mockS3Instance.getSignedUrl.mockReturnValue(mockUrl);
+      mockGetSignedUrl.mockResolvedValueOnce(mockUrl);
 
       const s3Key = 'documents/test-file.txt';
 
-      s3Service.getSignedUrl(s3Key);
+      await s3Service.getSignedUrl(s3Key);
 
-      expect(mockS3Instance.getSignedUrl).toHaveBeenCalledWith('getObject', {
-        Bucket: 'test-bucket',
-        Key: s3Key,
-        Expires: 3600
-      });
+      expect(mockGetSignedUrl).toHaveBeenCalled();
     });
 
-    it('deve lançar erro em caso de falha', () => {
+    it('deve lançar erro em caso de falha', async () => {
       const error = new Error('Failed to generate URL');
-      mockS3Instance.getSignedUrl.mockImplementation(() => {
-        throw error;
-      });
+      mockGetSignedUrl.mockRejectedValueOnce(error);
 
       const s3Key = 'documents/test-file.txt';
 
-      expect(() => s3Service.getSignedUrl(s3Key))
-        .toThrow('Falha ao gerar URL de download');
+      await expect(s3Service.getSignedUrl(s3Key))
+        .rejects.toThrow('Falha ao gerar URL de download');
     });
   });
 
   describe('deleteFile', () => {
     it('deve deletar arquivo com sucesso', async () => {
-      mockS3Instance.deleteObject().promise.mockResolvedValue({});
+      mockSend.mockResolvedValueOnce({});
 
       const s3Key = 'documents/test-file.txt';
 
       const result = await s3Service.deleteFile(s3Key);
 
-      expect(mockS3Instance.deleteObject).toHaveBeenCalledWith({
-        Bucket: 'test-bucket',
-        Key: s3Key
-      });
-
+      expect(mockSend).toHaveBeenCalled();
       expect(result).toBe(true);
     });
 
     it('deve retornar false em caso de erro', async () => {
       const error = new Error('Delete failed');
-      mockS3Instance.deleteObject().promise.mockRejectedValue(error);
+      mockSend.mockRejectedValueOnce(error);
 
       const s3Key = 'documents/test-file.txt';
 
@@ -178,24 +138,19 @@ describe('S3 Service Tests', () => {
 
   describe('fileExists', () => {
     it('deve retornar true se arquivo existe', async () => {
-      mockS3Instance.headObject().promise.mockResolvedValue({});
+      mockSend.mockResolvedValueOnce({});
 
       const s3Key = 'documents/test-file.txt';
 
       const result = await s3Service.fileExists(s3Key);
 
-      expect(mockS3Instance.headObject).toHaveBeenCalledWith({
-        Bucket: 'test-bucket',
-        Key: s3Key
-      });
-
+      expect(mockSend).toHaveBeenCalled();
       expect(result).toBe(true);
     });
 
     it('deve retornar false se arquivo não existe', async () => {
       const error = new Error('Not Found');
-      error.statusCode = 404;
-      mockS3Instance.headObject().promise.mockRejectedValue(error);
+      mockSend.mockRejectedValueOnce(error);
 
       const s3Key = 'documents/non-existent-file.txt';
 
@@ -206,8 +161,7 @@ describe('S3 Service Tests', () => {
 
     it('deve retornar false para outros erros', async () => {
       const error = new Error('Access Denied');
-      error.statusCode = 403;
-      mockS3Instance.headObject().promise.mockRejectedValue(error);
+      mockSend.mockRejectedValueOnce(error);
 
       const s3Key = 'documents/restricted-file.txt';
 

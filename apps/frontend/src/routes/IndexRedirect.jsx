@@ -8,9 +8,9 @@ export default function IndexRedirect() {
     return <Navigate to="/login" replace />;
   }
 
-  if (user?.role === 'ACCOUNTING') {
+  if (user?.role === 'ACCOUNTING_SUPER') {
     return <Navigate to="/dashboard" replace />;
-  } else if (user?.role === 'CLIENT') {
+  } else if (user?.role === 'CLIENT_NORMAL') {
     return <Navigate to="/dashboard" replace />;
   }
 

@@ -14,6 +14,14 @@ export function forgotPassword({ email }) {
   return api.post(`${PREFIX}/auth/forgot-password`, { email });
 }
 
+export function validateResetToken(token) {
+  return api.get(`${PREFIX}/auth/validate-reset-token/${token}`);
+}
+
+export function resetPassword({ token, newPassword }) {
+  return api.post(`${PREFIX}/auth/reset-password`, { token, newPassword });
+}
+
 export function me() {
   return api.get(`${PREFIX}/auth/me`);
 }

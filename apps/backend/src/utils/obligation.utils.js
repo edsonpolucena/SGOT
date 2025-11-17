@@ -2,14 +2,17 @@ const { ObligationStatus } = require('@prisma/client');
 
 /**
  * Computa o status de uma obrigação baseado na data de vencimento
- * @param {string|Date} dueDate - Data de vencimento
- * @param {string|Date} current - Data atual (opcional, padrão: new Date())
+ * @param {string|Date} dueDate - Data de vencimento (não usado mais - mantido por compatibilidade)
+ * @param {string|Date} current - Data atual (não usado mais - mantido por compatibilidade)
  * @param {string} original - Status original (opcional)
  * @returns {string} Status da obrigação
  */
 function computeStatus(dueDate, current = new Date(), original) {
-  if (original === 'PAID' || original === 'CANCELED') return original;
-  return new Date(dueDate) < new Date(current) ? ObligationStatus.LATE : ObligationStatus.PENDING;
+  // Se já tem status definido (ex: NOT_APPLICABLE), preserva
+  if (original === 'NOT_APPLICABLE') return original;
+  
+  // Sempre retorna PENDING (status padrão)
+  return ObligationStatus.PENDING;
 }
 
 /**

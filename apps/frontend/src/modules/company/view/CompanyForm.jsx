@@ -15,7 +15,7 @@ import {
 
 export default function CompanyForm() {
   const {user} = useAuth();
-  const { createCompany, getCompanies, loading, error } = useCompanyController();
+  const { createCompany, getCompanies, updateCompany, getCompanyById, loading, error } = useCompanyController();
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = !!id;
@@ -58,9 +58,7 @@ export default function CompanyForm() {
 
   const loadCompanyData = async () => {
     try {
-      // TODO: Implementar getCompanyById no controller
-      const companies = await getCompanies();
-      const company = companies.find(c => c.id === parseInt(id));
+      const company = await getCompanyById(id);
       if (company) {
         setForm({
           codigo: company.codigo,
@@ -126,15 +124,30 @@ export default function CompanyForm() {
     e.preventDefault();
     try {
       if (isEdit) {
-        // TODO: Implementar updateCompany no controller
+        // Para edição, enviar apenas os campos que foram alterados
+        const dataToUpdate = {
+          nome: form.nome,
+          email: form.email || null,
+          telefone: form.telefone ? form.telefone.replace(/\D/g, '') : null,
+          endereco: form.endereco || null,
+          status: form.status
+        };
+        await updateCompany(id, dataToUpdate);
         alert(`Empresa atualizada com sucesso: ${form.nome}`);
       } else {
-        const empresa = await createCompany(form);
+        // Remover máscaras dos campos antes de enviar
+        const dataToSend = {
+          ...form,
+          cnpj: form.cnpj.replace(/\D/g, ''), // Remove tudo que não é dígito
+          telefone: form.telefone ? form.telefone.replace(/\D/g, '') : null
+        };
+        const empresa = await createCompany(dataToSend);
         alert(`Empresa cadastrada com sucesso: ${empresa.nome}`);
       }
       navigate('/companies');
     } catch (err) {
-      console.error(err);
+      console.error('Erro ao salvar empresa:', err);
+      alert(err.response?.data?.message || 'Erro ao salvar empresa');
     }
   }
 

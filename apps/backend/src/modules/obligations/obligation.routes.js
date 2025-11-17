@@ -10,7 +10,7 @@ const {
   fileIdParamSchema,
   obligationFiltersSchema
 } = require('../../middleware/validation');
-const { 
+const {
   postObligation, 
   getObligations, 
   getObligationById, 
@@ -18,21 +18,29 @@ const {
   deleteObligationById,
   uploadFiles,
   getFiles,
+  viewFile,
   downloadFile,
-  deleteFile
+  deleteFile,
+  markNotApplicable,
+  getMonthlyControlData
 } = require('./obligation.controller');
+const { getClientViewsHistory } = require('../notifications/notification.controller');
 
 const obligationRouter = Router();
 obligationRouter.use(requireAuth);
 
 obligationRouter.post('/', validate(obligationSchema), postObligation);
 obligationRouter.get('/', validateQuery(obligationFiltersSchema), getObligations);
+obligationRouter.get('/monthly-control', getMonthlyControlData); // ANTES de /:id
 obligationRouter.get('/:id', validateParams(idParamSchema), getObligationById);
+obligationRouter.get('/:id/client-views', validateParams(idParamSchema), getClientViewsHistory);
 obligationRouter.put('/:id', validateParams(idParamSchema), validate(obligationSchema), putObligation);
+obligationRouter.patch('/:id/mark-not-applicable', validateParams(idParamSchema), markNotApplicable);
 obligationRouter.delete('/:id', validateParams(idParamSchema), deleteObligationById);
 
 obligationRouter.post('/:id/files', validateParams(idParamSchema), uploadMultiple, handleUploadError, uploadFiles);
 obligationRouter.get('/:id/files', validateParams(idParamSchema), getFiles);
+obligationRouter.get('/files/:fileId/view', validateParams(fileIdParamSchema), viewFile);
 obligationRouter.get('/files/:fileId/download', validateParams(fileIdParamSchema), downloadFile);
 obligationRouter.delete('/files/:fileId', validateParams(fileIdParamSchema), deleteFile);
 

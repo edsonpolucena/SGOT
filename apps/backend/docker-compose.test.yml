@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: sgot-test-db
+    environment:
+      POSTGRES_USER: sgot_test
+      POSTGRES_PASSWORD: sgot_test_password
+      POSTGRES_DB: sgot_test
+    ports:
+      - "5434:5432"  # Porta diferente da dev (5432)
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_test_data:
