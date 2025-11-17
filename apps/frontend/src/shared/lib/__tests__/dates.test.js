@@ -7,7 +7,7 @@ import {
   isOverdue,
   addDays,
   daysDifference
-} from '../shared/lib/dates';
+} from '../dates';
 
 describe('Dates Utils - Unit Tests', () => {
   
@@ -163,3 +163,4 @@ describe('Dates Utils - Unit Tests', () => {
     });
   });
 });
+
