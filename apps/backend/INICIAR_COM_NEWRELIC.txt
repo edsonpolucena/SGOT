@@ -1,0 +1,53 @@
+================================
+🔍 COMO INICIAR COM NEW RELIC
+================================
+
+OPÇÃO 1 (RECOMENDADA): Adicionar ao .env
+─────────────────────────────────────────
+1. Abra: apps/backend/.env
+2. Adicione esta linha:
+
+NEW_RELIC_ENABLED=true
+
+3. Execute:
+npm run dev:server
+
+OU
+
+npm run start:prod
+
+
+OPÇÃO 2: Comando manual no PowerShell
+──────────────────────────────────────
+$env:NEW_RELIC_ENABLED="true"
+npm run dev:server
+
+
+OPÇÃO 3: Script com cross-env (já configurado)
+──────────────────────────────────────────────
+npm run start:prod
+
+
+✅ CONFIRME SE FUNCIONOU:
+─────────────────────────
+Você DEVE ver no console:
+🔍 New Relic APM ativado
+API on http://localhost:3001
+
+
+❌ SE NÃO APARECER:
+───────────────────
+1. Verifique se adicionou NEW_RELIC_ENABLED=true no .env
+2. Certifique-se que adicionou as outras variáveis:
+   NEW_RELIC_LICENSE_KEY=fda5c6cf7c4dddde520d840df6bbf7dbFFFFNRAL
+   NEW_RELIC_APP_NAME=SGOT-Backend
+
+
+📊 APÓS INICIAR:
+────────────────
+1. Faça requisições na API (use o frontend ou Postman)
+2. Aguarde 2-3 minutos
+3. Acesse: https://one.newrelic.com
+4. Veja os dados em tempo real!
+
+

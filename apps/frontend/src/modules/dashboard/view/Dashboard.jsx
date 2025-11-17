@@ -4,93 +4,111 @@ import styled from "styled-components";
 import { useAuth } from "../../../shared/context/AuthContext";
 import http from "../../../shared/services/http";
 import WelcomeCard from "../../../shared/ui/WelcomeCard";
+import { FaEye, FaDownload, FaTrashAlt } from "../../../shared/icons";
+import IconButton from "../../../shared/ui/IconButton";
+import IconGroup from "../../../shared/ui/IconGroup";
+import { FaChartBar } from "react-icons/fa";
+import { useObligationActions } from "../../../shared/hooks/useObligationActions";
+import {
+  StatsGrid,
+  StatCard,
+  StatNumber,
+  StatLabel,
+  Table,
+  Th,
+  Td,
+  Pagination
+} from "../../../shared/styles/DashboardCommon.styles";
 
 const DashboardContainer = styled.div`
   padding: 20px;
 `;
 
+const TaxStatsSection = styled.div`
+  margin: 30px 0;
+`;
 
-const StatsGrid = styled.div`
+const TaxStatsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 20px;
-  margin-bottom: 30px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
 `;
 
-const StatCard = styled.div`
+const TaxCard = styled.div`
   background: white;
-  padding: 25px;
   border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  border-left: 4px solid ${(props) => props.color || "#667eea"};
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid ${props => {
+    if (props.$completionRate === 100) return '#10b981'; // verde
+    if (props.$completionRate >= 50) return '#f59e0b'; // amarelo
+    return '#ef4444'; // vermelho
+  }};
+  transition: transform 0.2s, box-shadow 0.2s;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
 `;
 
-const StatNumber = styled.div`
-  font-size: 2.5rem;
-  font-weight: bold;
-  color: ${(props) => props.color || "#333"};
-  margin-bottom: 10px;
+const TaxName = styled.div`
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
 `;
 
-const StatLabel = styled.div`
-  color: #666;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+const TaxRatio = styled.div`
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: ${props => {
+    if (props.$completionRate === 100) return '#10b981';
+    if (props.$completionRate >= 50) return '#f59e0b';
+    return '#ef4444';
+  }};
+  margin-bottom: 8px;
 `;
 
-const Table = styled.table`
+const TaxProgress = styled.div`
+  font-size: 0.85rem;
+  color: #6b7280;
+`;
+
+const ProgressBarContainer = styled.div`
   width: 100%;
-  border-collapse: collapse;
-  margin-top: 15px;
-  background: white;
-  border-radius: 8px;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
   overflow: hidden;
+  margin-top: 8px;
 `;
 
-const Th = styled.th`
-  padding: 12px;
-  text-align: left;
-  background: #f9fafb;
-  cursor: pointer;
-`;
-
-const Td = styled.td`
-  padding: 12px;
-  border-bottom: 1px solid #eee;
-`;
-
-const Pagination = styled.div`
-  margin-top: 15px;
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-
-  button {
-    padding: 6px 12px;
-    border: 1px solid #ccc;
-    background: white;
-    cursor: pointer;
-    border-radius: 6px;
-  }
-
-  button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
+const ProgressBarFill = styled.div`
+  height: 100%;
+  width: ${props => props.$percentage}%;
+  background: ${props => {
+    if (props.$percentage === 100) return '#10b981';
+    if (props.$percentage >= 50) return '#f59e0b';
+    return '#ef4444';
+  }};
+  transition: width 0.3s ease;
 `;
 
 export default function Dashboard() {
   const { user, isAccounting, isClient } = useAuth();
   const navigate = useNavigate();
+  const { handleViewObligation, handleDownloadFiles, handleDeleteObligation, alertComponent } = useObligationActions();
 
   const [stats, setStats] = useState({
     totalObligations: 0,
-    pendingObligations: 0,
-    lateObligations: 0,
-    paidObligations: 0,
   });
   const [obligations, setObligations] = useState([]);
+  const [taxStats, setTaxStats] = useState([]);
+  const [deadlineCompliance, setDeadlineCompliance] = useState(null);
+  const [alerts, setAlerts] = useState(null);
+  const [unviewedAlerts, setUnviewedAlerts] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
@@ -106,6 +124,18 @@ export default function Dashboard() {
     }
     loadDashboardData();
   }, [isClient, navigate]);
+
+  // Recarregar dados quando a janela receber foco
+  useEffect(() => {
+    const handleFocus = () => {
+      if (!isClient) {
+        loadDashboardData();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [isClient]);
 
   const loadDashboardData = async () => {
     try {
@@ -126,23 +156,61 @@ export default function Dashboard() {
           competence: notes.competence || "",
           cnpj: notes.cnpj || "",
           companyName: notes.companyName || "",
+          placeholder: Boolean(notes.placeholder),
         };
       });
 
       setStats({
         totalObligations: obligations.length,
-        pendingObligations: obligations.filter((o) => o.status === "PENDING").length,
-        lateObligations: obligations.filter((o) => o.status === "LATE").length,
-        paidObligations: obligations.filter((o) => o.status === "PAID").length,
       });
 
       setObligations(obligations);
+
+      // Buscar estatísticas por tipo de imposto (mês atual)
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      
+      try {
+        const taxStatsResponse = await http.get(`/api/analytics/tax-type-stats?month=${currentMonth}`);
+        setTaxStats(taxStatsResponse.data.taxStats || []);
+      } catch (taxError) {
+        console.error("Erro ao carregar estatísticas de impostos:", taxError);
+        setTaxStats([]);
+      }
+
+      // Buscar estatísticas de cumprimento de prazos
+      try {
+        const deadlineResponse = await http.get(`/api/analytics/deadline-compliance?month=${currentMonth}`);
+        setDeadlineCompliance(deadlineResponse.data);
+      } catch (deadlineError) {
+        console.error("Erro ao carregar estatísticas de prazo:", deadlineError);
+        setDeadlineCompliance(null);
+      }
+
+      // Buscar impostos atrasados e próximos ao vencimento
+      try {
+        const alertsResponse = await http.get(`/api/analytics/overdue-and-upcoming?month=${currentMonth}`);
+        setAlerts(alertsResponse.data);
+      } catch (alertsError) {
+        console.error("Erro ao carregar alertas:", alertsError);
+        setAlerts(null);
+      }
+
+      // Buscar alertas de documentos não visualizados
+      try {
+        const unviewedResponse = await http.get('/api/analytics/unviewed-alerts');
+        setUnviewedAlerts(unviewedResponse.data);
+      } catch (unviewedError) {
+        console.error("Erro ao carregar alertas de não visualizados:", unviewedError);
+        setUnviewedAlerts(null);
+      }
     } catch (error) {
       console.error("Erro ao carregar dados do dashboard:", error);
     } finally {
       setLoading(false);
     }
   };
+
 
   const handleSort = (col) => {
     const order = sortColumn === col && sortOrder === "asc" ? "desc" : "asc";
@@ -188,6 +256,10 @@ export default function Dashboard() {
           aVal = a.amount || 0;
           bVal = b.amount || 0;
           break;
+        case "postedBy":
+          aVal = a.user?.name || "";
+          bVal = b.user?.name || "";
+          break;
         default:
           aVal = "";
           bVal = "";
@@ -203,6 +275,30 @@ export default function Dashboard() {
   const currentItems = filteredObligations.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredObligations.length / itemsPerPage);
 
+  // ===== Compliance (Cumprimento Geral) =====
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const isInCurrentMonth = (o) => {
+    const d = new Date(o.dueDate);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  };
+
+  const monthObligations = obligations.filter(isInCurrentMonth);
+  const totalExpected = monthObligations.length || 0;
+  const completedOrPlaceholder = monthObligations.filter(
+    (o) => o.placeholder || (o.status && o.status !== "PENDING")
+  ).length;
+  const compliancePercent = totalExpected
+    ? Math.round((completedOrPlaceholder / totalExpected) * 100)
+    : 0;
+
+  const complianceColor = compliancePercent >= 90
+    ? "#10b981" // verde
+    : compliancePercent >= 70
+    ? "#f59e0b" // amarelo
+    : "#ef4444"; // vermelho
+
   if (loading) {
     return <DashboardContainer>Carregando dashboard...</DashboardContainer>;
   }
@@ -214,25 +310,220 @@ export default function Dashboard() {
       subtitle="Gerencie todas as obrigações tributárias"
     />
 
-
+      {/* Cards de estatísticas principais */}
       <StatsGrid>
         <StatCard color="#667eea">
           <StatNumber color="#667eea">{stats.totalObligations}</StatNumber>
           <StatLabel>Total de Obrigações</StatLabel>
         </StatCard>
-        <StatCard color="#f59e0b">
-          <StatNumber color="#f59e0b">{stats.pendingObligations}</StatNumber>
-          <StatLabel>Pendentes</StatLabel>
-        </StatCard>
-        <StatCard color="#ef4444">
-          <StatNumber color="#ef4444">{stats.lateObligations}</StatNumber>
-          <StatLabel>Em Atraso</StatLabel>
-        </StatCard>
-        <StatCard color="#10b981">
-          <StatNumber color="#10b981">{stats.paidObligations}</StatNumber>
-          <StatLabel>Pagas</StatLabel>
-        </StatCard>
+        
+        {/* Card: % de Prazos Cumpridos (4 dias antes) */}
+        {deadlineCompliance && (
+          <StatCard color={
+            deadlineCompliance.complianceRate >= 90 ? '#10b981' :
+            deadlineCompliance.complianceRate >= 70 ? '#f59e0b' :
+            '#ef4444'
+          }>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <StatNumber style={{ 
+                color: deadlineCompliance.complianceRate >= 90 ? '#10b981' :
+                       deadlineCompliance.complianceRate >= 70 ? '#f59e0b' :
+                       '#ef4444'
+              }}>
+                {deadlineCompliance.complianceRate}%
+              </StatNumber>
+              <StatLabel>Prazos Cumpridos</StatLabel>
+              <div style={{ 
+                fontSize: '0.75rem', 
+                color: '#6b7280', 
+                marginTop: '8px',
+                textAlign: 'center'
+              }}>
+                {deadlineCompliance.onTime} no prazo / {deadlineCompliance.late} atrasados
+              </div>
+              <div style={{ 
+                fontSize: '0.7rem', 
+                color: '#9ca3af', 
+                marginTop: '4px'
+              }}>
+                (4+ dias antes do vencimento)
+              </div>
+            </div>
+          </StatCard>
+        )}
       </StatsGrid>
+
+      {/* Alertas de Impostos Atrasados e Vencendo */}
+      {alerts && (alerts.overdue.count > 0 || alerts.dueSoon.count > 0) && (
+        <div style={{ 
+          margin: '20px 0', 
+          padding: '16px', 
+          background: '#fef3c7', 
+          border: '1px solid #fbbf24',
+          borderRadius: '8px',
+          display: 'flex',
+          gap: '16px',
+          flexWrap: 'wrap'
+        }}>
+          {alerts.overdue.count > 0 && (
+            <div style={{ flex: '1', minWidth: '250px' }}>
+              <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#991b1b', marginBottom: '8px' }}>
+                ⚠️ {alerts.overdue.count} Impostos Atrasados
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#92400e' }}>
+                {alerts.overdue.items.slice(0, 3).map((item, i) => (
+                  <div key={i} style={{ marginBottom: '4px' }}>
+                    • {item.company} - {item.taxType} (venceu há {item.daysOverdue} dias)
+                  </div>
+                ))}
+                {alerts.overdue.count > 3 && (
+                  <div style={{ fontStyle: 'italic', marginTop: '4px' }}>
+                    + {alerts.overdue.count - 3} mais...
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {alerts.dueSoon.count > 0 && (
+            <div style={{ flex: '1', minWidth: '250px' }}>
+              <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#d97706', marginBottom: '8px' }}>
+                ⏰ {alerts.dueSoon.count} Impostos Vencendo em 2 Dias
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#92400e' }}>
+                {alerts.dueSoon.items.slice(0, 3).map((item, i) => (
+                  <div key={i} style={{ marginBottom: '4px' }}>
+                    • {item.company} - {item.taxType} (vence em {item.daysUntilDue} dias)
+                  </div>
+                ))}
+                {alerts.dueSoon.count > 3 && (
+                  <div style={{ fontStyle: 'italic', marginTop: '4px' }}>
+                    + {alerts.dueSoon.count - 3} mais...
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Alertas de Documentos Não Visualizados */}
+      {unviewedAlerts && unviewedAlerts.total > 0 && (
+        <div style={{ 
+          margin: '20px 0', 
+          padding: '16px', 
+          background: '#e0f2fe', 
+          border: '1px solid #0ea5e9',
+          borderRadius: '8px'
+        }}>
+          <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#075985', marginBottom: '12px' }}>
+            📢 {unviewedAlerts.total} Documento(s) Não Visualizado(s) pelos Clientes
+          </div>
+          <div style={{ fontSize: '0.85rem', color: '#0c4a6e', marginBottom: '8px' }}>
+            Documentos postados aguardando visualização:
+          </div>
+          
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '12px' }}>
+            {unviewedAlerts.oneDay.length > 0 && (
+              <div style={{ flex: '1', minWidth: '220px', background: '#fef2f2', padding: '12px', borderRadius: '6px', borderLeft: '4px solid #dc2626' }}>
+                <div style={{ fontWeight: '600', color: '#991b1b', marginBottom: '6px' }}>
+                  🚨 Vence em 1 dia ({unviewedAlerts.oneDay.length})
+                </div>
+                {unviewedAlerts.oneDay.slice(0, 2).map((item, i) => (
+                  <div key={i} style={{ fontSize: '0.8rem', color: '#7f1d1d', marginBottom: '3px' }}>
+                    • {item.company} - {item.taxType}
+                  </div>
+                ))}
+                {unviewedAlerts.oneDay.length > 2 && (
+                  <div style={{ fontSize: '0.75rem', fontStyle: 'italic', color: '#991b1b', marginTop: '4px' }}>
+                    + {unviewedAlerts.oneDay.length - 2} mais...
+                  </div>
+                )}
+              </div>
+            )}
+
+            {unviewedAlerts.twoDays.length > 0 && (
+              <div style={{ flex: '1', minWidth: '220px', background: '#fef3c7', padding: '12px', borderRadius: '6px', borderLeft: '4px solid #f59e0b' }}>
+                <div style={{ fontWeight: '600', color: '#92400e', marginBottom: '6px' }}>
+                  ⚠️ Vence em 2 dias ({unviewedAlerts.twoDays.length})
+                </div>
+                {unviewedAlerts.twoDays.slice(0, 2).map((item, i) => (
+                  <div key={i} style={{ fontSize: '0.8rem', color: '#78350f', marginBottom: '3px' }}>
+                    • {item.company} - {item.taxType}
+                  </div>
+                ))}
+                {unviewedAlerts.twoDays.length > 2 && (
+                  <div style={{ fontSize: '0.75rem', fontStyle: 'italic', color: '#92400e', marginTop: '4px' }}>
+                    + {unviewedAlerts.twoDays.length - 2} mais...
+                  </div>
+                )}
+              </div>
+            )}
+
+            {unviewedAlerts.threeDays.length > 0 && (
+              <div style={{ flex: '1', minWidth: '220px', background: '#dbeafe', padding: '12px', borderRadius: '6px', borderLeft: '4px solid #3b82f6' }}>
+                <div style={{ fontWeight: '600', color: '#1e40af', marginBottom: '6px' }}>
+                  ℹ️ Vence em 3 dias ({unviewedAlerts.threeDays.length})
+                </div>
+                {unviewedAlerts.threeDays.slice(0, 2).map((item, i) => (
+                  <div key={i} style={{ fontSize: '0.8rem', color: '#1e3a8a', marginBottom: '3px' }}>
+                    • {item.company} - {item.taxType}
+                  </div>
+                ))}
+                {unviewedAlerts.threeDays.length > 2 && (
+                  <div style={{ fontSize: '0.75rem', fontStyle: 'italic', color: '#1e40af', marginTop: '4px' }}>
+                    + {unviewedAlerts.threeDays.length - 2} mais...
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div style={{ marginTop: '12px', textAlign: 'center' }}>
+            <button
+              onClick={() => navigate('/notifications/unviewed')}
+              style={{
+                background: '#0ea5e9',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                fontSize: '0.9rem'
+              }}
+            >
+              Ver Documentos Não Visualizados
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Estatísticas por Tipo de Imposto */}
+      {taxStats.length > 0 && (
+        <TaxStatsSection>
+          <h2> <FaChartBar/> Status por Tipo de Imposto</h2>
+          <p style={{ color: '#6b7280', fontSize: '0.9rem', marginTop: '8px' }}>
+            Progresso de envio por tipo de imposto no mês atual
+          </p>
+          <TaxStatsGrid>
+            {taxStats.map((tax) => (
+              <TaxCard key={tax.taxType} $completionRate={tax.completionRate}>
+                <TaxName>{tax.taxName}</TaxName>
+                <TaxRatio $completionRate={tax.completionRate}>
+                  {tax.postedCount}/{tax.expectedCount}
+                </TaxRatio>
+                <TaxProgress>
+                  {tax.completionRate}% concluído
+                </TaxProgress>
+                <ProgressBarContainer>
+                  <ProgressBarFill $percentage={tax.completionRate} />
+                </ProgressBarContainer>
+              </TaxCard>
+            ))}
+          </TaxStatsGrid>
+        </TaxStatsSection>
+      )}
 
       <h2>Obrigações Recentes</h2>
       <input
@@ -252,13 +543,14 @@ export default function Dashboard() {
             <Th onClick={() => handleSort("competence")}>Competência</Th>
             <Th onClick={() => handleSort("dueDate")}>Vencimento</Th>
             <Th onClick={() => handleSort("amount")}>Valor</Th>
+            <Th onClick={() => handleSort("postedBy")}>Postado</Th>
             <Th>Ações</Th>
           </tr>
         </thead>
         <tbody>
           {currentItems.length === 0 ? (
             <tr>
-              <Td colSpan="7" style={{ textAlign: "center", padding: "20px" }}>
+              <Td colSpan="8" style={{ textAlign: "center", padding: "20px" }}>
                 Nenhuma obrigação encontrada
               </Td>
             </tr>
@@ -277,10 +569,27 @@ export default function Dashboard() {
                       })}`
                     : "-"}
                 </Td>
+                <Td>{o.user?.name || "N/A"}</Td>
                 <Td>
-                  <button>👁️ Visualizar</button>
-                  <button>⬇️ Download</button>
-                  <button style={{ color: "red" }}>🗑️ Excluir</button>
+                  <IconGroup>
+                      <IconButton 
+                       icon={FaEye}
+                       onClick={() => handleViewObligation(o.id)}
+                        title="Visualizar"
+                      />
+                      <IconButton 
+                        icon={FaDownload}
+                        onClick={() => handleDownloadFiles(o.id)}
+                        title="Download"
+                      />
+                      <IconButton 
+                        icon={FaTrashAlt}
+                        onClick={() => handleDeleteObligation(o.id, loadDashboardData)}
+                        title="Excluir"
+                        variant="danger"
+                      />
+                  </IconGroup>
+                  
                 </Td>
               </tr>
             ))
@@ -302,6 +611,7 @@ export default function Dashboard() {
           Próxima
         </button>
       </Pagination>
+      {alertComponent}
     </DashboardContainer>
   );
 }

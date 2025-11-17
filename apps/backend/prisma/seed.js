@@ -4,81 +4,168 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function run() {
+  // Primeiro, limpar dados existentes para evitar conflitos
+  // await prisma.obligation.deleteMany({});
+  // await prisma.user.deleteMany({});
+  // await prisma.empresa.deleteMany({});
+
   const passwordHash = await bcrypt.hash('secret123', 10);
 
-  const accountingUser = await prisma.user.upsert({
+  // Criar empresas primeiro (EMP001 = Contabilidade)
+  const empresa1 = await prisma.empresa.upsert({
+    where: { cnpj: "00.000.000/0001-00" },
+    update: {
+      email: "edsonpolucena@hotmail.com", // Força atualização do email
+    },
+    create: {
+      codigo: "EMP001",
+      nome: "Contabilidade SGOT",
+      cnpj: "00.000.000/0001-00",
+      email: "edsonpolucena@hotmail.com",
+      telefone: "(47) 99999-0000",
+      endereco: "Rua Principal, 100 - Joinville/SC",
+    },
+  });
+
+  const empresa2 = await prisma.empresa.upsert({
+    where: { cnpj: "11.111.111/0001-11" },
+    update: {
+      email: "edson.polucena@catolicasc.edu.br", // Força atualização do email
+    },
+    create: {
+      codigo: "EMP002",
+      nome: "Cliente Exemplo Ltda",
+      cnpj: "11.111.111/0001-11",
+      email: "edson.polucena@catolicasc.edu.br",
+      telefone: "(47) 98888-1111",
+      endereco: "Av. Central, 456 - Joinville/SC",
+    },
+  });
+
+  const empresa3 = await prisma.empresa.upsert({
+    where: { cnpj: "22.222.222/0001-22" },
+    update: {
+      email: "edsonpolucena@hotmail.com", // Força atualização do email
+    },
+    create: {
+      codigo: "EMP003",
+      nome: "Comércio ABC ME",
+      cnpj: "22.222.222/0001-22",
+      email: "edsonpolucena@hotmail.com",
+      telefone: "(47) 97777-2222",
+      endereco: "Rua das Flores, 789 - Joinville/SC",
+    },
+  });
+
+  // Criar usuários
+  const accountingSuper = await prisma.user.upsert({
+    where: { email: 'admin@sgot.com' },
+    update: {},
+    create: {
+      email: 'admin@sgot.com', 
+      passwordHash, 
+      name: 'Administrador',
+      role: 'ACCOUNTING_SUPER',
+      status: 'ACTIVE',
+      companyId: empresa1.id
+    },
+  });
+
+  const accountingAdmin = await prisma.user.upsert({
     where: { email: 'contabilidade@sgot.com' },
-    update: { passwordHash, name: 'Contabilidade', role: 'ACCOUNTING' },
-    create: { 
+    update: {},
+    create: {
       email: 'contabilidade@sgot.com', 
       passwordHash, 
       name: 'Contabilidade',
-      role: 'ACCOUNTING'
+      role: 'ACCOUNTING_ADMIN',
+      status: 'ACTIVE',
+      companyId: empresa1.id
     },
   });
 
-  const clientUser = await prisma.user.upsert({
-    where: { email: 'cliente@sgot.com' },
-    update: { passwordHash, name: 'Cliente Teste', role: 'CLIENT' },
-    create: { 
-      email: 'cliente@sgot.com', 
+  // Usando email verificado no AWS SES
+  const clientAdmin = await prisma.user.upsert({
+    where: { email: 'edson.polucena@catolicasc.edu.br' },
+    update: {},
+    create: {
+      email: 'edson.polucena@catolicasc.edu.br', 
       passwordHash, 
-      name: 'Cliente Teste',
-      role: 'CLIENT'
+      name: 'Cliente Admin',
+      role: 'CLIENT_ADMIN',
+      status: 'ACTIVE',
+      companyId: empresa2.id
     },
   });
 
-  await prisma.obligation.createMany({
-    data: [
-      {
-        title: 'DAS - Set/2025',
-        regime: 'SIMPLES',
-        periodStart: new Date('2025-09-01T00:00:00Z'),
-        periodEnd:   new Date('2025-09-30T00:00:00Z'),
-        dueDate:     new Date('2025-10-20T00:00:00Z'),
-        notes: 'Padaria Bom Pão ME',
-        userId: clientUser.id,
-        companyId: 1,
-        amount: 150.00,
-      },
-      {
-        title: 'GFIP - Ago/2025',
-        regime: 'LUCRO_PRESUMIDO',
-        periodStart: new Date('2025-08-01T00:00:00Z'),
-        periodEnd:   new Date('2025-08-31T00:00:00Z'),
-        dueDate:     new Date('2025-09-07T00:00:00Z'),
-        notes: 'Mecânica Boa Vista LTDA',
-        userId: clientUser.id,
-        companyId: 2, // Assumindo que a segunda empresa tem ID 2
-        amount: 2500.00,
-      },
-    ],
-  });
+  // Criar perfis fiscais (tipos de impostos) para as empresas
+  // IMPORTANTE: EMP001 é a contabilidade, não deve ter impostos configurados
+  // Apenas EMP002 e EMP003 são clientes e devem ter os 5 impostos padrão
+  console.log('\n📋 Criando perfis fiscais para empresas clientes...');
+  
+  const tiposImpostos = ['DAS', 'ISS_RETIDO', 'FGTS', 'DCTFWeb', 'OUTRO'];
+  
+  // Empresa 2 (Cliente Exemplo Ltda) - Todos os 5 impostos
+  for (const taxType of tiposImpostos) {
+    await prisma.companyTaxProfile.upsert({
+      where: { companyId_taxType: { companyId: empresa2.id, taxType } },
+      update: {},
+      create: { companyId: empresa2.id, taxType, isActive: true }
+    });
+  }
 
-  // insere empresas
-  await prisma.empresa.createMany({
-    data: [
-      {
-        codigo: "EMP001",
-        nome: "Empresa XYZ Ltda",
-        cnpj: "00.000.000/0001-00",
-        email: "contato@empresaxyz.com",
-        telefone: "(47) 99999-0000",
-        endereco: "Rua das Flores, 123 - Joinville/SC",
-      },
-      {
-        codigo: "EMP002",
-        nome: "Comércio ABC ME",
-        cnpj: "11.111.111/0001-11",
-        email: "financeiro@comercioabc.com",
-        telefone: "(47) 98888-1111",
-        endereco: "Av. Central, 456 - Joinville/SC",
-      },
-    ],
-    skipDuplicates: true,
-  });
+  // Empresa 3 (Comércio ABC ME) - Todos os 5 impostos
+  for (const taxType of tiposImpostos) {
+    await prisma.companyTaxProfile.upsert({
+      where: { companyId_taxType: { companyId: empresa3.id, taxType } },
+      update: {},
+      create: { companyId: empresa3.id, taxType, isActive: true }
+    });
+  }
 
-  console.log('✅ Seed concluído');
+  console.log('✅ Perfis fiscais criados! (5 impostos x 2 empresas = 10 perfis)');
+
+  // Criar calendário fiscal (vencimentos padrão dos impostos)
+  console.log('\n📅 Criando calendário fiscal...');
+  
+  const vencimentos = [
+    { taxType: 'DAS', dueDay: 20, description: 'DAS - Vence todo dia 20' },
+    { taxType: 'ISS_RETIDO', dueDay: 15, description: 'ISS Retido - Vence todo dia 15' },
+    { taxType: 'FGTS', dueDay: 7, description: 'FGTS - Vence todo dia 7' },
+    { taxType: 'DCTFWeb', dueDay: 15, description: 'DCTFWeb - Vence todo dia 15' }
+    // OUTRO não tem vencimento fixo
+  ];
+
+  for (const venc of vencimentos) {
+    await prisma.taxCalendar.upsert({
+      where: { taxType: venc.taxType },
+      update: { dueDay: venc.dueDay, description: venc.description },
+      create: venc
+    });
+  }
+
+  console.log('✅ Calendário fiscal criado! (4 impostos com vencimentos fixos)');
+
+  console.log('\n✅ Seed concluído!');
+  console.log('\n📧 USUÁRIOS CRIADOS:');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('👑 SUPER ADMIN (Contabilidade)');
+  console.log('   Email: admin@sgot.com');
+  console.log('   Senha: secret123');
+  console.log('   Role: ACCOUNTING_SUPER\n');
+  console.log('📊 ADMIN (Contabilidade)');
+  console.log('   Email: contabilidade@sgot.com');
+  console.log('   Senha: secret123');
+  console.log('   Role: ACCOUNTING_ADMIN\n');
+  console.log('🏢 CLIENTE ADMIN');
+  console.log('   Email: edson.polucena@catolicasc.edu.br');
+  console.log('   Senha: secret123');
+  console.log('   Role: CLIENT_ADMIN');
+  console.log('   Empresa: Cliente Exemplo Ltda\n');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`\n🏢 EMPRESAS CRIADAS: ${[empresa1, empresa2, empresa3].length}`);
+  console.log(`👥 USUÁRIOS CRIADOS: 3`);
+  console.log(`\n💡 OBSERVAÇÃO: Use edsonpolucena@hotmail.com para login de contabilidade`);
 }
 
 run()

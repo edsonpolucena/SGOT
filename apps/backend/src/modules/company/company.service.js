@@ -1,4 +1,4 @@
-const { prisma } = require("../../prisma.js");
+const { prisma } = require("../../prisma");
 
 function create(data) {
   return prisma.empresa.create({ data });
@@ -12,8 +12,13 @@ function getById(id) {
   return prisma.empresa.findUnique({ where: { id } });
 }
 
-function update(id, data) {
-  return prisma.empresa.update({ where: { id }, data });
+async function update(id, data) {
+  // Remover campos undefined antes de atualizar
+  const filteredData = Object.fromEntries(
+    Object.entries(data).filter(([_, value]) => value !== undefined)
+  );
+  
+  return prisma.empresa.update({ where: { id }, data: filteredData });
 }
 
 function remove(id) {

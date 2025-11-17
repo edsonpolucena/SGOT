@@ -7,77 +7,66 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Regime {
-  SIMPLES
-  LUCRO_PRESUMIDO
-  LUCRO_REAL
-  MEI
-}
-
-enum ObligationStatus {
-  PENDING
-  SUBMITTED
-  LATE
-  PAID
-  CANCELED
-}
-
-enum UserRole {
-  ACCOUNTING  // Contabilidade - acesso total
-  CLIENT      // Cliente - acesso apenas aos próprios dados
-}
-
 model User {
   id           String       @id @default(cuid())
-  name         String?
   email        String       @unique
   passwordHash String
-  role         UserRole     @default(CLIENT)
-  companyId    Int?         // Relacionamento com empresa (opcional para contabilidade)
   createdAt    DateTime     @default(now())
+  name         String?
   updatedAt    DateTime     @updatedAt
+  companyId    Int?
+  role         UserRole     @default(CLIENT)
+  status       UserStatus   @default(ACTIVE)
   obligations  Obligation[]
   company      Empresa?     @relation(fields: [companyId], references: [id])
 }
 
 model Obligation {
-  id          String           @id @default(cuid())
-  userId      String
-  companyId   Int              // Obrigatório - sempre associado a uma empresa
-  title       String
-  regime      Regime
-  periodStart DateTime
-  periodEnd   DateTime
-  dueDate     DateTime
-  status      ObligationStatus @default(PENDING)
-  amount      Decimal?         @db.Decimal(10,2)
-  notes       String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company     Empresa          @relation(fields: [companyId], references: [id])
-  files       ObligationFile[]
+  id                   String                   @id @default(cuid())
+  title                String
+  dueDate              DateTime
+  status               ObligationStatus         @default(PENDING)
+  notes                String?
+  createdAt            DateTime                 @default(now())
+  amount               Decimal?                 @db.Decimal(10, 2)
+  periodEnd            DateTime
+  periodStart          DateTime
+  regime               Regime
+  updatedAt            DateTime                 @updatedAt
+  userId               String
+  companyId            Int
+  taxType              String?                  // ICMS, ISS, IRPJ, etc
+  referenceMonth       String?                  // "2025-01"
+  notApplicableReason  String?                  // Motivo quando NOT_APPLICABLE
+  company              Empresa                  @relation(fields: [companyId], references: [id])
+  user                 User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  files                ObligationFile[]
+  notifications        ObligationNotification[]
+  views                ObligationView[]
 
   @@index([userId])
   @@index([companyId])
   @@index([status])
   @@index([regime])
   @@index([dueDate])
+  @@index([taxType])
+  @@index([referenceMonth])
 }
 
 model Empresa {
-  id          Int             @id @default(autoincrement())
-  codigo      String          @unique
-  nome        String
-  cnpj        String          @unique
-  email       String?
-  telefone    String?
-  endereco    String?
-  status      String          @default("ativa")
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  users       User[]
-  obligations Obligation[]
+  id              Int                 @id @default(autoincrement())
+  codigo          String              @unique
+  nome            String
+  cnpj            String              @unique
+  email           String?
+  telefone        String?
+  endereco        String?
+  status          String              @default("ativa")
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  obligations     Obligation[]
+  users           User[]
+  taxProfiles     CompanyTaxProfile[]
 }
 
 model ObligationFile {
@@ -87,9 +76,9 @@ model ObligationFile {
   originalName String
   fileSize     Int
   mimeType     String
-  s3Key        String     @unique // Chave no S3
-  s3Url        String?    // URL pública (se configurada)
-  uploadedBy   String     // ID do usuário que fez upload
+  s3Key        String     @unique
+  s3Url        String?
+  uploadedBy   String
   createdAt    DateTime   @default(now())
   obligation   Obligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
 
@@ -97,5 +86,136 @@ model ObligationFile {
   @@index([uploadedBy])
 }
 
+enum Regime {
+  SIMPLES
+  LUCRO_PRESUMIDO
+  LUCRO_REAL
+  MEI
+}
 
+enum ObligationStatus {
+  PENDING         // Criada, aguardando envio
+  NOT_APPLICABLE  // Não se aplica neste período
+}
 
+enum UserRole {
+  ACCOUNTING
+  CLIENT
+  ACCOUNTING_NORMAL
+  ACCOUNTING_ADMIN
+  ACCOUNTING_SUPER
+  CLIENT_NORMAL
+  CLIENT_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model AuditLog {
+  id        String     @id @default(cuid())
+  userId    String     // Quem fez a ação
+  action    ActionType // Tipo de ação (CREATE, UPDATE, DELETE, VIEW, DOWNLOAD)
+  entity    EntityType // Entidade afetada (Obligation, User, ObligationFile, Company)
+  entityId  String     // ID da entidade afetada
+  metadata  String?    // JSON com informações adicionais
+  ipAddress String?    // IP do usuário
+  userAgent String?    // Browser/dispositivo
+  createdAt DateTime   @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+enum ActionType {
+  CREATE
+  UPDATE
+  DELETE
+  VIEW
+  DOWNLOAD
+  LOGIN
+  LOGOUT
+  UPLOAD
+  STATUS_CHANGE
+}
+
+enum EntityType {
+  Obligation
+  User
+  ObligationFile
+  Company
+  Auth
+}
+
+model ObligationNotification {
+  id           String     @id @default(cuid())
+  obligationId String
+  sentTo       String     // Email do destinatário
+  sentBy       String     // ID do usuário que enviou
+  sentAt       DateTime   @default(now())
+  emailStatus  String     @default("pending") // pending, sent, failed
+  emailError   String?    // Erro do envio (se houver)
+  obligation   Obligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+
+  @@index([obligationId])
+  @@index([sentTo])
+  @@index([sentAt])
+}
+
+model ObligationView {
+  id           String     @id @default(cuid())
+  obligationId String
+  viewedBy     String     // ID do usuário que visualizou
+  viewedAt     DateTime   @default(now())
+  action       String     // VIEW ou DOWNLOAD
+  obligation   Obligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+
+  @@index([obligationId])
+  @@index([viewedBy])
+  @@index([viewedAt])
+}
+
+model CompanyTaxProfile {
+  id        String   @id @default(cuid())
+  companyId Int
+  company   Empresa  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  taxType   String   // ICMS, ISS, IRPJ, CSLL, PIS_COFINS, etc
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, taxType])
+  @@index([companyId])
+  @@index([taxType])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model TaxCalendar {
+  id          String   @id @default(cuid())
+  taxType     String   // DAS, ISS_RETIDO, FGTS, DCTFWeb (OUTRO não tem controle)
+  dueDay      Int      // Dia do vencimento (1-31)
+  description String?  // Descrição opcional (ex: "DAS - Todo dia 20")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([taxType])
+  @@index([taxType])
+  @@index([isActive])
+}

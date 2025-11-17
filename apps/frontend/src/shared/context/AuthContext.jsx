@@ -52,8 +52,8 @@ export function AuthProvider({ children }) {
       register, 
       logout, 
       setUser,
-      isAccounting: user?.role === 'ACCOUNTING',
-      isClient: user?.role === 'CLIENT'
+      isAccounting: user?.role?.startsWith('ACCOUNTING_'),
+      isClient: user?.role?.startsWith('CLIENT_')
     }}>
       {children}
     </AuthCtx.Provider>

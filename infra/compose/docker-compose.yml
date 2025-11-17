@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: sgot
     ports:
-      - '5432:5432'
+      - '5433:5432'
     volumes:
       - dbdata:/var/lib/postgresql/data
     restart: always
@@ -18,7 +18,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@local
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
-      - '8081:80'
+      - '8085:80'
     depends_on:
       - db
     restart: always

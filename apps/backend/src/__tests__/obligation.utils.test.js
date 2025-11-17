@@ -23,30 +23,25 @@ describe('Obligation Utils - Unit Tests', () => {
       expect(result).toBe('PENDING');
     });
 
-    it('deve retornar LATE para data passada', () => {
+    it('deve sempre retornar PENDING por padrão (mesmo para data passada)', () => {
       const pastDate = new Date();
       pastDate.setDate(pastDate.getDate() - 10);
       
       const result = computeStatus(pastDate);
-      expect(result).toBe('LATE');
+      expect(result).toBe('PENDING');
     });
 
-    it('deve retornar status original se for PAID', () => {
-      const result = computeStatus('2025-01-01', new Date(), 'PAID');
-      expect(result).toBe('PAID');
+    it('deve preservar status NOT_APPLICABLE quando informado', () => {
+      const result = computeStatus('2025-01-01', new Date(), 'NOT_APPLICABLE');
+      expect(result).toBe('NOT_APPLICABLE');
     });
 
-    it('deve retornar status original se for CANCELED', () => {
-      const result = computeStatus('2025-01-01', new Date(), 'CANCELED');
-      expect(result).toBe('CANCELED');
-    });
-
-    it('deve aceitar string de data', () => {
+    it('deve aceitar string de data e ainda retornar PENDING', () => {
       const result = computeStatus('2020-01-01');
-      expect(result).toBe('LATE');
+      expect(result).toBe('PENDING');
     });
 
-    it('deve aceitar data atual customizada', () => {
+    it('deve aceitar data atual customizada e ainda retornar PENDING', () => {
       const dueDate = '2025-01-01';
       const currentDate = '2024-12-01';
       

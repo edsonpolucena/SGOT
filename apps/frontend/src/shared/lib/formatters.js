@@ -1,152 +1,165 @@
 /**
- * Formata valor monetário para exibição
- * @param {number|string} amount - Valor a ser formatado
- * @param {string} currency - Moeda (padrão: 'BRL')
- * @returns {string} Valor formatado
+ * Formata valores monetários
+ * @param {number|string} value
+ * @param {string} currency
+ * @returns {string}
  */
-export function formatCurrency(amount, currency = 'BRL') {
-  if (amount === null || amount === undefined || amount === '') return '-';
-  
-  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-  if (isNaN(numAmount)) return '-';
-  
+export function formatCurrency(value, currency = 'BRL') {
+  if (value === null || value === undefined || value === '' || isNaN(value)) {
+    return '-';
+  }
+  const num = Number(value);
+  if (isNaN(num)) return '-';
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
-    currency: currency
-  }).format(numAmount);
+    currency,
+    minimumFractionDigits: 2,
+  }).format(num);
 }
 
 /**
- * Formata número para exibição
- * @param {number|string} number - Número a ser formatado
- * @param {number} decimals - Número de casas decimais (padrão: 2)
- * @returns {string} Número formatado
+ * Formata números com casas decimais
+ * @param {number|string} value
+ * @param {number} decimals
+ * @returns {string}
  */
-export function formatNumber(number, decimals = 2) {
-  if (number === null || number === undefined || number === '') return '-';
-  
-  const numNumber = typeof number === 'string' ? parseFloat(number) : number;
-  if (isNaN(numNumber)) return '-';
-  
-  return new Intl.NumberFormat('pt-BR', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals
-  }).format(numNumber);
-}
-
-/**
- * Formata CNPJ para exibição
- * @param {string} cnpj - CNPJ a ser formatado
- * @returns {string} CNPJ formatado (XX.XXX.XXX/XXXX-XX)
- */
-export function formatCNPJ(cnpj) {
-  if (!cnpj) return '';
-  
-  const cleanCNPJ = cnpj.replace(/\D/g, '');
-  if (cleanCNPJ.length !== 14) return cnpj;
-  
-  return cleanCNPJ.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
-}
-
-/**
- * Formata CPF para exibição
- * @param {string} cpf - CPF a ser formatado
- * @returns {string} CPF formatado (XXX.XXX.XXX-XX)
- */
-export function formatCPF(cpf) {
-  if (!cpf) return '';
-  
-  const cleanCPF = cpf.replace(/\D/g, '');
-  if (cleanCPF.length !== 11) return cpf;
-  
-  return cleanCPF.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
-}
-
-/**
- * Formata telefone para exibição
- * @param {string} phone - Telefone a ser formatado
- * @returns {string} Telefone formatado
- */
-export function formatPhone(phone) {
-  if (!phone) return '';
-  
-  const cleanPhone = phone.replace(/\D/g, '');
-  
-  if (cleanPhone.length === 11) {
-    return cleanPhone.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
-  } else if (cleanPhone.length === 10) {
-    return cleanPhone.replace(/^(\d{2})(\d{4})(\d{4})$/, '($1) $2-$3');
+export function formatNumber(value, decimals = 2) {
+  if (value === null || value === undefined || value === '' || isNaN(value)) {
+    return '-';
   }
-  
-  return phone;
+  const num = Number(value);
+  return num.toLocaleString('pt-BR', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
 }
 
 /**
- * Formata CEP para exibição
- * @param {string} cep - CEP a ser formatado
- * @returns {string} CEP formatado (XXXXX-XXX)
+ * Formata CNPJ
+ * @param {string} value
+ * @returns {string}
  */
-export function formatCEP(cep) {
-  if (!cep) return '';
-  
-  const cleanCEP = cep.replace(/\D/g, '');
-  if (cleanCEP.length !== 8) return cep;
-  
-  return cleanCEP.replace(/^(\d{5})(\d{3})$/, '$1-$2');
+export function formatCNPJ(value) {
+  if (!value) return '';
+  const digits = value.replace(/\D/g, '');
+  if (digits.length !== 14) return value;
+  return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
 }
 
 /**
- * Trunca texto com reticências
- * @param {string} text - Texto a ser truncado
- * @param {number} maxLength - Tamanho máximo (padrão: 50)
- * @returns {string} Texto truncado
+ * Formata CPF
+ * @param {string} value
+ * @returns {string}
  */
-export function truncateText(text, maxLength = 50) {
+export function formatCPF(value) {
+  if (!value) return '';
+  const digits = value.replace(/\D/g, '');
+  if (digits.length !== 11) return value;
+  return digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+}
+
+/**
+ * Formata telefone (10 ou 11 dígitos)
+ * @param {string} value
+ * @returns {string}
+ */
+export function formatPhone(value) {
+  if (!value) return '';
+  const digits = value.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return digits.replace(/^(\d{2})(\d{4})(\d{4})$/, '($1) $2-$3');
+  }
+  if (digits.length === 11) {
+    return digits.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
+  }
+  return value;
+}
+
+/**
+ * Formata CEP
+ * @param {string} value
+ * @returns {string}
+ */
+export function formatCEP(value) {
+  if (!value) return '';
+  const digits = value.replace(/\D/g, '');
+  if (digits.length !== 8) return value;
+  return digits.replace(/^(\d{5})(\d{3})$/, '$1-$2');
+}
+
+/**
+ * Trunca texto
+ * @param {string} text
+ * @param {number} limit
+ * @returns {string}
+ */
+export function truncateText(text, limit = 50) {
   if (!text || typeof text !== 'string') return '';
-  
-  if (text.length <= maxLength) return text;
-  
-  return text.substring(0, maxLength) + '...';
+  if (text.length <= limit) return text;
+  return text.slice(0, limit) + '...';
 }
 
 /**
- * Capitaliza primeira letra de cada palavra
- * @param {string} text - Texto a ser capitalizado
- * @returns {string} Texto capitalizado
+ * Capitaliza cada palavra
+ * @param {string} text
+ * @returns {string}
  */
 export function capitalizeWords(text) {
   if (!text || typeof text !== 'string') return '';
-  
   return text
-    .toLowerCase()
     .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 }
 
 /**
- * Remove acentos de uma string
- * @param {string} text - Texto a ser processado
- * @returns {string} Texto sem acentos
+ * Remove acentos
+ * @param {string} text
+ * @returns {string}
  */
 export function removeAccents(text) {
   if (!text || typeof text !== 'string') return '';
-  
   return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 /**
  * Converte string para slug (URL-friendly)
- * @param {string} text - String a ser convertida
- * @returns {string} Slug
+ * @param {string} text
+ * @returns {string}
  */
 export function toSlug(text) {
   if (!text || typeof text !== 'string') return '';
-  
-  return removeAccents(text)
+  let slug = removeAccents(text)
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, '')
-    .replace(/[\s_-]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+    .replace(/[\s_-]+/g, '-');
+
+  if (slug.startsWith('-')) slug = slug.slice(1);
+  if (slug.endsWith('-')) slug = slug.slice(0, -1);
+
+  return slug;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

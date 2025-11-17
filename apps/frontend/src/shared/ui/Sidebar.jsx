@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { FaHome, FaBuilding, FaUsers, FaFileInvoice, FaChartBar, FaCog, FaSignOutAlt } from "react-icons/fa";
+import { FaHome, FaBuilding, FaUsers, FaFileInvoice, FaChartBar, FaCog, FaSignOutAlt, FaClipboardList, FaBell, FaTable, FaChartLine, FaCalendarAlt } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 
 const SidebarContainer = styled.div`
@@ -67,26 +67,42 @@ const LogoutButton = styled.button`
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAccounting, isClient, logout } = useAuth();
+  const { user, isAccounting, isClient, logout } = useAuth();
 
   // Menu baseado no role do usuário
   const getMenuItems = () => {
     if (isAccounting) {
       // Menu para contabilidade (acesso total)
-      return [
+      const menu = [
         { to: "/dashboard", label: "Dashboard", icon: <FaHome /> },
         { to: "/companies", label: "Empresas", icon: <FaBuilding /> },
-        { to: "/auth/register", label: "Usuários", icon: <FaUsers /> },
+        { to: "/users", label: "Usuários", icon: <FaUsers /> },
         { to: "/obligations/new", label: "Obrigações", icon: <FaFileInvoice /> },
-        { to: "/reports", label: "Relatórios", icon: <FaChartBar /> },
-        { to: "/settings", label: "Configurações", icon: <FaCog /> },
+        { to: "/tax-matrix", label: "Impostos Postados", icon: <FaTable /> },
+        { to: "/tax-calendar", label: "Vencimentos Fiscais", icon: <FaCalendarAlt /> },
+        { to: "/notifications/unviewed", label: "Não Visualizados", icon: <FaBell /> },
       ];
+      
+      // Adiciona "Logs de Auditoria" apenas para ACCOUNTING_SUPER
+      if (user?.role === 'ACCOUNTING_SUPER') {
+        menu.push({ to: "/audit/logs", label: "Logs de Auditoria", icon: <FaClipboardList /> });
+      }
+      
+      return menu;
     } else if (isClient) {
       // Menu para cliente (acesso limitado)
-      return [
+      const menu = [
         { to: "/dashboard", label: "Dashboard", icon: <FaHome /> },
         { to: "/company/profile", label: "Perfil da Empresa", icon: <FaBuilding /> },
+        { to: "/client/tax-report", label: "Relatório de Impostos", icon: <FaChartLine /> },
       ];
+      
+      // Adiciona "Usuários" se for CLIENT_ADMIN
+      if (user?.role === 'CLIENT_ADMIN') {
+        menu.push({ to: "/users", label: "Usuários", icon: <FaUsers /> });
+      }
+      
+      return menu;
     }
     return [];
   };

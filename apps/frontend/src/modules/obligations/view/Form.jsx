@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import * as api from '../data/obligation.api.js';
-import InputMask from "react-input-mask";
+// import InputMask from "react-input-mask"; // Comentado temporariamente
 import {
   Page, Title, Card, FormStyled, Field, FieldRow, FieldSmall, Label, Input, Select, Submit
 } from '../styles/Obligation.styles';
 import http from '../../../shared/services/http';
 import { useAuth } from "../../../shared/context/AuthContext";
 import WelcomeCard from "../../../shared/ui/WelcomeCard";
+import { FaClipboardList } from "react-icons/fa";
 
 export default function Form() {
   const {user} = useAuth();
@@ -31,6 +32,8 @@ export default function Form() {
 
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [showNotApplicableModal, setShowNotApplicableModal] = useState(false);
+  const [notApplicableReason, setNotApplicableReason] = useState('');
 
   useEffect(() => {
     loadCompanies();
@@ -136,6 +139,14 @@ export default function Form() {
       return;
     }
 
+    // 👈 Validar se tem arquivo OU valor
+    // COMENTADO para permitir criar obrigações vazias (para testar alertas)
+    // if (!file && !amount) {
+    //   setErrorMessage('❌ Por favor, anexe um arquivo OU informe o valor da obrigação.');
+    //   setSuccessMessage('');
+    //   return;
+    // }
+
     try {
       const companyInfo = {
         companyCode,
@@ -145,18 +156,44 @@ export default function Form() {
         competence
       };
 
+      // Calcular referenceMonth baseado no VENCIMENTO (não na competência digitada)
+      // Isso garante que o dashboard use o mês correto automaticamente
+      const dueDateObj = new Date(dueDate);
+      const referenceMonth = `${dueDateObj.getFullYear()}-${String(dueDateObj.getMonth() + 1).padStart(2, '0')}`;
+
       const obligationData = {
         title: `${docType} - ${competence}`,
         regime: 'SIMPLES',
         periodStart: new Date(),
         periodEnd: new Date(),
-        dueDate: new Date(dueDate),
+        dueDate: dueDateObj,
         amount: amount ? parseFloat(amount.replace(/[^\d,]/g, '').replace(',', '.')) : null,
         notes: JSON.stringify(companyInfo),
-        companyId: companyId // 👈 Usar o ID da empresa selecionada
+        companyId: companyId,
+        taxType: docType, // 👈 Tipo de imposto para o dashboard
+        referenceMonth: referenceMonth // 👈 Calculado automaticamente do vencimento
       };
 
-      await api.create(obligationData);
+      const response = await api.create(obligationData);
+      const obligationId = response.data.id;
+      
+      // Se há arquivo, fazer upload
+      if (file) {
+        try {
+          const formData = new FormData();
+          formData.append('files', file);
+          
+          await http.post(`/api/obligations/${obligationId}/files`, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          });
+        } catch (uploadError) {
+          console.error('Erro no upload do arquivo:', uploadError);
+          // Não falha a criação da obrigação se o upload falhar
+        }
+      }
+      
       setSuccessMessage('✅ Obrigação criada com sucesso!');
       setErrorMessage('');
           setCompanyCode('');
@@ -177,11 +214,77 @@ export default function Form() {
     }
   }
 
+  async function handleMarkNotApplicable() {
+    if (!companyId) {
+      setErrorMessage('❌ Por favor, selecione uma empresa primeiro.');
+      setSuccessMessage('');
+      return;
+    }
+
+    if (!notApplicableReason.trim()) {
+      setErrorMessage('❌ Por favor, informe o motivo.');
+      return;
+    }
+
+    try {
+      const companyInfo = {
+        companyCode,
+        cnpj,
+        companyName,
+        docType,
+        competence
+      };
+
+      // Calcular referenceMonth baseado no vencimento
+      const dueDateObj = new Date(dueDate || new Date());
+      const referenceMonth = `${dueDateObj.getFullYear()}-${String(dueDateObj.getMonth() + 1).padStart(2, '0')}`;
+
+      const obligationData = {
+        title: `${docType} - ${competence}`,
+        regime: 'SIMPLES',
+        periodStart: new Date(),
+        periodEnd: new Date(),
+        dueDate: dueDateObj,
+        amount: null,
+        notes: JSON.stringify(companyInfo),
+        companyId: companyId,
+        taxType: docType,
+        referenceMonth: referenceMonth, // 👈 Calculado do vencimento
+        status: 'NOT_APPLICABLE',
+        notApplicableReason: notApplicableReason
+      };
+
+      await api.create(obligationData);
+      
+      setSuccessMessage('✅ Obrigação marcada como "Não Aplicável" com sucesso!');
+      setErrorMessage('');
+      setShowNotApplicableModal(false);
+      setNotApplicableReason('');
+      
+      // Limpar formulário
+      setCompanyCode('');
+      setCnpj('');
+      setCompanyName('');
+      setCompanyId(null);
+      setDocType('DAS');
+      setCompetence('');
+      setDueDate('');
+      setAmount('');
+      setDescription('');
+      
+      setTimeout(() => setSuccessMessage(''), 5000);
+    } catch (error) {
+      console.error('Erro ao marcar como não aplicável:', error);
+      setErrorMessage('❌ Erro ao marcar como não aplicável. Tente novamente.');
+      setSuccessMessage('');
+    }
+  }
+
   return (
        <>
         <WelcomeCard
           title={`Bem-vindo(a), ${user?.name}`}
-          subtitle="Gerencie as empresas cadastradas no sistema"
+          subtitle="Cadastre as obrigações fiscais no sistema"
         />
     <Page>
       <Card>
@@ -214,7 +317,7 @@ export default function Form() {
         )}
 
         <FormStyled onSubmit={onSubmit}>
-          <Title>{isEdit ? 'Editar obrigação' : 'Nova obrigação'}</Title>
+          <Title> <FaClipboardList/> {isEdit ? 'Editar obrigação' : 'Nova obrigação'}</Title>
 
           {/* Empresa */}
           <FieldRow>
@@ -246,17 +349,24 @@ export default function Form() {
                     boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
                   }}>
                     {filteredCompanies.map(company => (
-                      <div
+                      <button
                         key={company.id}
                         onClick={() => handleCompanySelect(company)}
                         style={{
                           padding: '12px',
                           cursor: 'pointer',
+                          fontSize: '14px',
+                          width: '100%',
+                          textAlign: 'left',
+                          background: 'white',
+                          border: 'none',
                           borderBottom: '1px solid #f3f4f6',
-                          fontSize: '14px'
+                          fontFamily: 'inherit',
+                          transition: 'background-color 0.2s'
                         }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                        aria-label={`Selecionar empresa ${company.codigo} - ${company.nome}`}
                       >
                         <div style={{ fontWeight: 'bold', color: '#374151' }}>
                           {company.codigo}
@@ -264,7 +374,7 @@ export default function Form() {
                         <div style={{ color: '#6b7280', fontSize: '12px' }}>
                           {company.nome} — {company.cnpj}
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -298,19 +408,25 @@ export default function Form() {
                 <option value="DAS">DAS</option>
                 <option value="ISS_RETIDO">ISS Retido</option>
                 <option value="FGTS">FGTS</option>
+                <option value="DCTFWeb">DCTFWeb</option>
                 <option value="OUTRO">Outro</option>
               </Select>
             </Field>
             <Field>
               <Label>Competência*</Label>
-              <InputMask
-                mask="99/9999"
+              <Input
+                type="text"
                 placeholder="MM/AAAA"
                 value={competence}
-                onChange={e => setCompetence(e.target.value)}
-              >
-                {(inputProps) => <Input {...inputProps} />}
-              </InputMask>
+                onChange={e => {
+                  let value = e.target.value.replace(/\D/g, '');
+                  if (value.length >= 2) {
+                    value = value.substring(0, 2) + '/' + value.substring(2, 6);
+                  }
+                  setCompetence(value);
+                }}
+                maxLength={7}
+              />
             </Field>
           </FieldRow>
 
@@ -340,12 +456,130 @@ export default function Form() {
           {/* Upload */}
           <Field>
             <Label>Upload do documento</Label>
-            <Input type="file" onChange={e => setFile(e.target.files?.[0] || null)} />
+            <Input 
+              type="file" 
+              accept=".pdf,.xml,.xlsx,.xls"
+              onChange={e => setFile(e.target.files?.[0] || null)} 
+            />
+            {file && (
+              <div style={{ 
+                marginTop: '8px', 
+                padding: '8px', 
+                backgroundColor: '#f0f8ff', 
+                border: '1px solid #3b82f6', 
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}>
+                📄 Arquivo selecionado: {file.name} ({(file.size / 1024).toFixed(1)} KB)
+              </div>
+            )}
           </Field>
 
-          <Submit>{isEdit ? 'Salvar Alterações' : 'Salvar'}</Submit>
+          <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+            <Submit type="submit">{isEdit ? 'Salvar Alterações' : 'Salvar'}</Submit>
+            {user?.role?.startsWith('ACCOUNTING_') && !isEdit && (
+              <button
+                type="button"
+                onClick={() => setShowNotApplicableModal(true)}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d97706'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f59e0b'}
+              >
+                🚫 Não Aplicável Este Mês
+              </button>
+            )}
+          </div>
         </FormStyled>
       </Card>
+
+      {/* Modal "Não Aplicável" */}
+      {showNotApplicableModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)'
+          }}>
+            <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px', color: '#374151' }}>
+              Por que este imposto não se aplica este mês?
+            </h3>
+            <textarea
+              value={notApplicableReason}
+              onChange={(e) => setNotApplicableReason(e.target.value)}
+              placeholder="Ex: Empresa sem movimento no mês, Imposto não incidente, etc."
+              style={{
+                width: '100%',
+                minHeight: '100px',
+                padding: '12px',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+                resize: 'vertical'
+              }}
+            />
+            <div style={{ display: 'flex', gap: '10px', marginTop: '16px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setShowNotApplicableModal(false);
+                  setNotApplicableReason('');
+                }}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#e5e7eb',
+                  color: '#374151',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleMarkNotApplicable}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Page>
     </>
   );
