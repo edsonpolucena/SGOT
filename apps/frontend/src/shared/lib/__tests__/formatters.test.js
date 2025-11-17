@@ -10,7 +10,7 @@ import {
   capitalizeWords,
   removeAccents,
   toSlug
-} from '../shared/lib/formatters';
+} from '../formatters';
 
 describe('Formatters Utils - Unit Tests', () => {
   
@@ -254,3 +254,4 @@ describe('Formatters Utils - Unit Tests', () => {
     });
   });
 });
+
