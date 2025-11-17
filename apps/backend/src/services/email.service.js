@@ -200,7 +200,7 @@ async function sendNewDocumentNotification({ from, to, userName, companyName, do
  * Envia email com link para redefinição de senha
  */
 async function sendPasswordResetEmail({ to, userName, resetLink, expiresInMinutes = 60 }) {
-  const from = getDefaultFromEmail();
+  const from = await getDefaultFromEmail();
   const subject = '🔐 Recuperação de Senha - SGOT';
   
   const html = `
@@ -263,7 +263,7 @@ async function sendPasswordResetEmail({ to, userName, resetLink, expiresInMinute
  * Envia email de confirmação após senha alterada
  */
 async function sendPasswordChangedConfirmation({ to, userName }) {
-  const from = getDefaultFromEmail();
+  const from = await getDefaultFromEmail();
   const subject = '✅ Senha Alterada com Sucesso - SGOT';
   
   const html = `
@@ -318,7 +318,7 @@ async function sendPasswordChangedConfirmation({ to, userName }) {
  * Envia lembrete de documento não visualizado (3 dias antes do vencimento)
  */
 async function sendDocumentReminderEmail({ to, companyName, obligations }) {
-  const from = getDefaultFromEmail();
+  const from = await getDefaultFromEmail();
   const subject = `⏰ Lembrete: ${obligations.length} documento(s) próximos do vencimento`;
   
   const html = `
@@ -379,7 +379,7 @@ async function sendDocumentReminderEmail({ to, companyName, obligations }) {
  * Envia alerta de documentos não visualizados por mais de 2 dias
  */
 async function sendUnviewedDocumentAlert({ to, userName, obligations }) {
-  const from = getDefaultFromEmail();
+  const from = await getDefaultFromEmail();
   const subject = `🚨 Alerta: ${obligations.length} documento(s) não visualizado(s)`;
   
   const html = `

@@ -1,11 +1,13 @@
 const cron = require('node-cron');
 
+const mockSchedule = jest.fn((expression, fn) => {
+  // retorna objeto com método run que podemos chamar manualmente nos testes
+  return { expression, run: fn, start: jest.fn(), stop: jest.fn() };
+});
+
 jest.mock('node-cron', () => {
   return {
-    schedule: jest.fn((expression, fn) => {
-      // retorna função que podemos chamar manualmente nos testes
-      return { expression, run: fn };
-    })
+    schedule: mockSchedule
   };
 });
 
@@ -50,9 +52,9 @@ describe('notification.cron jobs', () => {
     // cron.schedule é chamado e retorna objeto com run()
     startDocumentReminderJob();
 
-    expect(cron.schedule).toHaveBeenCalledTimes(1);
+    expect(mockSchedule).toHaveBeenCalledTimes(1);
 
-    const job = cron.schedule.mock.results[0].value;
+    const job = mockSchedule.mock.results[0].value;
 
     mockFindMany.mockResolvedValue([
       {
@@ -88,7 +90,7 @@ describe('notification.cron jobs', () => {
 
   it('startDocumentReminderJob deve sair sem enviar emails quando não há obrigações', async () => {
     startDocumentReminderJob();
-    const job = cron.schedule.mock.results[0].value;
+    const job = mockSchedule.mock.results[0].value;
 
     mockFindMany.mockResolvedValue([]);
 
@@ -100,7 +102,7 @@ describe('notification.cron jobs', () => {
 
   it('startUnviewedDocumentAlertJob deve enviar alertas por usuário', async () => {
     startUnviewedDocumentAlertJob();
-    const job = cron.schedule.mock.results[0].value;
+    const job = mockSchedule.mock.results[0].value;
 
     mockFindMany.mockResolvedValue([
       {
@@ -134,7 +136,7 @@ describe('notification.cron jobs', () => {
 
   it('startUnviewedDocumentAlertJob deve sair sem enviar alertas quando não há obrigações', async () => {
     startUnviewedDocumentAlertJob();
-    const job = cron.schedule.mock.results[0].value;
+    const job = mockSchedule.mock.results[0].value;
 
     mockFindMany.mockResolvedValue([]);
 
@@ -148,7 +150,7 @@ describe('notification.cron jobs', () => {
     mockCleanExpiredTokens.mockResolvedValue(3);
 
     startTokenCleanupJob();
-    const job = cron.schedule.mock.results[0].value;
+    const job = mockSchedule.mock.results[0].value;
 
     await job.run();
 

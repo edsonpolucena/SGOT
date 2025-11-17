@@ -29,11 +29,14 @@ describe('Email Service', () => {
     process.env.EMAIL_FROM = 'noreply@example.com';
     process.env.FRONTEND_URL = 'http://localhost:3000';
     process.env.EMAIL_ENABLED = 'true';
+    process.env.COMPANY_DEFAULT_ID = '';
     
     mockSendMail.mockResolvedValue({ messageId: 'test-id' });
+    prisma.empresa.findUnique.mockResolvedValue(null);
     
-    // Clear module cache
+    // Clear module cache para forçar recriação do transporter
     delete require.cache[require.resolve('../services/email.service')];
+    delete require.cache[require.resolve('nodemailer')];
   });
 
   afterEach(() => {
@@ -41,9 +44,11 @@ describe('Email Service', () => {
   });
 
   test('sendEmail deve chamar transporter.sendMail', async () => {
-    const { sendEmail } = require('../services/email.service');
+    const emailService = require('../services/email.service');
+    // Resetar transporter para forçar recriação
+    emailService.getTransporter = jest.fn(() => mockTransporter);
     
-    await sendEmail({
+    await emailService.sendEmail({
       to: 'recipient@example.com',
       subject: 'Test',
       html: '<p>Test</p>'
@@ -100,9 +105,10 @@ describe('Email Service', () => {
   });
 
   test('sendNewDocumentNotification deve enviar email', async () => {
-    const { sendNewDocumentNotification } = require('../services/email.service');
+    const emailService = require('../services/email.service');
+    emailService.getTransporter = jest.fn(() => mockTransporter);
     
-    const result = await sendNewDocumentNotification({
+    const result = await emailService.sendNewDocumentNotification({
       to: 'test@example.com',
       userName: 'Test User',
       companyName: 'Test Company',
@@ -117,9 +123,10 @@ describe('Email Service', () => {
   });
 
   test('sendPasswordResetEmail deve enviar email', async () => {
-    const { sendPasswordResetEmail } = require('../services/email.service');
+    const emailService = require('../services/email.service');
+    emailService.getTransporter = jest.fn(() => mockTransporter);
     
-    const result = await sendPasswordResetEmail({
+    const result = await emailService.sendPasswordResetEmail({
       to: 'test@example.com',
       userName: 'Test User',
       resetLink: 'http://localhost:5173/reset-password?token=abc123',
@@ -131,9 +138,10 @@ describe('Email Service', () => {
   });
 
   test('sendPasswordChangedConfirmation deve enviar email', async () => {
-    const { sendPasswordChangedConfirmation } = require('../services/email.service');
+    const emailService = require('../services/email.service');
+    emailService.getTransporter = jest.fn(() => mockTransporter);
     
-    const result = await sendPasswordChangedConfirmation({
+    const result = await emailService.sendPasswordChangedConfirmation({
       to: 'test@example.com',
       userName: 'Test User'
     });
@@ -143,9 +151,10 @@ describe('Email Service', () => {
   });
 
   test('sendDocumentReminderEmail deve enviar email', async () => {
-    const { sendDocumentReminderEmail } = require('../services/email.service');
+    const emailService = require('../services/email.service');
+    emailService.getTransporter = jest.fn(() => mockTransporter);
     
-    const result = await sendDocumentReminderEmail({
+    const result = await emailService.sendDocumentReminderEmail({
       to: 'test@example.com',
       companyName: 'Test Company',
       obligations: [
@@ -163,9 +172,10 @@ describe('Email Service', () => {
   });
 
   test('sendUnviewedDocumentAlert deve enviar email', async () => {
-    const { sendUnviewedDocumentAlert } = require('../services/email.service');
+    const emailService = require('../services/email.service');
+    emailService.getTransporter = jest.fn(() => mockTransporter);
     
-    const result = await sendUnviewedDocumentAlert({
+    const result = await emailService.sendUnviewedDocumentAlert({
       to: 'test@example.com',
       userName: 'Test User',
       obligations: [
@@ -184,9 +194,10 @@ describe('Email Service', () => {
   });
 
   test('sendEmail deve usar from do parâmetro quando fornecido', async () => {
-    const { sendEmail } = require('../services/email.service');
+    const emailService = require('../services/email.service');
+    emailService.getTransporter = jest.fn(() => mockTransporter);
     
-    await sendEmail({
+    await emailService.sendEmail({
       from: 'custom@example.com',
       to: 'recipient@example.com',
       subject: 'Test',

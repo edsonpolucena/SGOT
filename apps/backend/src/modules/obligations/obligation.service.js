@@ -104,13 +104,13 @@ async function deleteObligation(userId, role, id) {
  * Marca uma obrigação como "Não Aplicável" (sem precisar anexar arquivo)
  */
 async function markAsNotApplicable(userId, role, id, reason) {
-  const existing = await getObligation(userId, role, id);
-  if (!existing) return null;
-
   // Apenas contabilidade pode marcar como não aplicável
   if (!role.startsWith('ACCOUNTING_')) {
     throw new Error('Apenas usuários da contabilidade podem marcar como não aplicável');
   }
+
+  const existing = await getObligation(userId, role, id);
+  if (!existing) return null;
 
   return prisma.obligation.update({
     where: { id },

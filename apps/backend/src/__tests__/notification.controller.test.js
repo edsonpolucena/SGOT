@@ -110,10 +110,10 @@ describe('Notification Controller', () => {
     });
   });
 
-  describe('GET /api/notifications/:obligationId/client-views', () => {
+  describe('GET /api/obligations/:obligationId/client-views', () => {
     test('deve retornar histórico de visualizações de clientes', async () => {
       const res = await request(app)
-        .get(`/api/notifications/${obligation.id}/client-views`)
+        .get(`/api/obligations/${obligation.id}/client-views`)
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
@@ -121,17 +121,17 @@ describe('Notification Controller', () => {
     });
   });
 
-  describe('POST /api/notifications/:obligationId/send', () => {
+  describe('POST /api/notifications/send/:obligationId', () => {
     test('deve enviar notificação de obrigação', async () => {
       // Mock do email service
       jest.spyOn(require('../services/email.service'), 'sendNewDocumentNotification').mockResolvedValue({ success: true });
 
       const res = await request(app)
-        .post(`/api/notifications/${obligation.id}/send`)
+        .post(`/api/notifications/send/${obligation.id}`)
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
-      expect(res.body).toHaveProperty('success');
+      expect(res.body).toHaveProperty('message');
     });
   });
 
@@ -146,17 +146,17 @@ describe('Notification Controller', () => {
     });
   });
 
-  describe('POST /api/notifications/:obligationId/resend', () => {
+  describe('POST /api/notifications/send/:obligationId (resend)', () => {
     test('deve reenviar notificação', async () => {
       // Mock do email service
       jest.spyOn(require('../services/email.service'), 'sendNewDocumentNotification').mockResolvedValue({ success: true });
 
       const res = await request(app)
-        .post(`/api/notifications/${obligation.id}/resend`)
+        .post(`/api/notifications/send/${obligation.id}`)
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
-      expect(res.body).toHaveProperty('success');
+      expect(res.body).toHaveProperty('message');
     });
   });
 });

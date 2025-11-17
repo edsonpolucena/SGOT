@@ -34,6 +34,21 @@ const obligationSchema = Joi.object({
   notApplicableReason: Joi.string().max(500).optional()
 });
 
+const obligationUpdateSchema = Joi.object({
+  title: Joi.string().min(3).max(200).optional(),
+  regime: Joi.string().valid('SIMPLES', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'MEI').optional(),
+  periodStart: Joi.date().iso().optional(),
+  periodEnd: Joi.date().iso().optional(),
+  dueDate: Joi.date().iso().optional(),
+  amount: Joi.number().precision(2).min(0).optional().allow(null),
+  notes: Joi.string().max(1000).optional(),
+  companyId: Joi.number().integer().positive().optional(),
+  status: Joi.string().valid('PENDING', 'NOT_APPLICABLE').optional(),
+  taxType: Joi.string().max(50).optional(),
+  referenceMonth: Joi.string().pattern(/^\d{4}-\d{2}$/).optional(),
+  notApplicableReason: Joi.string().max(500).optional()
+});
+
 const companySchema = Joi.object({
   codigo: Joi.string().min(2).max(20).required(),
   nome: Joi.string().min(2).max(200).required(),
@@ -178,6 +193,7 @@ module.exports = {
   registerSchema,
   loginSchema,
   obligationSchema,
+  obligationUpdateSchema,
   companySchema,
   updateCompanySchema,
   updateUserSchema,

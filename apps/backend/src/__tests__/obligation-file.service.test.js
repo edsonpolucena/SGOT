@@ -112,6 +112,15 @@ describe('Obligation File Service', () => {
     });
 
     test('deve lançar erro se usuário não tiver acesso', async () => {
+      const otherCompany = await prisma.empresa.create({
+        data: {
+          codigo: `OTHER${Date.now()}`,
+          nome: 'Other Company',
+          cnpj: `${Date.now()}999191`,
+          status: 'ativa'
+        }
+      });
+
       const otherUser = await prisma.user.create({
         data: {
           email: 'other@test.com',
@@ -119,13 +128,14 @@ describe('Obligation File Service', () => {
           passwordHash: await bcrypt.hash('password', 10),
           role: 'CLIENT_NORMAL',
           status: 'ACTIVE',
-          companyId: 99999
+          companyId: otherCompany.id
         }
       });
 
       await expect(getObligationFiles(obligation.id, otherUser.id)).rejects.toThrow('Acesso negado');
 
       await prisma.user.delete({ where: { id: otherUser.id } });
+      await prisma.empresa.delete({ where: { id: otherCompany.id } });
     });
   });
 
@@ -197,6 +207,15 @@ describe('Obligation File Service', () => {
         }
       });
 
+      const otherFileCompany = await prisma.empresa.create({
+        data: {
+          codigo: `FILE${Date.now()}`,
+          nome: 'Other File Company',
+          cnpj: `${Date.now()}999192`,
+          status: 'ativa'
+        }
+      });
+
       const otherUser = await prisma.user.create({
         data: {
           email: 'otherfile@test.com',
@@ -204,13 +223,14 @@ describe('Obligation File Service', () => {
           passwordHash: await bcrypt.hash('password', 10),
           role: 'CLIENT_NORMAL',
           status: 'ACTIVE',
-          companyId: 99999
+          companyId: otherFileCompany.id
         }
       });
 
       await expect(deleteObligationFile(testFile.id, otherUser.id)).rejects.toThrow('Permissão negada');
 
       await prisma.user.delete({ where: { id: otherUser.id } });
+      await prisma.empresa.delete({ where: { id: otherFileCompany.id } });
     });
   });
 
@@ -221,6 +241,15 @@ describe('Obligation File Service', () => {
     });
 
     test('deve retornar false se não tiver acesso', async () => {
+      const noAccessCompany = await prisma.empresa.create({
+        data: {
+          codigo: `NOACC${Date.now()}`,
+          nome: 'No Access Company',
+          cnpj: `${Date.now()}999193`,
+          status: 'ativa'
+        }
+      });
+
       const otherUser = await prisma.user.create({
         data: {
           email: 'noaccess@test.com',
@@ -228,7 +257,7 @@ describe('Obligation File Service', () => {
           passwordHash: await bcrypt.hash('password', 10),
           role: 'CLIENT_NORMAL',
           status: 'ACTIVE',
-          companyId: 99999
+          companyId: noAccessCompany.id
         }
       });
 
@@ -236,6 +265,7 @@ describe('Obligation File Service', () => {
       expect(hasAccess).toBe(false);
 
       await prisma.user.delete({ where: { id: otherUser.id } });
+      await prisma.empresa.delete({ where: { id: noAccessCompany.id } });
     });
   });
 });

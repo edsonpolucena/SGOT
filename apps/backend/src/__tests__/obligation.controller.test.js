@@ -120,7 +120,10 @@ describe("ObligationController", () => {
         periodEnd: new Date("2025-01-31"),
         dueDate: new Date("2025-02-10"),
         companyId: company.id,
-        userId: (await prisma.user.findUnique({ where: { email: 'test@obligation.com' } })).id
+        userId: (await prisma.user.findUnique({ where: { email: 'test@obligation.com' } })).id,
+        status: 'PENDING',
+        taxType: 'DAS',
+        referenceMonth: '2025-01'
       }
     });
 
@@ -192,7 +195,7 @@ describe("ObligationController", () => {
     const res = await request(app)
       .put("/api/obligations/99999")
       .set('Authorization', `Bearer ${token}`)
-      .send({ title: "Test" })
+      .send({ title: "Test Updated" })
       .expect(404);
   });
 
@@ -205,7 +208,10 @@ describe("ObligationController", () => {
         periodEnd: new Date("2025-01-31"),
         dueDate: new Date("2025-02-10"),
         companyId: company.id,
-        userId: (await prisma.user.findUnique({ where: { email: 'test@obligation.com' } })).id
+        userId: (await prisma.user.findUnique({ where: { email: 'test@obligation.com' } })).id,
+        status: 'PENDING',
+        taxType: 'DAS',
+        referenceMonth: '2025-01'
       }
     });
 
@@ -220,7 +226,7 @@ describe("ObligationController", () => {
 
   test("deve buscar controle mensal", async () => {
     const res = await request(app)
-      .get("/api/obligations/monthly-control?month=2025-01")
+      .get(`/api/obligations/monthly-control?companyId=${company.id}&month=2025-01`)
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
