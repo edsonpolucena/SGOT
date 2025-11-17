@@ -3,6 +3,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'jsdom',
+    // Padrão para encontrar testes: __tests__ dentro dos módulos ou arquivos .test.js
+    include: ['**/__tests__/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', '**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     coverage: {
       provider: 'v8',
       // garante a criação de coverage/lcov.info para o passo do GitHub Action
