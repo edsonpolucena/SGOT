@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { renderHook } from '@testing-library/react';
 import { useObligationActions } from '../useObligationActions';
 import http from '../../services/http';
 
@@ -7,6 +8,13 @@ vi.mock('../../services/http', () => ({
     get: vi.fn(),
     delete: vi.fn()
   }
+}));
+
+vi.mock('../../context/AuthContext', () => ({
+  useAuth: () => ({
+    user: { email: 'test@example.com', role: 'ACCOUNTING_SUPER' },
+    isClient: false
+  })
 }));
 
 global.alert = vi.fn();
@@ -18,7 +26,8 @@ describe('useObligationActions', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    actions = useObligationActions();
+    const { result } = renderHook(() => useObligationActions());
+    actions = result.current;
   });
 
   describe('handleViewObligation', () => {
