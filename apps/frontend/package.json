@@ -19,6 +19,7 @@
     "react-input-mask": "^2.0.4",
     "react-router-dom": "^6.26.1",
     "recharts": "^3.2.1",
+    "sgto-root": "file:../..",
     "styled-components": "^6.1.19"
   },
   "devDependencies": {
