@@ -58,7 +58,9 @@ describe('Analytics Service', () => {
         amount: 1000,
         companyId: company.id,
         userId: adminUser.id,
-        status: 'PENDING'
+        status: 'PENDING',
+        taxType: 'DAS',
+        referenceMonth: `${year}-${month}`
       }
     });
 
@@ -72,7 +74,9 @@ describe('Analytics Service', () => {
         amount: 500,
         companyId: company.id,
         userId: adminUser.id,
-        status: 'PENDING'
+        status: 'PENDING',
+        taxType: 'MEI',
+        referenceMonth: `${year}-${month}`
       }
     });
     
@@ -131,7 +135,9 @@ describe('Analytics Service', () => {
           amount: 1000,
           companyId: company.id,
           userId: adminUser.id,
-          status: 'PENDING'
+          status: 'PENDING',
+          taxType: 'DAS',
+          referenceMonth: testMonth
         }
       });
 
@@ -145,7 +151,9 @@ describe('Analytics Service', () => {
           amount: 500,
           companyId: company.id,
           userId: adminUser.id,
-          status: 'PENDING'
+          status: 'PENDING',
+          taxType: 'ISS_RETIDO',
+          referenceMonth: testMonth
         }
       });
 
@@ -171,7 +179,9 @@ describe('Analytics Service', () => {
           amount: 1000,
           companyId: company.id,
           userId: adminUser.id,
-          status: 'PENDING'
+          status: 'PENDING',
+          taxType: 'DAS',
+          referenceMonth: testMonth
         }
       });
 
@@ -185,7 +195,9 @@ describe('Analytics Service', () => {
           amount: 1000,
           companyId: company.id,
           userId: adminUser.id,
-          status: 'PENDING'
+          status: 'PENDING',
+          taxType: 'ISS',
+          referenceMonth: testMonth
         }
       });
 
@@ -213,7 +225,9 @@ describe('Analytics Service', () => {
           amount: null,
           companyId: company.id,
           userId: adminUser.id,
-          status: 'PENDING'
+          status: 'PENDING',
+          taxType: 'DAS',
+          referenceMonth: testMonth
         }
       });
 
@@ -230,6 +244,14 @@ describe('Analytics Service', () => {
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const testMonth = `${year}-${month}`;
 
+      // Limpar obrigações anteriores do mês para este teste
+      await prisma.obligation.deleteMany({
+        where: {
+          companyId: company.id,
+          referenceMonth: testMonth
+        }
+      });
+
       await prisma.obligation.create({
         data: {
           title: 'DAS - Janeiro 2025',
@@ -240,7 +262,9 @@ describe('Analytics Service', () => {
           amount: 1000,
           companyId: company.id,
           userId: adminUser.id,
-          status: 'PENDING'
+          status: 'PENDING',
+          taxType: 'DAS',
+          referenceMonth: testMonth
         }
       });
 
@@ -308,7 +332,9 @@ describe('Analytics Service', () => {
           amount: 500,
           companyId: company.id,
           userId: adminUser.id,
-          status: 'PENDING'
+          status: 'PENDING',
+          taxType: 'DAS',
+          referenceMonth: prevMonthStr
         }
       });
 
@@ -323,7 +349,9 @@ describe('Analytics Service', () => {
           amount: 1000,
           companyId: company.id,
           userId: adminUser.id,
-          status: 'PENDING'
+          status: 'PENDING',
+          taxType: 'DAS',
+          referenceMonth: testMonth
         }
       });
 
@@ -352,7 +380,9 @@ describe('Analytics Service', () => {
           amount: 1000,
           companyId: company.id,
           userId: adminUser.id,
-          status: 'PENDING'
+          status: 'PENDING',
+          taxType: 'FGTS',
+          referenceMonth: testMonth
         }
       });
 
@@ -380,7 +410,9 @@ describe('Analytics Service', () => {
           amount: null,
           companyId: company.id,
           userId: adminUser.id,
-          status: 'PENDING'
+          status: 'PENDING',
+          taxType: 'DAS',
+          referenceMonth: testMonth
         }
       });
 
@@ -535,8 +567,15 @@ describe('Analytics Service', () => {
     });
 
     test('deve calcular completionRate por tipo de imposto', async () => {
-      await prisma.companyTaxProfile.create({
-        data: {
+      await prisma.companyTaxProfile.upsert({
+        where: {
+          companyId_taxType: {
+            companyId: company.id,
+            taxType: 'DAS'
+          }
+        },
+        update: { isActive: true },
+        create: {
           companyId: company.id,
           taxType: 'DAS',
           isActive: true
@@ -654,6 +693,14 @@ describe('Analytics Service', () => {
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const referenceMonth = `${year}-${month}`;
 
+      // Limpar obrigações do mês para este teste
+      await prisma.obligation.deleteMany({
+        where: {
+          companyId: company.id,
+          referenceMonth
+        }
+      });
+
       await prisma.obligation.create({
         data: {
           title: 'DAS - NA',
@@ -738,16 +785,20 @@ describe('Analytics Service', () => {
         }
       });
 
-      const file = await prisma.obligationFile.create({
-        data: {
-          obligationId: (await prisma.obligation.findFirst({
-            where: { title: 'DAS - No Prazo' }
-          })).id,
+      const obligation = await prisma.obligation.findFirst({
+        where: { title: 'DAS - No Prazo' }
+      });
+
+      const file = await prisma.obligationFile.upsert({
+        where: { s3Key: `obligations/test-deadline-${Date.now()}.pdf` },
+        update: {},
+        create: {
+          obligationId: obligation.id,
           fileName: 'test.pdf',
           originalName: 'test.pdf',
           fileSize: 1024,
           mimeType: 'application/pdf',
-          s3Key: 'obligations/test.pdf',
+          s3Key: `obligations/test-deadline-${Date.now()}.pdf`,
           uploadedBy: adminUser.id,
           createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000) // 2 dias atrás
         }

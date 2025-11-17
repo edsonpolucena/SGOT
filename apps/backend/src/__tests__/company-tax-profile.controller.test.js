@@ -65,7 +65,7 @@ describe('Company Tax Profile Controller', () => {
 
   test('deve listar perfil fiscal da empresa', async () => {
     const res = await request(app)
-      .get(`/api/companies/${company.id}/tax-profile`)
+      .get(`/api/empresas/${company.id}/tax-profile`)
       .set('Authorization', `Bearer ${adminToken}`);
 
     expect(res.status).toBe(200);
@@ -83,7 +83,7 @@ describe('Company Tax Profile Controller', () => {
     });
 
     const res = await request(app)
-      .get(`/api/companies/${otherCompany.id}/tax-profile`)
+      .get(`/api/empresas/${otherCompany.id}/tax-profile`)
       .set('Authorization', `Bearer ${clientToken}`);
 
     expect(res.status).toBe(403);
@@ -93,7 +93,7 @@ describe('Company Tax Profile Controller', () => {
 
   test('deve retornar erro 400 se taxType não for fornecido ao adicionar', async () => {
     const res = await request(app)
-      .post(`/api/companies/${company.id}/tax-profile`)
+      .post(`/api/empresas/${company.id}/tax-profile`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({});
 
@@ -102,7 +102,7 @@ describe('Company Tax Profile Controller', () => {
 
   test('deve adicionar tipo de imposto ao perfil', async () => {
     const res = await request(app)
-      .post(`/api/companies/${company.id}/tax-profile`)
+      .post(`/api/empresas/${company.id}/tax-profile`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ taxType: 'DAS' });
 
@@ -112,7 +112,7 @@ describe('Company Tax Profile Controller', () => {
 
   test('deve negar acesso se cliente tentar adicionar imposto', async () => {
     const res = await request(app)
-      .post(`/api/companies/${company.id}/tax-profile`)
+      .post(`/api/empresas/${company.id}/tax-profile`)
       .set('Authorization', `Bearer ${clientToken}`)
       .send({ taxType: 'ISS_RETIDO' });
 
@@ -129,7 +129,7 @@ describe('Company Tax Profile Controller', () => {
     });
 
     const res = await request(app)
-      .delete(`/api/companies/${company.id}/tax-profile/FGTS`)
+      .delete(`/api/empresas/${company.id}/tax-profile/FGTS`)
       .set('Authorization', `Bearer ${adminToken}`);
 
     expect(res.status).toBe(200);
@@ -137,7 +137,7 @@ describe('Company Tax Profile Controller', () => {
 
   test('deve listar tipos de impostos disponíveis', async () => {
     const res = await request(app)
-      .get('/api/companies/tax-types')
+      .get('/api/empresas/tax-types')
       .set('Authorization', `Bearer ${adminToken}`);
 
     expect(res.status).toBe(200);
@@ -146,7 +146,7 @@ describe('Company Tax Profile Controller', () => {
 
   test('deve atualizar perfil fiscal completo', async () => {
     const res = await request(app)
-      .put(`/api/companies/${company.id}/tax-profile`)
+      .put(`/api/empresas/${company.id}/tax-profile`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ taxTypes: ['DAS', 'ISS_RETIDO', 'FGTS'] });
 
@@ -157,7 +157,7 @@ describe('Company Tax Profile Controller', () => {
 
   test('deve retornar erro 400 se taxTypes não for array', async () => {
     const res = await request(app)
-      .put(`/api/companies/${company.id}/tax-profile`)
+      .put(`/api/empresas/${company.id}/tax-profile`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ taxTypes: 'not-an-array' });
 
@@ -166,7 +166,7 @@ describe('Company Tax Profile Controller', () => {
 
   test('deve negar acesso se cliente tentar atualizar perfil', async () => {
     const res = await request(app)
-      .put(`/api/companies/${company.id}/tax-profile`)
+      .put(`/api/empresas/${company.id}/tax-profile`)
       .set('Authorization', `Bearer ${clientToken}`)
       .send({ taxTypes: ['DAS'] });
 

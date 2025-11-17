@@ -191,7 +191,7 @@ describe('Users Service', () => {
       });
 
       const result = await deleteUser(testUser.id, adminUser);
-      expect(result).toBe(true);
+      expect(result).toHaveProperty('message', 'Usuário desativado com sucesso');
 
       const deleted = await prisma.user.findUnique({ where: { id: testUser.id } });
       expect(deleted.status).toBe('INACTIVE');

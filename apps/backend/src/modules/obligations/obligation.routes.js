@@ -6,6 +6,7 @@ const {
   validateParams, 
   validateQuery,
   obligationSchema,
+  obligationUpdateSchema,
   idParamSchema,
   fileIdParamSchema,
   obligationFiltersSchema
@@ -34,7 +35,7 @@ obligationRouter.get('/', validateQuery(obligationFiltersSchema), getObligations
 obligationRouter.get('/monthly-control', getMonthlyControlData); // ANTES de /:id
 obligationRouter.get('/:id', validateParams(idParamSchema), getObligationById);
 obligationRouter.get('/:id/client-views', validateParams(idParamSchema), getClientViewsHistory);
-obligationRouter.put('/:id', validateParams(idParamSchema), validate(obligationSchema), putObligation);
+obligationRouter.put('/:id', validateParams(idParamSchema), validate(obligationUpdateSchema), putObligation);
 obligationRouter.patch('/:id/mark-not-applicable', validateParams(idParamSchema), markNotApplicable);
 obligationRouter.delete('/:id', validateParams(idParamSchema), deleteObligationById);
 

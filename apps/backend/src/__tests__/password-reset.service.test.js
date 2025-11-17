@@ -27,7 +27,7 @@ jest.mock('@prisma/client', () => {
 const mockSendPasswordResetEmail = jest.fn();
 const mockSendPasswordChangedConfirmation = jest.fn();
 
-jest.mock('../../services/email.service', () => ({
+jest.mock('../services/email.service', () => ({
   sendPasswordResetEmail: (...args) => mockSendPasswordResetEmail(...args),
   sendPasswordChangedConfirmation: (...args) => mockSendPasswordChangedConfirmation(...args)
 }));
@@ -150,14 +150,21 @@ describe('password-reset.service', () => {
 
   describe('resetPassword', () => {
     it('deve redefinir senha com sucesso e enviar email de confirmação', async () => {
-      // forçar token válido
-      const validateModule = require('../modules/auth/password-reset.service');
-      jest.spyOn(validateModule, 'validateResetToken').mockResolvedValue({ valid: true });
-
-      mockPasswordResetTokenFindUnique.mockResolvedValue({
-        id: 'reset-1',
-        userId: 'user-1'
-      });
+      // Mock para validateResetToken - primeiro findUnique com include user
+      mockPasswordResetTokenFindUnique
+        .mockResolvedValueOnce({
+          id: 'reset-1',
+          token: 'token-1',
+          userId: 'user-1',
+          used: false,
+          expiresAt: new Date(Date.now() + 3600000),
+          user: { status: 'ACTIVE', email: 'user@test.com' }
+        })
+        // Mock para o segundo findUnique dentro de resetPassword (sem include)
+        .mockResolvedValueOnce({
+          id: 'reset-1',
+          userId: 'user-1'
+        });
 
       bcrypt.hash.mockResolvedValue('hashed-password');
 

@@ -53,7 +53,9 @@ describe('Notification Service', () => {
         dueDate: new Date('2025-02-10'),
         companyId: company.id,
         userId: adminUser.id,
-        status: 'PENDING'
+        status: 'PENDING',
+        taxType: 'DAS',
+        referenceMonth: '2025-01'
       }
     });
   });
