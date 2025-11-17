@@ -82,11 +82,9 @@ jobs:
             echo "📝 Criando lcov.info vazio (formato válido)..."
             mkdir -p coverage
             # Cria arquivo lcov.info no formato válido mas vazio
-            cat > coverage/lcov.info << 'EOF'
-TN:
-SF:
-end_of_record
-EOF
+            echo "TN:" > coverage/lcov.info
+            echo "SF:" >> coverage/lcov.info
+            echo "end_of_record" >> coverage/lcov.info
           fi
         continue-on-error: true
 
