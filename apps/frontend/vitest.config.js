@@ -43,14 +43,13 @@ export default defineConfig({
         'src/modules/**/view/**',
         'src/**/components/**'
       ],
-      // thresholds podem impedir a geração do relatório se não forem atingidos
-      // removido para garantir que lcov.info seja sempre gerado no CI
-      // thresholds: {
-      //   lines: 25,
-      //   functions: 25,
-      //   branches: 25,
-      //   statements: 25,
-      // },
+  
+      thresholds: {
+        lines: 25,
+        functions: 25,
+        branches: 25,
+        statements: 25,
+      },
     },
   },
 });
