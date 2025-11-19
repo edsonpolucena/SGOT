@@ -31,7 +31,7 @@ module.exports = {
       repo: 'git@github.com:edsonpolucena/SGOT.git',
       path: '/var/www/api-backend',
       'post-deploy': 'cp -n /var/www/api-backend/shared/.env apps/backend/.env || true && cd apps/backend && npm ci && npx prisma generate && npm prune --omit=dev && cd ../.. && pm2 startOrReload ecosystem.config.js --env production',
-      ssh_options: ['StrictHostKeyChecking=accept-new'],
+      ssh_options: ['StrictHostKeyChecking=accept-new', 'ConnectTimeout=30', 'ServerAliveInterval=60'],
       'pre-setup': '',
       'post-setup': 'echo "Post-setup concluído"'
     }
