@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 
-
+job:
   deploy:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
