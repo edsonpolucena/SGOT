@@ -11,125 +11,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:14
-        ports:
-          - 5432:5432
-        env:
-          POSTGRES_USER: sgot_test
-          POSTGRES_PASSWORD: sgot_test_password
-          POSTGRES_DB: sgot_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
-    env:
-      DATABASE_URL: postgresql://sgot_test:sgot_test_password@localhost:5432/sgot_test
-      NODE_ENV: test
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      # Backend Tests
-      - name: Install backend deps
-        working-directory: apps/backend
-        run: npm ci
-
-      - name: Push Database Schema
-        working-directory: apps/backend
-        run: npx prisma db push --accept-data-loss --skip-generate
-
-      - name: Generate Prisma Client
-        working-directory: apps/backend
-        run: npx prisma generate
-
-      - name: Run backend tests
-        working-directory: apps/backend
-        run: npm run test:ci
-        continue-on-error: true
-
-      # Frontend Tests
-      - name: Install frontend deps
-        working-directory: apps/frontend
-        run: npm ci
-
-      - name: Run frontend tests
-        working-directory: apps/frontend
-        run: npm run test:ci
-        continue-on-error: true
-
-      # Ensure coverage files exist
-      - name: Ensure coverage files
-        run: |
-          mkdir -p apps/backend/coverage apps/frontend/coverage
-          if [ ! -f apps/backend/coverage/lcov.info ]; then
-            echo "TN:" > apps/backend/coverage/lcov.info
-            echo "SF:" >> apps/backend/coverage/lcov.info
-            echo "end_of_record" >> apps/backend/coverage/lcov.info
-          fi
-          if [ ! -f apps/frontend/coverage/lcov.info ]; then
-            echo "TN:" > apps/frontend/coverage/lcov.info
-            echo "SF:" >> apps/frontend/coverage/lcov.info
-            echo "end_of_record" >> apps/frontend/coverage/lcov.info
-          fi
-
-  build:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      # Build Backend
-      - name: Install backend deps
-        working-directory: apps/backend
-        run: npm ci --production=false
-
-      - name: Generate Prisma Client
-        working-directory: apps/backend
-        run: npx prisma generate
-
-      - name: Validate backend
-        working-directory: apps/backend
-        run: |
-          # Backend não precisa de build, mas valida que o código está OK
-          node -e "require('./src/app.js'); console.log('✅ Backend validado')"
-
-      # Build Frontend
-      - name: Install frontend deps
-        working-directory: apps/frontend
-        run: npm ci
-
-      - name: Build frontend
-        working-directory: apps/frontend
-        run: npm run build
-
-      - name: Upload frontend build
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: apps/frontend/dist
-          retention-days: 1
-
-  deploy-backend:
-    needs: build
+  deploy:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
@@ -141,48 +25,24 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install backend deps
-        working-directory: apps/backend
-        run: npm ci --production
+      - name: Install PM2 globally
+        run: npm install -g pm2
 
-      - name: Generate Prisma Client
-        working-directory: apps/backend
-        run: npx prisma generate
-
-      # Adicione aqui os passos de deploy do backend
-      # Exemplos: Deploy para Vercel, Railway, Render, etc.
-      - name: Deploy backend
-        run: |
-          echo "🚀 Deploy do backend aqui"
-          echo "Configure seu provider de deploy (Vercel, Railway, Render, etc.)"
-          # Exemplo para Railway:
-          # railway up --service backend
-          # Exemplo para Render:
-          # render deploy
-
-  deploy-frontend:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download frontend build
-        uses: actions/download-artifact@v4
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          name: frontend-dist
-          path: apps/frontend/dist
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-      # Adicione aqui os passos de deploy do frontend
-      # Exemplos: Deploy para Vercel, Netlify, GitHub Pages, etc.
-      - name: Deploy frontend
+      - name: Test SSH connection
         run: |
-          echo "🚀 Deploy do frontend aqui"
-          echo "Configure seu provider de deploy (Vercel, Netlify, etc.)"
-          # Exemplo para Vercel:
-          # vercel --prod --cwd apps/frontend
-          # Exemplo para Netlify:
-          # netlify deploy --prod --dir=apps/frontend/dist
+          ssh -o StrictHostKeyChecking=accept-new ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "echo SSH_OK"
+
+      - name: PM2 Deploy Setup
+        run: |
+          pm2 deploy ecosystem.config.js production setup || true
+
+      - name: PM2 Deploy
+        run: |
+          pm2 deploy ecosystem.config.js production
 
   
