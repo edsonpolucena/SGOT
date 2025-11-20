@@ -12,3 +12,5 @@ echo "📋 Lista completa de IPs do GitHub Actions:"
 curl -s https://api.github.com/meta | jq -r '.actions[]' 2>/dev/null || curl -s https://api.github.com/meta | grep -o '"actions":\[.*\]' | grep -o '[0-9.]*/[0-9]*' | sort -u
 
 
+
+
