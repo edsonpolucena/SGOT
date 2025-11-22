@@ -1,30 +1,51 @@
-name: Node.js CI/CD
+name: CI/CD BACKEND
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - '**'        # roda em qualquer branch
+  pull_request:
+    branches:
+      - '**'        # roda em qualquer PR
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: self-hosted
-
     strategy:
       matrix:
         node-version: [20.x]
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout código
+        uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+      - name: Usar Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          cache: npm
+          cache-dependency-path: ./backend/package-lock.json
 
-      -  run: npm ci
+      - name: Instalar dependências
+        working-directory: ./backend
+        run: npm install
 
-      - run: npm ci
-      - run: | 
+      - name: Criar .env no backend
+        working-directory: ./backend
+        run: |
           touch .env
-          echo "${{ secrets.PROD_ENV_FILE }}" > apps/backend/.env
-      - run: pm2 restart BackendAPI
+          echo "${{ secrets.PROD_ENV_FILE }}" > .env
+
+      # Opcional: build
+      # - name: Build
+      #   working-directory: ./backend
+      #   run: npm run build
+
+      #- name: Rodar testes
+      #  working-directory: ./backend
+      #  run: npm test   # ou npm run test, se for o caso
+
+      - name: Restart PM2 
+        working-directory: ./backend
+        run: pm2 restart BackendAPI
