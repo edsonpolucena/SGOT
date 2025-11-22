@@ -35,39 +35,63 @@ jobs:
           ls -la apps/backend/ 2>&1 || echo "❌ Diretório apps/backend não existe"
 
       - name: Debug - Verificar secret PROD_ENV_FILE
+        env:
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
         run: |
-          if [ -z "${{ secrets.PROD_ENV_FILE }}" ]; then
+          if [ -z "$PROD_ENV_FILE" ]; then
             echo "❌ ERRO: Secret PROD_ENV_FILE está vazio ou não configurado!"
+            echo "⚠️ Verifique se o secret 'PROD_ENV_FILE' está configurado no GitHub:"
+            echo "   Settings → Secrets and variables → Actions → Secrets"
             exit 1
           else
             echo "✅ Secret PROD_ENV_FILE está configurado"
-            echo "📏 Tamanho do secret: ${#PROD_ENV_FILE} caracteres"
-            # Mostra apenas as primeiras linhas (sem expor dados sensíveis)
-            echo "${{ secrets.PROD_ENV_FILE }}" | head -3
+            SECRET_SIZE=${#PROD_ENV_FILE}
+            echo "📏 Tamanho do secret: $SECRET_SIZE caracteres"
+            if [ $SECRET_SIZE -eq 0 ]; then
+              echo "❌ ERRO: Secret está vazio (0 caracteres)!"
+              exit 1
+            fi
+            echo "📄 Primeiras 3 linhas do secret (sem expor dados sensíveis):"
+            echo "$PROD_ENV_FILE" | head -3
           fi
-        env:
-          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
 
       - name: Criar .env no backend
+        env:
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
         run: |
           # Garantir que o diretório existe
           mkdir -p apps/backend
           
-          # Criar o arquivo .env
-          echo "${{ secrets.PROD_ENV_FILE }}" > apps/backend/.env
+          # Verificar se o secret está disponível
+          if [ -z "$PROD_ENV_FILE" ]; then
+            echo "❌ ERRO: PROD_ENV_FILE não está disponível neste step!"
+            exit 1
+          fi
+          
+          # Criar o arquivo .env usando printf para evitar problemas com caracteres especiais
+          printf '%s\n' "$PROD_ENV_FILE" > apps/backend/.env
           
           # Verificar se foi criado
-          if [ -f apps/backend/.env ]; then
-            echo "✅ Arquivo .env criado com sucesso!"
-            echo "📏 Tamanho do arquivo: $(wc -c < apps/backend/.env) bytes"
-            echo "📍 Localização: $(pwd)/apps/backend/.env"
-            # Mostra apenas as primeiras 3 linhas (sem expor dados sensíveis)
-            echo "📄 Primeiras linhas do arquivo:"
-            head -3 apps/backend/.env
-          else
+          if [ ! -f apps/backend/.env ]; then
             echo "❌ ERRO: Arquivo .env NÃO foi criado!"
             exit 1
           fi
+          
+          FILE_SIZE=$(wc -c < apps/backend/.env)
+          if [ $FILE_SIZE -eq 0 ]; then
+            echo "❌ ERRO: Arquivo .env foi criado mas está VAZIO!"
+            exit 1
+          fi
+          
+          echo "✅ Arquivo .env criado com sucesso!"
+          echo "📏 Tamanho do arquivo: $FILE_SIZE bytes"
+          echo "📍 Localização: $(pwd)/apps/backend/.env"
+          echo "📄 Primeiras 3 linhas do arquivo (sem expor dados sensíveis):"
+          head -3 apps/backend/.env
+          
+          # Verificar permissões
+          chmod 600 apps/backend/.env
+          echo "🔒 Permissões ajustadas para 600 (leitura/escrita apenas para o dono)"
 
       - name: Verificar permissões do .env
         run: |
