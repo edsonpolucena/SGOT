@@ -140,4 +140,5 @@ jobs:
             echo ""
             echo "💡 Dica: Crie o processo PM2 com: pm2 start apps/backend/src/server.js --name BackendAPI"
             exit 1
+            
           fi
