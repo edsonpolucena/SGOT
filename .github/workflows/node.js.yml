@@ -25,14 +25,14 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
-          cache-dependency-path: ./backend/package-lock.json
+          cache-dependency-path: .apps/backend/package-lock.json
 
       - name: Instalar dependências
-        working-directory: ./backend
+        working-directory: .apps/backend
         run: npm install
 
       - name: Criar .env no backend
-        working-directory: ./backend
+        working-directory: .apps/backend
         run: |
           touch .env
           echo "${{ secrets.PROD_ENV_FILE }}" > .env
@@ -47,5 +47,5 @@ jobs:
       #  run: npm test   # ou npm run test, se for o caso
 
       - name: Restart PM2 
-        working-directory: ./backend
+        working-directory: .apps/backend
         run: pm2 restart BackendAPI
