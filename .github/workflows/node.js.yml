@@ -31,21 +31,122 @@ jobs:
         working-directory: ./apps/backend
         run: npm install
 
-      - name: Criar .env no backend
-        working-directory: ./apps/backend
+      - name: Verificar secret PROD_ENV_FILE
+        env:
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
         run: |
-          touch .env
-          echo "${{ secrets.PROD_ENV_FILE }}" > .env
+          if [ -z "$PROD_ENV_FILE" ]; then
+            echo "❌ ERRO: Secret PROD_ENV_FILE está vazio ou não configurado!"
+            echo "⚠️ Configure o secret no GitHub: Settings → Secrets and variables → Actions"
+            exit 1
+          else
+            SECRET_SIZE=${#PROD_ENV_FILE}
+            echo "✅ Secret PROD_ENV_FILE configurado (${SECRET_SIZE} caracteres)"
+            if [ $SECRET_SIZE -eq 0 ]; then
+              echo "❌ ERRO: Secret está vazio!"
+              exit 1
+            fi
+          fi
 
-      # Opcional: build
-      # - name: Build
-      #   working-directory: ./backend
-      #   run: npm run build
+      - name: Criar .env no diretório do PM2
+        env:
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
+        run: |
+          # Verificar onde o PM2 BackendAPI está rodando
+          echo "🔍 Procurando processo PM2: BackendAPI"
+          PM2_INFO=$(pm2 describe BackendAPI 2>/dev/null || echo "")
+          
+          if [ -n "$PM2_INFO" ]; then
+            # Extrair o diretório de trabalho do PM2
+            PM2_CWD=$(pm2 describe BackendAPI 2>/dev/null | grep "exec cwd" | awk '{print $NF}' || echo "")
+            
+            if [ -n "$PM2_CWD" ]; then
+              TARGET_DIR="$PM2_CWD"
+              echo "✅ PM2 BackendAPI encontrado!"
+              echo "📍 PM2 rodando de: $TARGET_DIR"
+            else
+              # Tentar extrair do pm2 show
+              PM2_CWD=$(pm2 show BackendAPI 2>/dev/null | grep "exec cwd" | awk '{print $NF}' || echo "")
+              if [ -n "$PM2_CWD" ]; then
+                TARGET_DIR="$PM2_CWD"
+                echo "✅ PM2 BackendAPI encontrado via pm2 show!"
+                echo "📍 PM2 rodando de: $TARGET_DIR"
+              else
+                # Fallback: procurar em locais comuns
+                PM2_DIR1="$HOME/SGOT/apps/backend"
+                PM2_DIR2="/var/www/api-backend/current/apps/backend"
+                
+                if [ -d "$PM2_DIR1" ]; then
+                  TARGET_DIR="$PM2_DIR1"
+                  echo "📍 Usando diretório padrão: $TARGET_DIR"
+                elif [ -d "$PM2_DIR2" ]; then
+                  TARGET_DIR="$PM2_DIR2"
+                  echo "📍 Usando diretório de deploy: $TARGET_DIR"
+                else
+                  echo "⚠️ Diretório não encontrado, criando em $PM2_DIR1"
+                  mkdir -p "$PM2_DIR1"
+                  TARGET_DIR="$PM2_DIR1"
+                fi
+              fi
+            fi
+          else
+            echo "⚠️ Processo BackendAPI não encontrado no PM2, usando diretórios padrão"
+            PM2_DIR1="$HOME/SGOT/apps/backend"
+            PM2_DIR2="/var/www/api-backend/current/apps/backend"
+            
+            if [ -d "$PM2_DIR1" ]; then
+              TARGET_DIR="$PM2_DIR1"
+              echo "📍 Usando diretório: $TARGET_DIR"
+            elif [ -d "$PM2_DIR2" ]; then
+              TARGET_DIR="$PM2_DIR2"
+              echo "📍 Usando diretório: $TARGET_DIR"
+            else
+              echo "⚠️ Criando diretório em $PM2_DIR1"
+              mkdir -p "$PM2_DIR1"
+              TARGET_DIR="$PM2_DIR1"
+            fi
+          fi
+          
+          # Criar diretório se não existir
+          mkdir -p "$TARGET_DIR"
+          echo "📂 Criando .env em: $TARGET_DIR"
+          
+          # Criar o arquivo .env
+          printf '%s\n' "$PROD_ENV_FILE" > "$TARGET_DIR/.env"
+          
+          # Verificar se foi criado
+          if [ ! -f "$TARGET_DIR/.env" ]; then
+            echo "❌ ERRO: Arquivo .env NÃO foi criado em $TARGET_DIR!"
+            exit 1
+          fi
+          
+          FILE_SIZE=$(wc -c < "$TARGET_DIR/.env")
+          if [ $FILE_SIZE -eq 0 ]; then
+            echo "❌ ERRO: Arquivo .env está VAZIO!"
+            exit 1
+          fi
+          
+          # Ajustar permissões
+          chmod 600 "$TARGET_DIR/.env"
+          
+          echo "✅ Arquivo .env criado com sucesso!"
+          echo "📏 Tamanho: $FILE_SIZE bytes"
+          echo "📍 Localização: $TARGET_DIR/.env"
+          echo "🔒 Permissões: 600"
 
-      #- name: Rodar testes
-      #  working-directory: ./backend
-      #  run: npm test   # ou npm run test, se for o caso
-
-      - name: Restart PM2 
-        working-directory: ./apps/backend
-        run: pm2 restart BackendAPI
+      - name: Restart PM2 BackendAPI
+        run: |
+          # Verificar se o processo BackendAPI existe
+          if pm2 describe BackendAPI > /dev/null 2>&1; then
+            echo "🔄 Reiniciando PM2 processo: BackendAPI"
+            pm2 restart BackendAPI
+            pm2 save
+            echo "✅ PM2 BackendAPI reiniciado com sucesso!"
+          else
+            echo "❌ ERRO: Processo 'BackendAPI' não encontrado no PM2"
+            echo "📋 Processos PM2 ativos:"
+            pm2 list
+            echo ""
+            echo "💡 Dica: Crie o processo PM2 com: pm2 start apps/backend/src/server.js --name BackendAPI"
+            exit 1
+          fi
