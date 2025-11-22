@@ -1,51 +1,52 @@
-name: CI/CD BACKEND
+# name: CI/CD BACKEND
 
-on:
-  push:
-    branches:
-      - '**'        # roda em qualquer branch
-  pull_request:
-    branches:
-      - '**'        # roda em qualquer PR
-  workflow_dispatch:
+# on:
 
-jobs:
-  build:
-    runs-on: self-hosted
-    strategy:
-      matrix:
-        node-version: [20.x]
+#   push:
+#     branches:
+#       - '**'        # roda em qualquer branch
+#   pull_request:
+#     branches:
+#       - '**'        # roda em qualquer PR
+#   workflow_dispatch:
 
-    steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
+# jobs:
+#   build:
+#     runs-on: self-hosted
+#     strategy:
+#       matrix:
+#         node-version: [20.x]
 
-      - name: Usar Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: npm
-          cache-dependency-path: ./apps/backend/package-lock.json
+#     steps:
+#       - name: Checkout código
+#         uses: actions/checkout@v4
 
-      - name: Instalar dependências
-        working-directory: ./apps/backend
-        run: npm install
+#       - name: Usar Node.js ${{ matrix.node-version }}
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: ${{ matrix.node-version }}
+#           cache: npm
+#           cache-dependency-path: ./apps/backend/package-lock.json
 
-      - name: Criar .env no backend
-        working-directory: ./apps/backend
-        run: |
-          touch .env
-          echo "${{ secrets.PROD_ENV_FILE }}" > .env
+#       - name: Instalar dependências
+#         working-directory: ./apps/backend
+#         run: npm install
 
-      # Opcional: build
-      # - name: Build
-      #   working-directory: ./backend
-      #   run: npm run build
+#       - name: Criar .env no backend
+#         working-directory: ./apps/backend
+#         run: |
+#           touch .env
+#           echo "${{ secrets.PROD_ENV_FILE }}" > .env
 
-      #- name: Rodar testes
-      #  working-directory: ./backend
-      #  run: npm test   # ou npm run test, se for o caso
+#       # Opcional: build
+#       # - name: Build
+#       #   working-directory: ./backend
+#       #   run: npm run build
 
-      - name: Restart PM2 
-        working-directory: ./apps/backend
-        run: pm2 restart BackendAPI
+#       #- name: Rodar testes
+#       #  working-directory: ./backend
+#       #  run: npm test   # ou npm run test, se for o caso
+
+#       - name: Restart PM2 
+#         working-directory: ./apps/backend
+#         run: pm2 restart BackendAPI
