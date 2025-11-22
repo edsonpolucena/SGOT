@@ -23,6 +23,55 @@ jobs:
 
       -  run: npm ci
 
-      -  run: |
-          touch .env
-          echo "${{ secrets.PROD_ENV_FILE }}" > SGOT/SGOT/apps/backend/.env
+      - name: Debug - Verificar diretório atual
+        run: |
+          echo "📂 Diretório atual:"
+          pwd
+          echo ""
+          echo "📁 Estrutura de diretórios:"
+          ls -la
+          echo ""
+          echo "📁 Verificando apps/backend:"
+          ls -la apps/backend/ 2>&1 || echo "❌ Diretório apps/backend não existe"
+
+      - name: Debug - Verificar secret PROD_ENV_FILE
+        run: |
+          if [ -z "${{ secrets.PROD_ENV_FILE }}" ]; then
+            echo "❌ ERRO: Secret PROD_ENV_FILE está vazio ou não configurado!"
+            exit 1
+          else
+            echo "✅ Secret PROD_ENV_FILE está configurado"
+            echo "📏 Tamanho do secret: ${#PROD_ENV_FILE} caracteres"
+            # Mostra apenas as primeiras linhas (sem expor dados sensíveis)
+            echo "${{ secrets.PROD_ENV_FILE }}" | head -3
+          fi
+        env:
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
+
+      - name: Criar .env no backend
+        run: |
+          # Garantir que o diretório existe
+          mkdir -p apps/backend
+          
+          # Criar o arquivo .env
+          echo "${{ secrets.PROD_ENV_FILE }}" > apps/backend/.env
+          
+          # Verificar se foi criado
+          if [ -f apps/backend/.env ]; then
+            echo "✅ Arquivo .env criado com sucesso!"
+            echo "📏 Tamanho do arquivo: $(wc -c < apps/backend/.env) bytes"
+            echo "📍 Localização: $(pwd)/apps/backend/.env"
+            # Mostra apenas as primeiras 3 linhas (sem expor dados sensíveis)
+            echo "📄 Primeiras linhas do arquivo:"
+            head -3 apps/backend/.env
+          else
+            echo "❌ ERRO: Arquivo .env NÃO foi criado!"
+            exit 1
+          fi
+
+      - name: Verificar permissões do .env
+        run: |
+          ls -la apps/backend/.env
+          echo ""
+          echo "📋 Conteúdo do arquivo .env (primeiras 5 linhas):"
+          head -5 apps/backend/.env || echo "Erro ao ler arquivo"
