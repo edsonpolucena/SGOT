@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'backend-api',
       script: 'apps/backend/src/server.js',
-      cwd: '/var/www/api-backend/current',
+      cwd: '/home/ubuntu/SGOT',
       instances: 1,
       exec_mode: 'fork',
       env: {
