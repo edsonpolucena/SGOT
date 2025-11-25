@@ -22,62 +22,104 @@ jobs:
       # COPIAR CÓDIGO PARA O DIRETÓRIO DE PRODUÇÃO
       # =======================================================
       - name: Sincronizar código para /home/ubuntu/SGOT
+        timeout-minutes: 5
         run: |
-          sudo rsync -av --exclude='node_modules' --exclude='dist' --exclude='.git' --exclude='.env' --exclude='**/.env' ${{ github.workspace }}/ /home/ubuntu/SGOT/
+          sudo rsync -av \
+            --exclude='node_modules' \
+            --exclude='dist' \
+            --exclude='.git' \
+            --exclude='.env' \
+            --exclude='**/.env' \
+            --exclude='.package-lock.deployed' \
+            ${{ github.workspace }}/ /home/ubuntu/SGOT/
           sudo chown -R ubuntu:ubuntu /home/ubuntu/SGOT
 
       # =======================================================
       # DOCKER (PostgreSQL)
       # =======================================================
       - name: Verificar/Iniciar PostgreSQL
+        timeout-minutes: 2
         run: |
-          cd /var/www/sgot
-          docker compose -f docker-compose.prod.yml ps || echo "Docker compose não encontrado, tentando iniciar"
-          docker compose -f docker-compose.prod.yml up -d || echo "Erro ao iniciar Docker"
-          sleep 5
-          docker ps | grep postgres || echo "PostgreSQL não está rodando"
+          cd /var/www/sgot || cd /home/ubuntu/SGOT
+          docker compose -f docker-compose.prod.yml ps 2>/dev/null || echo "Verificando Docker..."
+          docker compose -f docker-compose.prod.yml up -d 2>/dev/null || echo "Docker já está rodando ou erro ao iniciar"
+          sleep 3
+          docker ps | grep postgres || echo "PostgreSQL pode não estar rodando"
 
       # =======================================================
       # BACKEND
       # =======================================================
-      - name: Instalar dependências do backend (otimizado)
+      - name: Instalar dependências do backend (só se necessário)
+        timeout-minutes: 10
         working-directory: /home/ubuntu/SGOT/apps/backend
         run: |
-          # npm install é mais rápido que npm ci quando node_modules já existe
-          # --prefer-offline usa cache local, --no-audit pula verificação de segurança
-          npm install --prefer-offline --no-audit --progress=false || npm ci --prefer-offline --no-audit
+          # Verifica se node_modules existe e se package-lock.json mudou
+          if [ ! -d "node_modules" ]; then
+            echo "❌ node_modules não existe -> instalando dependências"
+            npm install --prefer-offline --no-audit --progress=false --loglevel=error
+            cp package-lock.json .package-lock.deployed 2>/dev/null || true
+          elif [ ! -f ".package-lock.deployed" ] || ! cmp -s package-lock.json .package-lock.deployed 2>/dev/null; then
+            echo "⚠️ package-lock.json mudou -> atualizando dependências"
+            npm install --prefer-offline --no-audit --progress=false --loglevel=error
+            cp package-lock.json .package-lock.deployed
+          else
+            echo "✅ Dependências do backend já instaladas e sem mudanças -> pulando npm install"
+          fi
 
-      - name: Gerar Prisma Client
+      - name: Gerar Prisma Client (só se necessário)
+        timeout-minutes: 2
         working-directory: /home/ubuntu/SGOT/apps/backend
-        run: npx prisma generate
+        run: |
+          # Só gera se o Prisma Client não existir ou se o schema mudou
+          if [ ! -d "node_modules/.prisma/client" ] || [ "prisma/schema.prisma" -nt "node_modules/.prisma/client" ]; then
+            echo "Gerando Prisma Client..."
+            npx prisma generate
+          else
+            echo "✅ Prisma Client já está atualizado -> pulando geração"
+          fi
 
       - name: Aplicar migrations
+        timeout-minutes: 2
         working-directory: /home/ubuntu/SGOT/apps/backend
         run: |
           npx prisma migrate deploy || echo "Sem migrations para aplicar"
 
       - name: Restart backend com PM2
+        timeout-minutes: 1
         run: |
           cd /home/ubuntu/SGOT
-          pm2 restart backend-api || pm2 start apps/backend/src/server.js --name backend-api --env production
+          pm2 restart backend-api 2>/dev/null || pm2 start apps/backend/src/server.js --name backend-api --env production
+          pm2 save 2>/dev/null || true
 
       # =======================================================
       # FRONTEND
       # =======================================================
-      - name: Instalar dependências do frontend (otimizado)
+      - name: Instalar dependências do frontend (só se necessário)
+        timeout-minutes: 10
         working-directory: /home/ubuntu/SGOT/apps/frontend
         run: |
-          # npm install é mais rápido que npm ci quando node_modules já existe
-          # --prefer-offline usa cache local, --no-audit pula verificação de segurança
-          npm install --prefer-offline --no-audit --progress=false || npm ci --prefer-offline --no-audit
+          # Verifica se node_modules existe e se package-lock.json mudou
+          if [ ! -d "node_modules" ]; then
+            echo "❌ node_modules não existe -> instalando dependências"
+            npm install --prefer-offline --no-audit --progress=false --loglevel=error
+            cp package-lock.json .package-lock.deployed 2>/dev/null || true
+          elif [ ! -f ".package-lock.deployed" ] || ! cmp -s package-lock.json .package-lock.deployed 2>/dev/null; then
+            echo "⚠️ package-lock.json mudou -> atualizando dependências"
+            npm install --prefer-offline --no-audit --progress=false --loglevel=error
+            cp package-lock.json .package-lock.deployed
+          else
+            echo "✅ Dependências do frontend já instaladas e sem mudanças -> pulando npm install"
+          fi
 
       - name: Build frontend
+        timeout-minutes: 5
         working-directory: /home/ubuntu/SGOT/apps/frontend
         env:
           VITE_API_URL: https://www.sgot.com.br
         run: npm run build
 
       - name: Publicar frontend no Nginx
+        timeout-minutes: 1
         run: |
           sudo chown -R www-data:www-data /home/ubuntu/SGOT/apps/frontend/dist
           sudo chmod -R 755 /home/ubuntu/SGOT/apps/frontend/dist
