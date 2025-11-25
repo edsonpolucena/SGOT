@@ -7,6 +7,7 @@ on:
 jobs:
   ci-cd:
     runs-on: self-hosted   # Usa o runner da sua EC2
+    timeout-minutes: 30    # Timeout de 30 minutos para evitar travamentos
 
     steps:
       - name: Checkout código
@@ -39,9 +40,12 @@ jobs:
       # =======================================================
       # BACKEND
       # =======================================================
-      - name: Instalar dependências do backend
+      - name: Instalar dependências do backend (otimizado)
         working-directory: /home/ubuntu/SGOT/apps/backend
-        run: npm ci
+        run: |
+          # npm install é mais rápido que npm ci quando node_modules já existe
+          # --prefer-offline usa cache local, --no-audit pula verificação de segurança
+          npm install --prefer-offline --no-audit --progress=false || npm ci --prefer-offline --no-audit
 
       - name: Gerar Prisma Client
         working-directory: /home/ubuntu/SGOT/apps/backend
@@ -60,9 +64,12 @@ jobs:
       # =======================================================
       # FRONTEND
       # =======================================================
-      - name: Instalar dependências do frontend
+      - name: Instalar dependências do frontend (otimizado)
         working-directory: /home/ubuntu/SGOT/apps/frontend
-        run: npm ci
+        run: |
+          # npm install é mais rápido que npm ci quando node_modules já existe
+          # --prefer-offline usa cache local, --no-audit pula verificação de segurança
+          npm install --prefer-offline --no-audit --progress=false || npm ci --prefer-offline --no-audit
 
       - name: Build frontend
         working-directory: /home/ubuntu/SGOT/apps/frontend
