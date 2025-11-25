@@ -66,7 +66,9 @@ const allowedOrigins = [
   'https://main.d2i419h2w30p82.amplifyapp.com',
   'https://sgot.com.br',
   'https://www.sgot.com.br',
-  'https://api.sgot.com.br'
+  'https://api.sgot.com.br',
+  'http://54.233.141.150',
+  'https://54.233.141.150'
 ];
 
 app.use(
