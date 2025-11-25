@@ -1,0 +1,78 @@
+name: CI/CD SGOT (EC2)
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  ci-cd:
+    runs-on: self-hosted   # Usa o runner da sua EC2
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # =======================================================
+      # COPIAR CÓDIGO PARA O DIRETÓRIO DE PRODUÇÃO
+      # =======================================================
+      - name: Sincronizar código para /home/ubuntu/SGOT
+        run: |
+          sudo rsync -av --exclude='node_modules' --exclude='dist' --exclude='.git' --exclude='.env' --exclude='**/.env' ${{ github.workspace }}/ /home/ubuntu/SGOT/
+          sudo chown -R ubuntu:ubuntu /home/ubuntu/SGOT
+
+      # =======================================================
+      # DOCKER (PostgreSQL)
+      # =======================================================
+      - name: Verificar/Iniciar PostgreSQL
+        run: |
+          cd /var/www/sgot
+          docker compose -f docker-compose.prod.yml ps || echo "Docker compose não encontrado, tentando iniciar"
+          docker compose -f docker-compose.prod.yml up -d || echo "Erro ao iniciar Docker"
+          sleep 5
+          docker ps | grep postgres || echo "PostgreSQL não está rodando"
+
+      # =======================================================
+      # BACKEND
+      # =======================================================
+      - name: Instalar dependências do backend
+        working-directory: /home/ubuntu/SGOT/apps/backend
+        run: npm ci
+
+      - name: Gerar Prisma Client
+        working-directory: /home/ubuntu/SGOT/apps/backend
+        run: npx prisma generate
+
+      - name: Aplicar migrations
+        working-directory: /home/ubuntu/SGOT/apps/backend
+        run: |
+          npx prisma migrate deploy || echo "Sem migrations para aplicar"
+
+      - name: Restart backend com PM2
+        run: |
+          cd /home/ubuntu/SGOT
+          pm2 restart backend-api || pm2 start apps/backend/src/server.js --name backend-api --env production
+
+      # =======================================================
+      # FRONTEND
+      # =======================================================
+      - name: Instalar dependências do frontend
+        working-directory: /home/ubuntu/SGOT/apps/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: /home/ubuntu/SGOT/apps/frontend
+        env:
+          VITE_API_URL: https://www.sgot.com.br
+        run: npm run build
+
+      - name: Publicar frontend no Nginx
+        run: |
+          sudo chown -R www-data:www-data /home/ubuntu/SGOT/apps/frontend/dist
+          sudo chmod -R 755 /home/ubuntu/SGOT/apps/frontend/dist
+          sudo systemctl reload nginx
+
