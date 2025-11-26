@@ -5,7 +5,6 @@ const jwt = require("jsonwebtoken");
 const { env } = require("../config/env");
 const bcrypt = require("bcryptjs");
 
-// Importar o service ANTES dos testes para poder fazer spy
 const analyticsService = require('../modules/analytics/analytics.service');
 
 describe("AnalyticsController", () => {
