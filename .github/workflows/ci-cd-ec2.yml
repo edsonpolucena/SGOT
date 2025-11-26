@@ -6,8 +6,8 @@ on:
 
 jobs:
   ci-cd:
-    runs-on: self-hosted   # Usa o runner da sua EC2
-    timeout-minutes: 30    # Timeout de 30 minutos para evitar travamentos
+    runs-on: self-hosted
+    timeout-minutes: 30
 
     steps:
       - name: Checkout código
@@ -53,7 +53,6 @@ jobs:
         timeout-minutes: 10
         working-directory: /home/ubuntu/SGOT/apps/backend
         run: |
-          # Verifica se node_modules existe e se package-lock.json mudou
           if [ ! -d "node_modules" ]; then
             echo "❌ node_modules não existe -> instalando dependências"
             npm install --prefer-offline --no-audit --progress=false --loglevel=error
@@ -66,23 +65,22 @@ jobs:
             echo "✅ Dependências do backend já instaladas e sem mudanças -> pulando npm install"
           fi
 
-      - name: Gerar Prisma Client (só se necessário)
+      - name: Gerar Prisma Client
         timeout-minutes: 2
         working-directory: /home/ubuntu/SGOT/apps/backend
         run: |
-          # Só gera se o Prisma Client não existir ou se o schema mudou
           if [ ! -d "node_modules/.prisma/client" ] || [ "prisma/schema.prisma" -nt "node_modules/.prisma/client" ]; then
             echo "Gerando Prisma Client..."
             npx prisma generate
           else
-            echo "✅ Prisma Client já está atualizado -> pulando geração"
+            echo "✅ Prisma Client já está atualizado"
           fi
 
       - name: Aplicar migrations
         timeout-minutes: 2
         working-directory: /home/ubuntu/SGOT/apps/backend
         run: |
-          npx prisma migrate deploy || echo "Sem migrations para aplicar"
+          npx prisma migrate deploy || echo "Sem migrations"
 
       - name: Restart backend com PM2
         timeout-minutes: 1
@@ -92,7 +90,7 @@ jobs:
           pm2 save 2>/dev/null || true
 
       # =======================================================
-      # FRONTEND
+      # FRONTEND (CORRIGIDO)
       # =======================================================
       - name: Instalar dependências do frontend (só se necessário)
         timeout-minutes: 10
@@ -100,17 +98,16 @@ jobs:
         env:
           npm_config_cache: /home/ubuntu/.npm-cache
         run: |
-          # Verifica se node_modules existe e se package-lock.json mudou
           if [ ! -d "node_modules" ]; then
-            echo "❌ node_modules não existe -> instalando dependências"
+            echo "❌ node_modules do frontend não existe -> instalando"
             npm install --prefer-offline --no-audit --progress=false --loglevel=error --cache=/home/ubuntu/.npm-cache
             cp package-lock.json .package-lock.deployed 2>/dev/null || true
           elif [ ! -f ".package-lock.deployed" ] || ! cmp -s package-lock.json .package-lock.deployed 2>/dev/null; then
-            echo "⚠️ package-lock.json mudou -> atualizando dependências"
+            echo "⚠️ package-lock.json mudou -> instalando dependências do frontend"
             npm install --prefer-offline --no-audit --progress=false --loglevel=error --cache=/home/ubuntu/.npm-cache
             cp package-lock.json .package-lock.deployed
           else
-            echo "✅ Dependências do frontend já instaladas e sem mudanças -> pulando npm install"
+            echo "✅ Dependências do frontend já instaladas e sem mudanças"
           fi
 
       - name: Verificar se precisa buildar frontend
@@ -118,51 +115,37 @@ jobs:
         timeout-minutes: 2
         working-directory: /home/ubuntu/SGOT/apps/frontend
         run: |
-          # Se não existe dist ou timestamp, precisa buildar
-          if [ ! -d "dist" ] || [ ! -f "dist/.build.timestamp" ]; then
-            echo "Nenhum build anterior encontrado -> irá buildar"
+          # 1) Se a pasta dist NÃO existe, build obrigatório
+          if [ ! -d "dist" ]; then
+            echo "🚧 dist não existe -> build necessário"
             echo "should_build=true" >> $GITHUB_OUTPUT
             exit 0
           fi
-          
-          # Verifica se arquivos fonte mudaram desde o último build
-          # Verifica src/, public/, package.json, vite.config.*, e .env (se existir)
-          CHANGED_FILES=$(find src public package.json vite.config.* .env 2>/dev/null -newer dist/.build.timestamp -print -quit)
-          
+
+          # 2) Se dist existe, verificar se arquivos fonte mudaram DEPOIS da última alteração de dist
+          CHANGED_FILES=$(find src public package.json vite.config.* .env 2>/dev/null -newer dist -print -quit)
+
           if [ -n "$CHANGED_FILES" ]; then
-            echo "Arquivos alterados desde o último build -> irá buildar"
-            echo "Arquivos alterados: $CHANGED_FILES"
+            echo "📝 Arquivos alterados -> precisa buildar"
             echo "should_build=true" >> $GITHUB_OUTPUT
           else
-            echo "✅ Nenhuma alteração relevante desde o último build -> NÃO irá buildar"
+            echo "✅ Nenhuma alteração -> NÃO precisa buildar"
             echo "should_build=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Build frontend (otimizado)
         if: steps.check_frontend_build.outputs.should_build == 'true'
-        timeout-minutes: 10
+        timeout-minutes: 20
         working-directory: /home/ubuntu/SGOT/apps/frontend
         env:
           VITE_API_URL: https://www.sgot.com.br
           NODE_ENV: production
           NODE_OPTIONS: --max-old-space-size=2048 --no-warnings
-          # Variáveis para acelerar o build
           CI: false
-          # Preserva cache do Vite entre builds
           VITE_CACHE_DIR: /home/ubuntu/.vite-cache
         run: |
-          # Criar diretório de cache se não existir
           mkdir -p /home/ubuntu/.vite-cache
-          
-          # Build com flags otimizadas para ser mais rápido
-          # --mode production: modo de produção
-          # --minify esbuild: minificação rápida com esbuild (mais rápido que terser)
-          # --emptyOutDir: limpa diretório de saída antes
-          npm run build -- --mode production --minify esbuild --emptyOutDir
-          
-          # Criar timestamp do build para verificação futura
-          mkdir -p dist
-          touch dist/.build.timestamp
+          nice -n 10 npm run build -- --mode production --minify esbuild --emptyOutDir
 
       - name: Publicar frontend no Nginx
         if: steps.check_frontend_build.outputs.should_build == 'true'
@@ -171,4 +154,3 @@ jobs:
           sudo chown -R www-data:www-data /home/ubuntu/SGOT/apps/frontend/dist
           sudo chmod -R 755 /home/ubuntu/SGOT/apps/frontend/dist
           sudo systemctl reload nginx
-
