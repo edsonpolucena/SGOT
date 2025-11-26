@@ -97,28 +97,75 @@ jobs:
       - name: Instalar dependências do frontend (só se necessário)
         timeout-minutes: 10
         working-directory: /home/ubuntu/SGOT/apps/frontend
+        env:
+          npm_config_cache: /home/ubuntu/.npm-cache
         run: |
           # Verifica se node_modules existe e se package-lock.json mudou
           if [ ! -d "node_modules" ]; then
             echo "❌ node_modules não existe -> instalando dependências"
-            npm install --prefer-offline --no-audit --progress=false --loglevel=error
+            npm install --prefer-offline --no-audit --progress=false --loglevel=error --cache=/home/ubuntu/.npm-cache
             cp package-lock.json .package-lock.deployed 2>/dev/null || true
           elif [ ! -f ".package-lock.deployed" ] || ! cmp -s package-lock.json .package-lock.deployed 2>/dev/null; then
             echo "⚠️ package-lock.json mudou -> atualizando dependências"
-            npm install --prefer-offline --no-audit --progress=false --loglevel=error
+            npm install --prefer-offline --no-audit --progress=false --loglevel=error --cache=/home/ubuntu/.npm-cache
             cp package-lock.json .package-lock.deployed
           else
             echo "✅ Dependências do frontend já instaladas e sem mudanças -> pulando npm install"
           fi
 
-      - name: Build frontend
-        timeout-minutes: 5
+      - name: Verificar se precisa buildar frontend
+        id: check_frontend_build
+        timeout-minutes: 2
+        working-directory: /home/ubuntu/SGOT/apps/frontend
+        run: |
+          # Se não existe dist ou timestamp, precisa buildar
+          if [ ! -d "dist" ] || [ ! -f "dist/.build.timestamp" ]; then
+            echo "Nenhum build anterior encontrado -> irá buildar"
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Verifica se arquivos fonte mudaram desde o último build
+          # Verifica src/, public/, package.json, vite.config.*, e .env (se existir)
+          CHANGED_FILES=$(find src public package.json vite.config.* .env 2>/dev/null -newer dist/.build.timestamp -print -quit)
+          
+          if [ -n "$CHANGED_FILES" ]; then
+            echo "Arquivos alterados desde o último build -> irá buildar"
+            echo "Arquivos alterados: $CHANGED_FILES"
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Nenhuma alteração relevante desde o último build -> NÃO irá buildar"
+            echo "should_build=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build frontend (otimizado)
+        if: steps.check_frontend_build.outputs.should_build == 'true'
+        timeout-minutes: 10
         working-directory: /home/ubuntu/SGOT/apps/frontend
         env:
           VITE_API_URL: https://www.sgot.com.br
-        run: npm run build
+          NODE_ENV: production
+          NODE_OPTIONS: --max-old-space-size=2048 --no-warnings
+          # Variáveis para acelerar o build
+          CI: false
+          # Preserva cache do Vite entre builds
+          VITE_CACHE_DIR: /home/ubuntu/.vite-cache
+        run: |
+          # Criar diretório de cache se não existir
+          mkdir -p /home/ubuntu/.vite-cache
+          
+          # Build com flags otimizadas para ser mais rápido
+          # --mode production: modo de produção
+          # --minify esbuild: minificação rápida com esbuild (mais rápido que terser)
+          # --emptyOutDir: limpa diretório de saída antes
+          npm run build -- --mode production --minify esbuild --emptyOutDir
+          
+          # Criar timestamp do build para verificação futura
+          mkdir -p dist
+          touch dist/.build.timestamp
 
       - name: Publicar frontend no Nginx
+        if: steps.check_frontend_build.outputs.should_build == 'true'
         timeout-minutes: 1
         run: |
           sudo chown -R www-data:www-data /home/ubuntu/SGOT/apps/frontend/dist
