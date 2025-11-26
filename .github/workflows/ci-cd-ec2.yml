@@ -89,8 +89,8 @@ jobs:
           pm2 restart backend-api 2>/dev/null || pm2 start apps/backend/src/server.js --name backend-api --env production
           pm2 save 2>/dev/null || true
 
-      # =======================================================
-      # FRONTEND (CORRIGIDO)
+            # =======================================================
+      # FRONTEND (com hash e sem rebuild desnecessário)
       # =======================================================
       - name: Instalar dependências do frontend (só se necessário)
         timeout-minutes: 10
@@ -115,22 +115,40 @@ jobs:
         timeout-minutes: 2
         working-directory: /home/ubuntu/SGOT/apps/frontend
         run: |
-          # 1) Se a pasta dist NÃO existe, build obrigatório
+          # Gera hash do conteúdo dos arquivos fonte relevantes
+          CURRENT_HASH=$(find src public package.json vite.config.* .env 2>/dev/null -type f -exec md5sum {} \; 2>/dev/null | sort | md5sum | cut -d' ' -f1)
+
+          # Se a pasta dist NÃO existe, build é obrigatório
           if [ ! -d "dist" ]; then
             echo "🚧 dist não existe -> build necessário"
+            echo "Hash atual: $CURRENT_HASH"
             echo "should_build=true" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          # 2) Se dist existe, verificar se arquivos fonte mudaram DEPOIS da última alteração de dist
-          CHANGED_FILES=$(find src public package.json vite.config.* .env 2>/dev/null -newer dist -print -quit)
-
-          if [ -n "$CHANGED_FILES" ]; then
-            echo "📝 Arquivos alterados -> precisa buildar"
-            echo "should_build=true" >> $GITHUB_OUTPUT
-          else
-            echo "✅ Nenhuma alteração -> NÃO precisa buildar"
+          # Se dist existe mas NÃO tem hash salvo, assume que o build atual é válido
+          if [ ! -f ".last-build.hash" ]; then
+            echo "📁 dist existe mas não há hash -> considerando build atual como válido e salvando hash"
+            echo "$CURRENT_HASH" > .last-build.hash
+            echo "Hash salvo: $CURRENT_HASH"
             echo "should_build=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Lê hash do build anterior
+          LAST_HASH=$(cat .last-build.hash)
+
+          # Compara hashes
+          if [ "$CURRENT_HASH" = "$LAST_HASH" ]; then
+            echo "✅ Conteúdo do frontend NÃO mudou -> NÃO precisa buildar"
+            echo "Hash atual: $CURRENT_HASH"
+            echo "Hash anterior: $LAST_HASH"
+            echo "should_build=false" >> $GITHUB_OUTPUT
+          else
+            echo "📝 Conteúdo do frontend mudou -> precisa buildar"
+            echo "Hash atual: $CURRENT_HASH"
+            echo "Hash anterior: $LAST_HASH"
+            echo "should_build=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Build frontend (otimizado)
@@ -146,6 +164,11 @@ jobs:
         run: |
           mkdir -p /home/ubuntu/.vite-cache
           nice -n 10 npm run build -- --mode production --minify esbuild --emptyOutDir
+          
+          # Depois do build bem-sucedido, salva o hash atual
+          CURRENT_HASH=$(find src public package.json vite.config.* .env 2>/dev/null -type f -exec md5sum {} \; 2>/dev/null | sort | md5sum | cut -d' ' -f1)
+          echo "$CURRENT_HASH" > .last-build.hash
+          echo "Hash do build salvo: $CURRENT_HASH"
 
       - name: Publicar frontend no Nginx
         if: steps.check_frontend_build.outputs.should_build == 'true'
