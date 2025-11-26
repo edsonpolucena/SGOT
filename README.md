@@ -44,7 +44,6 @@ O sistema oferece uma solução centralizada para:
 - **Calendário fiscal** personalizado por tipo de imposto
 - **Matriz de status** de impostos por empresa
 
-Desenvolvido com arquitetura moderna (monorepo), o SGOT separa frontend e backend, garantindo escalabilidade, manutenibilidade e performance.
 
 ---
 
