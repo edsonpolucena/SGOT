@@ -1,5 +1,5 @@
-const { 
-  getMonthlySummary, 
+const {
+  getMonthlySummary,
   getMonthlyVariationByTax,
   getDocumentControlDashboard,
   getTaxTypeStats,
@@ -7,7 +7,8 @@ const {
   getDeadlineComplianceStats,
   getOverdueAndUpcomingTaxes,
   getUnviewedAlertsForAccounting
-} = require('../modules/analytics/analytics.service');
+} = require('../../src/modules/analytics/analytics.service');
+
 const { prisma } = require('../prisma');
 const bcrypt = require('bcryptjs');
 
