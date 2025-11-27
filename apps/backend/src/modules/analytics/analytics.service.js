@@ -533,7 +533,8 @@ module.exports = {
   getClientTaxReport,
   getDeadlineComplianceStats,
   getOverdueAndUpcomingTaxes,
-  getUnviewedAlertsForAccounting
+  getUnviewedAlertsForAccounting,
+  getTaxName // Exportada para testes de cobertura
 };
 
 /**
