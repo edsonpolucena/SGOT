@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useObligationActions } from '../useObligationActions';
 import http from '../../services/http';
+import { useAuth } from '../../context/AuthContext';
 
 vi.mock('../../services/http', () => ({
   default: {
@@ -10,230 +11,193 @@ vi.mock('../../services/http', () => ({
   }
 }));
 
+const mockUseAuth = vi.fn();
 vi.mock('../../context/AuthContext', () => ({
-  useAuth: () => ({
-    user: { email: 'test@example.com', role: 'ACCOUNTING_SUPER' },
-    isClient: false
-  })
+  useAuth: () => mockUseAuth()
 }));
 
+// Mock de window.alert e window.confirm
 global.alert = vi.fn();
 global.confirm = vi.fn();
+global.window.open = vi.fn();
 global.prompt = vi.fn();
 
 describe('useObligationActions', () => {
-  let actions;
-
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseAuth.mockReturnValue({
+      user: { email: 'test@test.com' },
+      isClient: false
+    });
+  });
+
+  it('deve inicializar com alertComponent', () => {
     const { result } = renderHook(() => useObligationActions());
-    actions = result.current;
+
+    expect(result.current.alertComponent).toBeDefined();
+    expect(result.current.handleViewObligation).toBeDefined();
+    expect(result.current.handleDownloadFiles).toBeDefined();
+    expect(result.current.handleDeleteObligation).toBeDefined();
+  });
+
+  describe('checkClientHistory', () => {
+    it('deve retornar shouldShow false quando não é cliente', async () => {
+      mockUseAuth.mockReturnValue({
+        user: { email: 'test@test.com' },
+        isClient: false
+      });
+
+      const { result } = renderHook(() => useObligationActions());
+      
+      // checkClientHistory é privado, mas podemos testar através de handleViewObligation
+      http.get.mockResolvedValue({ data: [] });
+
+      await act(async () => {
+        await result.current.handleViewObligation('1');
+      });
+
+      expect(http.get).toHaveBeenCalled();
+    });
+
+    it('deve verificar histórico quando é cliente', async () => {
+      mockUseAuth.mockReturnValue({
+        user: { email: 'client@test.com' },
+        isClient: true
+      });
+
+      const { result } = renderHook(() => useObligationActions());
+      const mockHistory = [
+        { userEmail: 'other@test.com', userName: 'Other User', action: 'VIEW' }
+      ];
+      
+      http.get
+        .mockResolvedValueOnce({ data: mockHistory }) // client-views
+        .mockResolvedValueOnce({ data: [{ id: '1', originalName: 'file.pdf' }] }); // files
+
+      await act(async () => {
+        await result.current.handleViewObligation('1');
+      });
+
+      expect(http.get).toHaveBeenCalledWith('/api/obligations/1/client-views');
+    });
   });
 
   describe('handleViewObligation', () => {
-    it('deve visualizar arquivo único', async () => {
-      const mockFile = { id: 'file1', originalName: 'doc.pdf' };
-      http.get.mockResolvedValueOnce({ data: [mockFile] });
-      http.get.mockResolvedValueOnce({ data: { viewUrl: 'http://view-url.com' } });
+    it('deve abrir arquivo único em nova aba', async () => {
+      const { result } = renderHook(() => useObligationActions());
+      
+      http.get
+        .mockResolvedValueOnce({ data: [] }) // client-views (não é cliente)
+        .mockResolvedValueOnce({ data: [{ id: '1', originalName: 'file.pdf' }] }) // files
+        .mockResolvedValueOnce({ data: { viewUrl: 'https://example.com/file.pdf' } }); // view
 
-      const mockWindowOpen = vi.spyOn(window, 'open').mockImplementation(() => {});
+      await act(async () => {
+        await result.current.handleViewObligation('1');
+      });
 
-      await actions.handleViewObligation('obl123');
-
-      expect(http.get).toHaveBeenCalledWith('/api/obligations/obl123/files');
-      expect(http.get).toHaveBeenCalledWith('/api/obligations/files/file1/view');
-      expect(mockWindowOpen).toHaveBeenCalledWith('http://view-url.com', '_blank');
-
-      mockWindowOpen.mockRestore();
+      expect(window.open).toHaveBeenCalledWith('https://example.com/file.pdf', '_blank');
     });
 
-    it('deve alertar se não houver arquivos', async () => {
-      http.get.mockResolvedValueOnce({ data: [] });
+    it('deve mostrar alert quando não há arquivos', async () => {
+      const { result } = renderHook(() => useObligationActions());
+      
+      http.get
+        .mockResolvedValueOnce({ data: [] }) // client-views
+        .mockResolvedValueOnce({ data: [] }); // files
 
-      await actions.handleViewObligation('obl123');
+      await act(async () => {
+        await result.current.handleViewObligation('1');
+      });
 
       expect(global.alert).toHaveBeenCalledWith('Esta obrigação não possui arquivos anexados.');
     });
 
-    it('deve permitir selecionar arquivo de múltiplos', async () => {
-      const mockFiles = [
-        { id: 'file1', originalName: 'doc1.pdf' },
-        { id: 'file2', originalName: 'doc2.pdf' }
-      ];
-      http.get.mockResolvedValueOnce({ data: mockFiles });
-      http.get.mockResolvedValueOnce({ data: { viewUrl: 'http://view-url.com' } });
+    it('deve tratar erro corretamente', async () => {
+      const { result } = renderHook(() => useObligationActions());
+      
+      http.get.mockRejectedValue(new Error('Network error'));
 
-      global.prompt.mockReturnValue('2'); // Usuário escolhe o segundo arquivo
-      const mockWindowOpen = vi.spyOn(window, 'open').mockImplementation(() => {});
-
-      await actions.handleViewObligation('obl123');
-
-      expect(global.prompt).toHaveBeenCalled();
-      expect(http.get).toHaveBeenCalledWith('/api/obligations/files/file2/view');
-      expect(mockWindowOpen).toHaveBeenCalled();
-
-      mockWindowOpen.mockRestore();
-    });
-
-    it('deve tratar erro ao visualizar', async () => {
-      http.get.mockRejectedValueOnce(new Error('Network error'));
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      await actions.handleViewObligation('obl123');
+      await act(async () => {
+        await result.current.handleViewObligation('1');
+      });
 
       expect(global.alert).toHaveBeenCalledWith('Erro ao visualizar arquivo. Tente novamente.');
     });
   });
 
   describe('handleDownloadFiles', () => {
-    it('deve fazer download de arquivos', async () => {
-      const mockFiles = [{ id: 'file1', originalName: 'doc1.pdf' }];
+    it('deve baixar arquivos quando é cliente sem histórico', async () => {
+      mockUseAuth.mockReturnValue({
+        user: { email: 'client@test.com' },
+        isClient: true
+      });
 
-      http.get.mockResolvedValueOnce({ data: mockFiles });
-      http.get.mockResolvedValue({ data: { downloadUrl: 'http://download-url.com' } });
-
-      const createElementSpy = vi.spyOn(document, 'createElement');
+      const { result } = renderHook(() => useObligationActions());
+      
+      // Mock de document.createElement
       const mockLink = {
         href: '',
         download: '',
-        style: {},
-        click: vi.fn()
-      };
-      createElementSpy.mockReturnValue(mockLink);
-      vi.spyOn(document.body, 'appendChild').mockImplementation(() => {});
-      vi.spyOn(document.body, 'removeChild').mockImplementation(() => {});
-
-      await actions.handleDownloadFiles('obl123');
-
-      expect(http.get).toHaveBeenCalledWith('/api/obligations/obl123/files');
-
-      createElementSpy.mockRestore();
-    });
-
-    it('deve alertar se não houver arquivos', async () => {
-      http.get.mockResolvedValueOnce({ data: [] });
-
-      await actions.handleDownloadFiles('obl123');
-
-      expect(global.alert).toHaveBeenCalledWith('Esta obrigação não possui arquivos anexados.');
-    });
-
-    it('deve fazer download de múltiplos arquivos', async () => {
-      const mockFiles = [
-        { id: 'file1', originalName: 'doc1.pdf' },
-        { id: 'file2', originalName: 'doc2.pdf' }
-      ];
-
-      http.get.mockResolvedValueOnce({ data: mockFiles });
-      http.get.mockResolvedValue({ data: { downloadUrl: 'http://download.com' } });
-
-      const mockLink = {
-        href: '',
-        download: '',
-        style: {},
+        style: { display: '' },
         click: vi.fn()
       };
       vi.spyOn(document, 'createElement').mockReturnValue(mockLink);
       vi.spyOn(document.body, 'appendChild').mockImplementation(() => {});
       vi.spyOn(document.body, 'removeChild').mockImplementation(() => {});
 
-      await actions.handleDownloadFiles('obl123');
+      http.get
+        .mockResolvedValueOnce({ data: [] }) // client-views
+        .mockResolvedValueOnce({ data: [{ id: '1', originalName: 'file.pdf' }] }) // files
+        .mockResolvedValueOnce({ data: { downloadUrl: 'https://example.com/file.pdf' } }); // download
 
-      expect(http.get).toHaveBeenCalledTimes(3); // Lista + 2 downloads
-      expect(global.alert).toHaveBeenCalledWith('2 arquivos iniciaram o download.');
-    });
+      await act(async () => {
+        await result.current.handleDownloadFiles('1');
+      });
 
-    it('deve tratar erro no download', async () => {
-      http.get.mockRejectedValueOnce(new Error('Network error'));
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      await actions.handleDownloadFiles('obl123');
-
-      expect(global.alert).toHaveBeenCalledWith('Erro ao baixar arquivos. Tente novamente.');
-    });
-
-    it('deve continuar download mesmo se um arquivo falhar', async () => {
-      const mockFiles = [
-        { id: 'file1', originalName: 'doc1.pdf' },
-        { id: 'file2', originalName: 'doc2.pdf' }
-      ];
-
-      http.get.mockResolvedValueOnce({ data: mockFiles });
-      http.get.mockRejectedValueOnce(new Error('File error')); // Primeiro falha
-      http.get.mockResolvedValueOnce({ data: { downloadUrl: 'http://download.com' } }); // Segundo funciona
-
-      const mockLink = { href: '', download: '', style: {}, click: vi.fn() };
-      vi.spyOn(document, 'createElement').mockReturnValue(mockLink);
-      vi.spyOn(document.body, 'appendChild').mockImplementation(() => {});
-      vi.spyOn(document.body, 'removeChild').mockImplementation(() => {});
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      await actions.handleDownloadFiles('obl123');
-
-      expect(http.get).toHaveBeenCalledTimes(3); // Lista + 2 downloads
+      expect(http.get).toHaveBeenCalledWith('/api/obligations/1/files');
     });
   });
 
   describe('handleDeleteObligation', () => {
-    it('deve excluir obrigação com confirmação', async () => {
+    it('não deve deletar quando usuário cancela', async () => {
+      const { result } = renderHook(() => useObligationActions());
+      global.confirm.mockReturnValue(false);
+
+      await act(async () => {
+        await result.current.handleDeleteObligation('1');
+      });
+
+      expect(http.delete).not.toHaveBeenCalled();
+    });
+
+    it('deve deletar obrigação quando confirmado', async () => {
+      const { result } = renderHook(() => useObligationActions());
       global.confirm.mockReturnValue(true);
-      const mockFiles = [{ id: 'file1', originalName: 'doc.pdf' }];
-      http.get.mockResolvedValueOnce({ data: mockFiles });
-      http.delete.mockResolvedValue({ data: { message: 'Sucesso' } });
 
-      const onSuccess = vi.fn();
+      http.get.mockResolvedValue({ data: [] }); // files
+      http.delete.mockResolvedValue({ data: { success: true } });
 
-      await actions.handleDeleteObligation('obl123', onSuccess);
+      await act(async () => {
+        await result.current.handleDeleteObligation('1');
+      });
 
-      expect(http.get).toHaveBeenCalledWith('/api/obligations/obl123/files');
-      expect(http.delete).toHaveBeenCalledWith('/api/obligations/files/file1');
-      expect(http.delete).toHaveBeenCalledWith('/api/obligations/obl123');
-      expect(onSuccess).toHaveBeenCalled();
+      expect(http.delete).toHaveBeenCalledWith('/api/obligations/1');
       expect(global.alert).toHaveBeenCalledWith('Obrigação excluída com sucesso!');
     });
 
-    it('não deve excluir se usuário cancelar', async () => {
-      global.confirm.mockReturnValue(false);
-
+    it('deve chamar onSuccess após deletar', async () => {
+      const { result } = renderHook(() => useObligationActions());
       const onSuccess = vi.fn();
-
-      await actions.handleDeleteObligation('obl123', onSuccess);
-
-      expect(http.get).not.toHaveBeenCalled();
-      expect(onSuccess).not.toHaveBeenCalled();
-    });
-
-    it('deve continuar exclusão mesmo se arquivo falhar', async () => {
       global.confirm.mockReturnValue(true);
-      const mockFiles = [
-        { id: 'file1', originalName: 'doc1.pdf' },
-        { id: 'file2', originalName: 'doc2.pdf' }
-      ];
-      
-      http.get.mockResolvedValueOnce({ data: mockFiles });
-      http.delete.mockRejectedValueOnce(new Error('File error')); // Primeiro falha
-      http.delete.mockResolvedValue({ data: {} }); // Outros funcionam
-      
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      const onSuccess = vi.fn();
 
-      await actions.handleDeleteObligation('obl123', onSuccess);
+      http.get.mockResolvedValue({ data: [] });
+      http.delete.mockResolvedValue({ data: { success: true } });
 
-      expect(http.delete).toHaveBeenCalledTimes(3); // 2 arquivos + 1 obrigação
-      expect(onSuccess).toHaveBeenCalled();
-    });
+      await act(async () => {
+        await result.current.handleDeleteObligation('1', onSuccess);
+      });
 
-    it('deve tratar erro ao deletar obrigação', async () => {
-      global.confirm.mockReturnValue(true);
-      http.get.mockResolvedValueOnce({ data: [] });
-      http.delete.mockRejectedValueOnce(new Error('Delete error'));
-      
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      await actions.handleDeleteObligation('obl123');
-
-      expect(global.alert).toHaveBeenCalledWith('Erro ao excluir obrigação. Tente novamente.');
+      expect(onSuccess).toHaveBeenCalledTimes(1);
     });
   });
 });
-

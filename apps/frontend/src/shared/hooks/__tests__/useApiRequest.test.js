@@ -1,133 +1,115 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useApiRequest } from '../useApiRequest';
 
 describe('useApiRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
-  describe('executeRequest', () => {
-    it('deve executar requisição com sucesso', async () => {
-      const mockData = { id: '1', name: 'Test' };
-      const apiCall = vi.fn().mockResolvedValue({ data: mockData });
+  it('deve inicializar com loading false e error null', () => {
+    const { result } = renderHook(() => useApiRequest());
 
-      const { result } = renderHook(() => useApiRequest());
-
-      const data = await result.current.executeRequest(apiCall, 'Erro teste');
-
-      expect(data).toEqual(mockData);
-      expect(result.current.loading).toBe(false);
-      expect(result.current.error).toBe(null);
-    });
-
-    it('deve tratar erro da requisição', async () => {
-      const errorMessage = 'Erro customizado';
-      const apiCall = vi.fn().mockRejectedValue({
-        response: { data: { message: errorMessage } }
-      });
-
-      const { result } = renderHook(() => useApiRequest());
-
-      await expect(
-        result.current.executeRequest(apiCall, 'Erro padrão')
-      ).rejects.toThrow();
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-        expect(result.current.error).toBe(errorMessage);
-      });
-    });
-
-    it('deve usar mensagem padrão se erro não tiver message', async () => {
-      const apiCall = vi.fn().mockRejectedValue(new Error('Network error'));
-
-      const { result } = renderHook(() => useApiRequest());
-
-      await expect(
-        result.current.executeRequest(apiCall, 'Erro padrão')
-      ).rejects.toThrow();
-
-      await waitFor(() => {
-        expect(result.current.error).toBe('Erro padrão');
-      });
-    });
-
-    it('deve definir loading durante execução', async () => {
-      const apiCall = vi.fn().mockImplementation(() => 
-        new Promise(resolve => setTimeout(() => resolve({ data: {} }), 100))
-      );
-
-      const { result } = renderHook(() => useApiRequest());
-
-      result.current.executeRequest(apiCall, 'Erro');
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(true);
-      });
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      }, { timeout: 200 });
-    });
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBe(null);
   });
 
-  describe('buildQueryParams', () => {
-    it('deve criar URLSearchParams a partir de objeto', () => {
-      const { result } = renderHook(() => useApiRequest());
+  it('deve executar requisição com sucesso', async () => {
+    const { result } = renderHook(() => useApiRequest());
+    const mockApiCall = vi.fn().mockResolvedValue({ data: { id: '1' } });
 
-      const params = result.current.buildQueryParams({
-        name: 'João',
-        age: 30,
-        city: 'São Paulo'
-      });
-
-      expect(params.toString()).toBe('name=Jo%C3%A3o&age=30&city=S%C3%A3o+Paulo');
+    let response;
+    await act(async () => {
+      response = await result.current.executeRequest(mockApiCall);
     });
 
-    it('deve ignorar valores vazios', () => {
-      const { result } = renderHook(() => useApiRequest());
-
-      const params = result.current.buildQueryParams({
-        name: 'João',
-        age: '',
-        city: null,
-        country: undefined
-      });
-
-      expect(params.toString()).toBe('name=Jo%C3%A3o');
-    });
-
-    it('deve retornar vazio se objeto vazio', () => {
-      const { result } = renderHook(() => useApiRequest());
-
-      const params = result.current.buildQueryParams({});
-
-      expect(params.toString()).toBe('');
-    });
-
-    it('deve aceitar parâmetro sem filtros', () => {
-      const { result } = renderHook(() => useApiRequest());
-
-      const params = result.current.buildQueryParams();
-
-      expect(params.toString()).toBe('');
-    });
+    expect(mockApiCall).toHaveBeenCalledTimes(1);
+    expect(response).toEqual({ id: '1' });
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBe(null);
   });
 
-  describe('setError', () => {
-    it('deve permitir definir erro manualmente', async () => {
-      const { result } = renderHook(() => useApiRequest());
+  it('deve definir loading como true durante requisição', async () => {
+    const { result } = renderHook(() => useApiRequest());
+    const mockApiCall = vi.fn().mockImplementation(
+      () => new Promise(resolve => setTimeout(() => resolve({ data: {} }), 100))
+    );
 
-      expect(result.current.error).toBe(null);
+    act(() => {
+      result.current.executeRequest(mockApiCall);
+    });
 
+    expect(result.current.loading).toBe(true);
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 150));
+    });
+
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('deve tratar erro e definir error message', async () => {
+    const { result } = renderHook(() => useApiRequest());
+    const error = {
+      response: {
+        data: { message: 'Erro customizado' }
+      }
+    };
+    const mockApiCall = vi.fn().mockRejectedValue(error);
+
+    await act(async () => {
+      try {
+        await result.current.executeRequest(mockApiCall, 'Erro padrão');
+      } catch (e) {
+        // Esperado
+      }
+    });
+
+    expect(result.current.error).toBe('Erro customizado');
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('deve usar mensagem de erro padrão quando não há response.data.message', async () => {
+    const { result } = renderHook(() => useApiRequest());
+    const error = new Error('Network error');
+    const mockApiCall = vi.fn().mockRejectedValue(error);
+
+    await act(async () => {
+      try {
+        await result.current.executeRequest(mockApiCall, 'Erro padrão');
+      } catch (e) {
+        // Esperado
+      }
+    });
+
+    expect(result.current.error).toBe('Erro padrão');
+  });
+
+  it('deve construir query params corretamente', () => {
+    const { result } = renderHook(() => useApiRequest());
+
+    const params = result.current.buildQueryParams({
+      status: 'PENDING',
+      companyId: 123,
+      empty: null,
+      undefined: undefined,
+      emptyString: ''
+    });
+
+    expect(params.get('status')).toBe('PENDING');
+    expect(params.get('companyId')).toBe('123');
+    expect(params.get('empty')).toBeNull();
+    expect(params.get('undefined')).toBeNull();
+    expect(params.get('emptyString')).toBeNull();
+  });
+
+  it('deve permitir setError manual', () => {
+    const { result } = renderHook(() => useApiRequest());
+
+    act(() => {
       result.current.setError('Erro manual');
-
-      await waitFor(() => {
-        expect(result.current.error).toBe('Erro manual');
-      });
     });
+
+    expect(result.current.error).toBe('Erro manual');
   });
 });
-

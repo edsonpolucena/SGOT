@@ -385,4 +385,83 @@ describe('Notification Service', () => {
       expect(stats.notifications.total).toBeGreaterThanOrEqual(0);
     });
   });
+
+  // -------------------------------------------------------
+  // Testes adicionais para edge cases
+  // -------------------------------------------------------
+  describe('Edge Cases - getUnviewedObligations', () => {
+    test('deve retornar array vazio quando não há obrigações', async () => {
+      const obligations = await getUnviewedObligations({
+        companyId: 99999
+      });
+      expect(obligations).toEqual([]);
+    });
+
+    test('deve filtrar corretamente por startDate apenas', async () => {
+      const obligations = await getUnviewedObligations({
+        startDate: '2025-01-01'
+      });
+      expect(obligations.every(o => new Date(o.dueDate) >= new Date('2025-01-01'))).toBe(true);
+    });
+
+    test('deve filtrar corretamente por endDate apenas', async () => {
+      const obligations = await getUnviewedObligations({
+        endDate: '2025-12-31'
+      });
+      expect(obligations.every(o => new Date(o.dueDate) <= new Date('2025-12-31'))).toBe(true);
+    });
+  });
+
+  describe('Edge Cases - recordView', () => {
+    test('deve criar novo registro mesmo se já existir visualização', async () => {
+      await recordView(obligation.id, clientUser.id, 'VIEW');
+      const firstView = await prisma.obligationView.findFirst({
+        where: { obligationId: obligation.id, viewedBy: clientUser.id }
+      });
+
+      await recordView(obligation.id, clientUser.id, 'VIEW');
+      const views = await prisma.obligationView.findMany({
+        where: { obligationId: obligation.id, viewedBy: clientUser.id }
+      });
+
+      expect(views.length).toBeGreaterThan(1);
+    });
+  });
+
+  describe('Edge Cases - sendObligationNotification', () => {
+    test('deve tratar erro de email service graciosamente', async () => {
+      sendNewDocumentNotification.mockRejectedValueOnce(new Error('SMTP Error'));
+
+      const result = await sendObligationNotification(obligation.id, adminUser.id);
+      
+      expect(result.success).toBe(false);
+      expect(result.sent).toBe(0);
+    });
+
+    test('deve criar registro de notificação mesmo quando email falha', async () => {
+      sendNewDocumentNotification.mockResolvedValueOnce({
+        success: false,
+        error: 'Email failed'
+      });
+
+      await sendObligationNotification(obligation.id, adminUser.id);
+      
+      const notifications = await getObligationNotifications(obligation.id);
+      expect(notifications.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Edge Cases - getNotificationStats', () => {
+    test('deve retornar zeros quando não há dados', async () => {
+      const stats = await getNotificationStats({
+        startDate: '2099-01-01',
+        endDate: '2099-12-31'
+      });
+
+      expect(stats.notifications.total).toBe(0);
+      expect(stats.notifications.sent).toBe(0);
+      expect(stats.notifications.failed).toBe(0);
+      expect(stats.notifications.pending).toBe(0);
+    });
+  });
 });
