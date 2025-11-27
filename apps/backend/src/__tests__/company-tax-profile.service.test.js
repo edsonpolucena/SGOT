@@ -1,10 +1,11 @@
-const { 
-  getCompanyTaxProfile, 
-  addTaxToCompany, 
-  removeTaxFromCompany, 
+const {
+  getCompanyTaxProfile,
+  addTaxToCompany,
+  removeTaxFromCompany,
   setCompanyTaxProfile,
-  getAvailableTaxTypes 
-} = require('../modules/company/company-tax-profile.service');
+  getAvailableTaxTypes
+} = require('../modules/company-tax-profile/company-tax-profile.service'); // ❗ CAMINHO CORRIGIDO
+
 const { prisma } = require('../prisma');
 
 describe('Company Tax Profile Service', () => {
@@ -26,6 +27,9 @@ describe('Company Tax Profile Service', () => {
     await prisma.empresa.deleteMany();
   });
 
+  // =============================
+  // GET PROFILE
+  // =============================
   describe('getCompanyTaxProfile', () => {
     test('deve listar perfil fiscal da empresa', async () => {
       const profiles = await getCompanyTaxProfile(company.id);
@@ -33,24 +37,32 @@ describe('Company Tax Profile Service', () => {
     });
   });
 
+  // =============================
+  // ADD TAX
+  // =============================
   describe('addTaxToCompany', () => {
     test('deve adicionar tipo de imposto ao perfil', async () => {
       const profile = await addTaxToCompany(company.id, 'DAS');
       expect(profile).toHaveProperty('taxType', 'DAS');
-      expect(profile).toHaveProperty('isActive', true);
+      expect(profile.isActive).toBe(true);
     });
 
     test('deve lançar erro se empresa não existir', async () => {
-      await expect(addTaxToCompany(99999, 'DAS')).rejects.toThrow('Empresa não encontrada');
+      await expect(addTaxToCompany(99999, 'DAS'))
+        .rejects
+        .toThrow('Empresa não encontrada');
     });
 
-    test('deve lançar erro se imposto já estiver configurado', async () => {
+    test('deve lançar erro se imposto já estiver ativo', async () => {
       await addTaxToCompany(company.id, 'ISS_RETIDO');
-      await expect(addTaxToCompany(company.id, 'ISS_RETIDO')).rejects.toThrow('já está configurado');
+
+      await expect(addTaxToCompany(company.id, 'ISS_RETIDO'))
+        .rejects
+        .toThrow('já está configurado');
     });
 
     test('deve reativar imposto se estiver inativo', async () => {
-      await prisma.companyTaxProfile.create({
+      const inactive = await prisma.companyTaxProfile.create({
         data: {
           companyId: company.id,
           taxType: 'FGTS',
@@ -63,6 +75,9 @@ describe('Company Tax Profile Service', () => {
     });
   });
 
+  // =============================
+  // REMOVE TAX
+  // =============================
   describe('removeTaxFromCompany', () => {
     test('deve remover (desativar) tipo de imposto', async () => {
       await prisma.companyTaxProfile.create({
@@ -78,39 +93,50 @@ describe('Company Tax Profile Service', () => {
     });
 
     test('deve lançar erro se configuração não existir', async () => {
-      await expect(removeTaxFromCompany(company.id, 'INEXISTENTE')).rejects.toThrow('Configuração não encontrada');
+      await expect(removeTaxFromCompany(company.id, 'INEXISTENTE'))
+        .rejects
+        .toThrow('Configuração não encontrada');
     });
   });
 
+  // =============================
+  // SET PROFILE
+  // =============================
   describe('setCompanyTaxProfile', () => {
-    test('deve configurar todos os impostos de uma vez', async () => {
-      const taxTypes = ['DAS', 'ISS_RETIDO', 'FGTS'];
-      const results = await setCompanyTaxProfile(company.id, taxTypes);
+    test('deve configurar lista completa de impostos', async () => {
+      const list = ['DAS', 'ISS', 'INSS'];
+
+      const results = await setCompanyTaxProfile(company.id, list);
 
       expect(results.length).toBe(3);
-      results.forEach(profile => {
-        expect(profile.isActive).toBe(true);
-        expect(taxTypes).toContain(profile.taxType);
+
+      results.forEach(item => {
+        expect(list).toContain(item.taxType);
+        expect(item.isActive).toBe(true);
       });
     });
 
-    test('deve desativar impostos não incluídos na lista', async () => {
+    test('deve desativar impostos fora da lista', async () => {
       await setCompanyTaxProfile(company.id, ['DAS']);
+
       const profiles = await getCompanyTaxProfile(company.id);
-      const activeProfiles = profiles.filter(p => p.isActive);
-      expect(activeProfiles.length).toBe(1);
-      expect(activeProfiles[0].taxType).toBe('DAS');
+      const active = profiles.filter(p => p.isActive);
+
+      expect(active.length).toBe(1);
+      expect(active[0].taxType).toBe('DAS');
     });
   });
 
+  // =============================
+  // AVAILABLE TAX TYPES
+  // =============================
   describe('getAvailableTaxTypes', () => {
     test('deve retornar lista de tipos de impostos disponíveis', () => {
-      const taxTypes = getAvailableTaxTypes();
-      expect(Array.isArray(taxTypes)).toBe(true);
-      expect(taxTypes.length).toBeGreaterThan(0);
-      expect(taxTypes[0]).toHaveProperty('code');
-      expect(taxTypes[0]).toHaveProperty('name');
+      const list = getAvailableTaxTypes();
+      expect(Array.isArray(list)).toBe(true);
+      expect(list.length).toBeGreaterThan(0);
+      expect(list[0]).toHaveProperty('code');
+      expect(list[0]).toHaveProperty('name');
     });
   });
 });
-

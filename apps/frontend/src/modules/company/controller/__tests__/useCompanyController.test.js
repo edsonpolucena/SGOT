@@ -7,8 +7,8 @@ vi.mock('../../../../shared/services/http', () => ({
   default: {
     get: vi.fn(),
     post: vi.fn(),
-    put: vi.fn()
-  }
+    put: vi.fn(),
+  },
 }));
 
 describe('useCompanyController', () => {
@@ -16,6 +16,9 @@ describe('useCompanyController', () => {
     vi.clearAllMocks();
   });
 
+  // =============================
+  // CREATE COMPANY
+  // =============================
   describe('createCompany', () => {
     it('deve criar empresa com sucesso', async () => {
       const newCompany = { name: 'Empresa Teste', cnpj: '12345678000190' };
@@ -27,18 +30,19 @@ describe('useCompanyController', () => {
 
       const company = await result.current.createCompany(newCompany);
 
+      expect(company).toEqual(createdCompany);
+      expect(http.post).toHaveBeenCalledWith('/api/empresas', newCompany);
+
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
-
-      expect(company).toEqual(createdCompany);
-      expect(http.post).toHaveBeenCalledWith('/api/empresas', newCompany);
     });
 
     it('deve tratar erro ao criar empresa', async () => {
       const errorMessage = 'CNPJ já existe';
+
       http.post.mockRejectedValueOnce({
-        response: { data: errorMessage }
+        response: { data: errorMessage },
       });
 
       const { result } = renderHook(() => useCompanyController());
@@ -53,11 +57,14 @@ describe('useCompanyController', () => {
     });
   });
 
+  // =============================
+  // GET COMPANIES
+  // =============================
   describe('getCompanies', () => {
     it('deve buscar empresas com sucesso', async () => {
       const mockCompanies = [
         { id: 'EMP001', name: 'Empresa 1' },
-        { id: 'EMP002', name: 'Empresa 2' }
+        { id: 'EMP002', name: 'Empresa 2' },
       ];
 
       http.get.mockResolvedValueOnce({ data: mockCompanies });
@@ -66,18 +73,19 @@ describe('useCompanyController', () => {
 
       const companies = await result.current.getCompanies();
 
+      expect(companies).toEqual(mockCompanies);
+      expect(http.get).toHaveBeenCalledWith('/api/empresas');
+
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
-
-      expect(companies).toEqual(mockCompanies);
-      expect(http.get).toHaveBeenCalledWith('/api/empresas');
     });
 
     it('deve tratar erro ao buscar empresas', async () => {
       const errorMessage = 'Erro ao carregar empresas';
+
       http.get.mockRejectedValueOnce({
-        response: { data: errorMessage }
+        response: { data: errorMessage },
       });
 
       const { result } = renderHook(() => useCompanyController());
@@ -90,6 +98,9 @@ describe('useCompanyController', () => {
     });
   });
 
+  // =============================
+  // UPDATE COMPANY
+  // =============================
   describe('updateCompany', () => {
     it('deve atualizar empresa com sucesso', async () => {
       const updatedData = { name: 'Empresa Atualizada' };
@@ -101,18 +112,19 @@ describe('useCompanyController', () => {
 
       const company = await result.current.updateCompany('EMP001', updatedData);
 
+      expect(company).toEqual(updatedCompany);
+      expect(http.put).toHaveBeenCalledWith('/api/empresas/EMP001', updatedData);
+
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
-
-      expect(company).toEqual(updatedCompany);
-      expect(http.put).toHaveBeenCalledWith('/api/empresas/EMP001', updatedData);
     });
 
     it('deve tratar erro ao atualizar empresa', async () => {
       const errorMessage = 'Erro ao atualizar empresa';
+
       http.put.mockRejectedValueOnce({
-        response: { data: errorMessage }
+        response: { data: errorMessage },
       });
 
       const { result } = renderHook(() => useCompanyController());
@@ -127,6 +139,9 @@ describe('useCompanyController', () => {
     });
   });
 
+  // =============================
+  // GET COMPANY BY ID
+  // =============================
   describe('getCompanyById', () => {
     it('deve buscar empresa por ID com sucesso', async () => {
       const mockCompany = { id: 'EMP001', name: 'Empresa 1' };
@@ -137,18 +152,19 @@ describe('useCompanyController', () => {
 
       const company = await result.current.getCompanyById('EMP001');
 
+      expect(company).toEqual(mockCompany);
+      expect(http.get).toHaveBeenCalledWith('/api/empresas/EMP001');
+
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
-
-      expect(company).toEqual(mockCompany);
-      expect(http.get).toHaveBeenCalledWith('/api/empresas/EMP001');
     });
 
     it('deve tratar erro ao buscar empresa por ID', async () => {
       const errorMessage = 'Empresa não encontrada';
+
       http.get.mockRejectedValueOnce({
-        response: { data: errorMessage }
+        response: { data: errorMessage },
       });
 
       const { result } = renderHook(() => useCompanyController());
@@ -161,4 +177,3 @@ describe('useCompanyController', () => {
     });
   });
 });
-
