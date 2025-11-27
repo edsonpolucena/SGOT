@@ -52,6 +52,42 @@ describe('Analytics Service (unit - cobertura)', () => {
     expect(result.impostos).toHaveLength(2);
   });
 
+  test('getMonthlySummary deve ignorar obrigações sem amount', async () => {
+    prisma.obligation.findMany.mockResolvedValue([
+      { title: 'DAS - Sem Valor', amount: null },
+      { title: 'ISS - Sem Valor', amount: undefined },
+    ]);
+
+    const result = await getMonthlySummary(1, '2025-01');
+
+    expect(result.total).toBe(0);
+    expect(result.impostos).toHaveLength(0);
+  });
+
+  test('getMonthlySummary deve extrair tipo de título com hífen', async () => {
+    prisma.obligation.findMany.mockResolvedValue([
+      { title: 'DAS - Janeiro 2025', amount: 1000 },
+      { title: 'ISS Retido', amount: 500 }, // sem hífen
+    ]);
+
+    const result = await getMonthlySummary(1, '2025-01');
+
+    expect(result.impostos).toHaveLength(2);
+    const das = result.impostos.find(i => i.tipo === 'DAS');
+    const iss = result.impostos.find(i => i.tipo === 'ISS Retido');
+    expect(das).toBeDefined();
+    expect(iss).toBeDefined();
+  });
+
+  test('getMonthlySummary deve retornar percentual 0 quando total é 0', async () => {
+    prisma.obligation.findMany.mockResolvedValue([]);
+
+    const result = await getMonthlySummary(1, '2025-01');
+
+    expect(result.total).toBe(0);
+    expect(result.impostos).toHaveLength(0);
+  });
+
   // -------------------------------------------------------------------
   // getMonthlyVariationByTax
   // -------------------------------------------------------------------
@@ -77,6 +113,57 @@ describe('Analytics Service (unit - cobertura)', () => {
     expect(das.valorAnterior).toBe(100);
     expect(das.valorAtual).toBe(200);
     expect(das.variacao).toBe(100);
+  });
+
+  test('getMonthlyVariationByTax deve calcular mês anterior quando mês atual é janeiro', async () => {
+    prisma.obligation.findMany
+      .mockResolvedValueOnce([{ title: 'DAS', amount: 100 }]) // janeiro
+      .mockResolvedValueOnce([{ title: 'DAS', amount: 50 }]); // dezembro anterior
+
+    const result = await getMonthlyVariationByTax(1, '2025-01');
+
+    expect(prisma.obligation.findMany).toHaveBeenCalledTimes(2);
+    // Deve buscar dezembro de 2024
+    const calls = prisma.obligation.findMany.mock.calls;
+    expect(calls.length).toBe(2);
+  });
+
+  test('getMonthlyVariationByTax deve calcular variação quando valorAnterior > 0', async () => {
+    prisma.obligation.findMany
+      .mockResolvedValueOnce([{ title: 'DAS', amount: 200 }]) // atual
+      .mockResolvedValueOnce([{ title: 'DAS', amount: 100 }]); // anterior
+
+    const result = await getMonthlyVariationByTax(1, '2025-02');
+
+    const das = result.impostos.find((i) => i.imposto === 'DAS');
+    expect(das.variacao).toBe(100); // (200-100)/100 * 100 = 100%
+  });
+
+  test('getMonthlyVariationByTax deve calcular variação 100 quando valorAnterior = 0 e valorAtual > 0', async () => {
+    prisma.obligation.findMany
+      .mockResolvedValueOnce([{ title: 'DAS', amount: 100 }]) // atual
+      .mockResolvedValueOnce([]); // anterior vazio
+
+    const result = await getMonthlyVariationByTax(1, '2025-02');
+
+    const das = result.impostos.find((i) => i.imposto === 'DAS');
+    expect(das.valorAnterior).toBe(0);
+    expect(das.valorAtual).toBe(100);
+    expect(das.variacao).toBe(100);
+  });
+
+  test('getMonthlyVariationByTax deve ignorar obrigações sem amount', async () => {
+    prisma.obligation.findMany
+      .mockResolvedValueOnce([
+        { title: 'DAS', amount: null },
+        { title: 'ISS', amount: 100 },
+      ])
+      .mockResolvedValueOnce([{ title: 'DAS', amount: 50 }]);
+
+    const result = await getMonthlyVariationByTax(1, '2025-02');
+
+    const das = result.impostos.find((i) => i.imposto === 'DAS');
+    expect(das.valorAtual).toBe(0); // null foi ignorado
   });
 
   // -------------------------------------------------------------------
@@ -142,6 +229,116 @@ describe('Analytics Service (unit - cobertura)', () => {
     expect(result.companies[0].companyId).toBe(99);
   });
 
+  test('getDocumentControlDashboard NÃO deve filtrar quando userRole não é CLIENT_', async () => {
+    prisma.empresa.findMany.mockResolvedValue([
+      {
+        id: 1,
+        nome: 'Empresa 1',
+        status: 'ativa',
+        taxProfiles: [],
+        obligations: [],
+      },
+      {
+        id: 2,
+        nome: 'Empresa 2',
+        status: 'ativa',
+        taxProfiles: [],
+        obligations: [],
+      },
+    ]);
+
+    const result = await getDocumentControlDashboard(
+      '2025-01',
+      'ACCOUNTING_SUPER',
+      null,
+    );
+
+    expect(prisma.empresa.findMany.mock.calls[0][0].where).toEqual({
+      status: 'ativa',
+    });
+    expect(result.companies.length).toBe(2);
+  });
+
+  test('getDocumentControlDashboard deve ter completionRate = 1 quando expectedTaxes.length = 0', async () => {
+    prisma.empresa.findMany.mockResolvedValue([
+      {
+        id: 1,
+        nome: 'Empresa Sem Perfil',
+        status: 'ativa',
+        taxProfiles: [], // sem taxProfiles
+        obligations: [],
+      },
+    ]);
+
+    const result = await getDocumentControlDashboard(
+      '2025-01',
+      'ACCOUNTING_SUPER',
+      null,
+    );
+
+    expect(result.companies[0].completionRate).toBe(1);
+    expect(result.companies[0].status).toBe('COMPLETE');
+  });
+
+  test('getDocumentControlDashboard deve ter status COMPLETE quando completionRate === 1', async () => {
+    prisma.empresa.findMany.mockResolvedValue([
+      {
+        id: 1,
+        nome: 'Empresa Completa',
+        status: 'ativa',
+        taxProfiles: [{ taxType: 'DAS', isActive: true }],
+        obligations: [
+          {
+            taxType: 'DAS',
+            status: 'PENDING',
+            amount: 1000,
+            files: [{ id: 1 }], // tem arquivo = postado
+          },
+        ],
+      },
+    ]);
+
+    const result = await getDocumentControlDashboard(
+      '2025-01',
+      'ACCOUNTING_SUPER',
+      null,
+    );
+
+    expect(result.companies[0].completionRate).toBe(1);
+    expect(result.companies[0].status).toBe('COMPLETE');
+  });
+
+  test('getDocumentControlDashboard deve ter status INCOMPLETE quando completionRate < 1', async () => {
+    prisma.empresa.findMany.mockResolvedValue([
+      {
+        id: 1,
+        nome: 'Empresa Incompleta',
+        status: 'ativa',
+        taxProfiles: [
+          { taxType: 'DAS', isActive: true },
+          { taxType: 'ISS', isActive: true },
+        ],
+        obligations: [
+          {
+            taxType: 'DAS',
+            status: 'PENDING',
+            amount: 1000,
+            files: [{ id: 1 }], // apenas 1 de 2 impostos
+          },
+        ],
+      },
+    ]);
+
+    const result = await getDocumentControlDashboard(
+      '2025-01',
+      'ACCOUNTING_SUPER',
+      null,
+    );
+
+    expect(result.companies[0].completionRate).toBeLessThan(1);
+    expect(result.companies[0].status).toBe('INCOMPLETE');
+  });
+
   // -------------------------------------------------------------------
   // getTaxTypeStats
   // -------------------------------------------------------------------
@@ -171,6 +368,47 @@ describe('Analytics Service (unit - cobertura)', () => {
     expect(result.month).toBe('2025-01');
     expect(result.totalCompanies).toBe(1);
     expect(result.taxStats[0].taxType).toBe('DAS');
+  });
+
+  test('getTaxTypeStats deve ter completionRate = 0 quando expectedCount = 0', async () => {
+    prisma.empresa.findMany.mockResolvedValue([
+      {
+        id: 1,
+        codigo: 'EMP002',
+        status: 'ativa',
+        taxProfiles: [], // sem taxProfiles
+      },
+    ]);
+
+    prisma.obligation.findMany.mockResolvedValue([]);
+
+    const result = await getTaxTypeStats('2025-01');
+
+    expect(result.taxStats).toHaveLength(0);
+  });
+
+  test('getTaxTypeStats deve considerar obrigação postada quando tem arquivo', async () => {
+    prisma.empresa.findMany.mockResolvedValue([
+      {
+        id: 1,
+        codigo: 'EMP002',
+        status: 'ativa',
+        taxProfiles: [{ taxType: 'DAS', isActive: true }],
+      },
+    ]);
+
+    prisma.obligation.findMany.mockResolvedValue([
+      {
+        companyId: 1,
+        taxType: 'DAS',
+        amount: null,
+        files: [{ id: 1 }], // tem arquivo = postado
+      },
+    ]);
+
+    const result = await getTaxTypeStats('2025-01');
+
+    expect(result.taxStats[0].postedCount).toBe(1);
   });
 
   // -------------------------------------------------------------------
@@ -203,6 +441,84 @@ describe('Analytics Service (unit - cobertura)', () => {
     await expect(getClientTaxReport(999, 3)).rejects.toThrow(
       'Empresa não encontrada',
     );
+  });
+
+  test('getClientTaxReport deve calcular variação quando previous.total > 0', async () => {
+    prisma.empresa.findUnique.mockResolvedValue({
+      id: 1,
+      nome: 'Empresa Cliente',
+    });
+
+    prisma.obligation.findMany
+      .mockResolvedValueOnce([{ taxType: 'DAS', amount: 100 }]) // mês 1
+      .mockResolvedValueOnce([{ taxType: 'DAS', amount: 200 }]); // mês 2
+
+    const result = await getClientTaxReport(1, 2);
+
+    expect(result.monthlyData[0].variation).toBe(null); // primeiro mês
+    expect(result.monthlyData[1].variation).toBe(100); // (200-100)/100 * 100 = 100%
+  });
+
+  test('getClientTaxReport deve calcular variação 100 quando previous.total = 0 e current.total > 0', async () => {
+    prisma.empresa.findUnique.mockResolvedValue({
+      id: 1,
+      nome: 'Empresa Cliente',
+    });
+
+    prisma.obligation.findMany
+      .mockResolvedValueOnce([]) // mês 1 sem obrigações
+      .mockResolvedValueOnce([{ taxType: 'DAS', amount: 100 }]); // mês 2 com obrigação
+
+    const result = await getClientTaxReport(1, 2);
+
+    expect(result.monthlyData[0].variation).toBe(null);
+    expect(result.monthlyData[1].variation).toBe(100); // novo imposto
+  });
+
+  test('getClientTaxReport deve calcular variação 0 quando previous.total = 0 e current.total = 0', async () => {
+    prisma.empresa.findUnique.mockResolvedValue({
+      id: 1,
+      nome: 'Empresa Cliente',
+    });
+
+    prisma.obligation.findMany.mockResolvedValue([]); // ambos meses vazios
+
+    const result = await getClientTaxReport(1, 2);
+
+    expect(result.monthlyData[0].variation).toBe(null);
+    expect(result.monthlyData[1].variation).toBe(0);
+  });
+
+  test('getClientTaxReport deve ignorar obrigações com amount <= 0', async () => {
+    prisma.empresa.findUnique.mockResolvedValue({
+      id: 1,
+      nome: 'Empresa Cliente',
+    });
+
+    prisma.obligation.findMany.mockResolvedValue([
+      { taxType: 'DAS', amount: null },
+      { taxType: 'ISS', amount: 0 },
+      { taxType: 'FGTS', amount: 100 }, // apenas este deve contar
+    ]);
+
+    const result = await getClientTaxReport(1, 1);
+
+    expect(result.monthlyData[0].total).toBe(100);
+  });
+
+  test('getClientTaxReport deve usar OUTRO quando taxType é null', async () => {
+    prisma.empresa.findUnique.mockResolvedValue({
+      id: 1,
+      nome: 'Empresa Cliente',
+    });
+
+    prisma.obligation.findMany.mockResolvedValue([
+      { taxType: null, amount: 100 },
+    ]);
+
+    const result = await getClientTaxReport(1, 1);
+
+    expect(result.monthlyData[0].byTaxType['OUTRO']).toBe(100);
   });
 
   // -------------------------------------------------------------------
@@ -240,6 +556,80 @@ describe('Analytics Service (unit - cobertura)', () => {
     expect(result.month).toBe('2025-01');
     expect(result.total).toBe(2);
     expect(result.details.length).toBe(2);
+  });
+
+  test('getDeadlineComplianceStats deve usar createdAt quando não há arquivos', async () => {
+    const now = new Date();
+    const dueDate = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
+
+    prisma.obligation.findMany.mockResolvedValue([
+      {
+        taxType: 'DAS',
+        amount: 100,
+        status: 'PENDING',
+        dueDate,
+        createdAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
+        files: [], // sem arquivos
+        company: { codigo: 'EMP002', nome: 'Empresa 2' },
+      },
+    ]);
+
+    const result = await getDeadlineComplianceStats('2025-01');
+
+    expect(result.details[0].uploadDate).toBeDefined();
+  });
+
+  test('getDeadlineComplianceStats deve contar como onTime quando diffDays >= 4', async () => {
+    const now = new Date();
+    const dueDate = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
+
+    prisma.obligation.findMany.mockResolvedValue([
+      {
+        taxType: 'DAS',
+        amount: 100,
+        status: 'PENDING',
+        dueDate,
+        createdAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
+        files: [{ createdAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000) }], // 5 dias antes
+        company: { codigo: 'EMP002', nome: 'Empresa 2' },
+      },
+    ]);
+
+    const result = await getDeadlineComplianceStats('2025-01');
+
+    expect(result.onTime).toBeGreaterThanOrEqual(1);
+    expect(result.details[0].isOnTime).toBe(true);
+  });
+
+  test('getDeadlineComplianceStats deve contar como late quando diffDays < 4', async () => {
+    const now = new Date();
+    const dueDate = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+
+    prisma.obligation.findMany.mockResolvedValue([
+      {
+        taxType: 'DAS',
+        amount: 100,
+        status: 'PENDING',
+        dueDate,
+        createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000),
+        files: [{ createdAt: new Date(now.getTime()) }], // upload hoje, vence em 2 dias
+        company: { codigo: 'EMP002', nome: 'Empresa 2' },
+      },
+    ]);
+
+    const result = await getDeadlineComplianceStats('2025-01');
+
+    expect(result.late).toBeGreaterThanOrEqual(1);
+    expect(result.details[0].isOnTime).toBe(false);
+  });
+
+  test('getDeadlineComplianceStats deve retornar complianceRate 100 quando total é 0', async () => {
+    prisma.obligation.findMany.mockResolvedValue([]);
+
+    const result = await getDeadlineComplianceStats('2099-01');
+
+    expect(result.total).toBe(0);
+    expect(result.complianceRate).toBe(100);
   });
 
   // -------------------------------------------------------------------
@@ -317,5 +707,68 @@ describe('Analytics Service (unit - cobertura)', () => {
     expect(result.oneDay.length).toBeGreaterThanOrEqual(1);
     expect(result.twoDays.length).toBeGreaterThanOrEqual(1);
     expect(result.threeDays.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('getUnviewedAlertsForAccounting deve agrupar corretamente daysUntilDue <= 1', async () => {
+    const now = new Date();
+    const in1 = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000);
+
+    prisma.obligation.findMany.mockResolvedValue([
+      {
+        id: 1,
+        title: 'DAS 1',
+        taxType: 'DAS',
+        dueDate: in1,
+        company: { codigo: 'EMP010', nome: 'Empresa 10' },
+        files: [{}],
+      },
+    ]);
+
+    const result = await getUnviewedAlertsForAccounting();
+
+    expect(result.oneDay.length).toBe(1);
+    expect(result.oneDay[0].daysUntilDue).toBeLessThanOrEqual(1);
+  });
+
+  test('getUnviewedAlertsForAccounting deve agrupar corretamente daysUntilDue <= 2', async () => {
+    const now = new Date();
+    const in2 = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+
+    prisma.obligation.findMany.mockResolvedValue([
+      {
+        id: 2,
+        title: 'DAS 2',
+        taxType: 'DAS',
+        dueDate: in2,
+        company: { codigo: 'EMP010', nome: 'Empresa 10' },
+        files: [{}],
+      },
+    ]);
+
+    const result = await getUnviewedAlertsForAccounting();
+
+    expect(result.twoDays.length).toBe(1);
+    expect(result.twoDays[0].daysUntilDue).toBe(2);
+  });
+
+  test('getUnviewedAlertsForAccounting deve agrupar corretamente daysUntilDue <= 3', async () => {
+    const now = new Date();
+    const in3 = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+    prisma.obligation.findMany.mockResolvedValue([
+      {
+        id: 3,
+        title: 'DAS 3',
+        taxType: 'DAS',
+        dueDate: in3,
+        company: { codigo: 'EMP010', nome: 'Empresa 10' },
+        files: [{}],
+      },
+    ]);
+
+    const result = await getUnviewedAlertsForAccounting();
+
+    expect(result.threeDays.length).toBe(1);
+    expect(result.threeDays[0].daysUntilDue).toBe(3);
   });
 });
