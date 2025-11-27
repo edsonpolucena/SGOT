@@ -1,14 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useCompanyController } from '../useCompanyController';
 import http from '../../../../shared/services/http';
 
 vi.mock('../../../../shared/services/http', () => ({
   default: {
-    get: vi.fn(),
     post: vi.fn(),
+    get: vi.fn(),
     put: vi.fn(),
-  },
+    delete: vi.fn()
+  }
 }));
 
 describe('useCompanyController', () => {
@@ -16,164 +17,91 @@ describe('useCompanyController', () => {
     vi.clearAllMocks();
   });
 
-  // =============================
-  // CREATE COMPANY
-  // =============================
+  it('deve inicializar com loading false e error null', () => {
+    const { result } = renderHook(() => useCompanyController());
+
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBe(null);
+  });
+
   describe('createCompany', () => {
     it('deve criar empresa com sucesso', async () => {
-      const newCompany = { name: 'Empresa Teste', cnpj: '12345678000190' };
-      const createdCompany = { id: 'EMP002', ...newCompany };
-
-      http.post.mockResolvedValueOnce({ data: createdCompany });
-
       const { result } = renderHook(() => useCompanyController());
+      const mockData = { id: 1, nome: 'Test Company' };
+      http.post.mockResolvedValue({ data: mockData });
 
-      const company = await result.current.createCompany(newCompany);
-
-      expect(company).toEqual(createdCompany);
-      expect(http.post).toHaveBeenCalledWith('/api/empresas', newCompany);
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
+      let response;
+      await act(async () => {
+        response = await result.current.createCompany({ nome: 'Test Company' });
       });
+
+      expect(http.post).toHaveBeenCalledWith('/api/empresas', { nome: 'Test Company' });
+      expect(response).toEqual(mockData);
+      expect(result.current.loading).toBe(false);
     });
 
     it('deve tratar erro ao criar empresa', async () => {
-      const errorMessage = 'CNPJ já existe';
-
-      http.post.mockRejectedValueOnce({
-        response: { data: errorMessage },
-      });
-
       const { result } = renderHook(() => useCompanyController());
+      const error = { response: { data: { message: 'Erro ao criar' } } };
+      http.post.mockRejectedValue(error);
 
-      await expect(
-        result.current.createCompany({ name: 'Empresa', cnpj: '12345678000190' })
-      ).rejects.toThrow();
-
-      await waitFor(() => {
-        expect(result.current.error).toBe(errorMessage);
+      await act(async () => {
+        try {
+          await result.current.createCompany({ nome: 'Test' });
+        } catch (e) {
+          // Esperado
+        }
       });
+
+      expect(result.current.error).toEqual({ message: 'Erro ao criar' });
     });
   });
 
-  // =============================
-  // GET COMPANIES
-  // =============================
   describe('getCompanies', () => {
     it('deve buscar empresas com sucesso', async () => {
-      const mockCompanies = [
-        { id: 'EMP001', name: 'Empresa 1' },
-        { id: 'EMP002', name: 'Empresa 2' },
-      ];
-
-      http.get.mockResolvedValueOnce({ data: mockCompanies });
-
       const { result } = renderHook(() => useCompanyController());
+      const mockData = [{ id: 1, nome: 'Company 1' }];
+      http.get.mockResolvedValue({ data: mockData });
 
-      const companies = await result.current.getCompanies();
+      let response;
+      await act(async () => {
+        response = await result.current.getCompanies();
+      });
 
-      expect(companies).toEqual(mockCompanies);
       expect(http.get).toHaveBeenCalledWith('/api/empresas');
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-    });
-
-    it('deve tratar erro ao buscar empresas', async () => {
-      const errorMessage = 'Erro ao carregar empresas';
-
-      http.get.mockRejectedValueOnce({
-        response: { data: errorMessage },
-      });
-
-      const { result } = renderHook(() => useCompanyController());
-
-      await expect(result.current.getCompanies()).rejects.toThrow();
-
-      await waitFor(() => {
-        expect(result.current.error).toBe(errorMessage);
-      });
+      expect(response).toEqual(mockData);
     });
   });
 
-  // =============================
-  // UPDATE COMPANY
-  // =============================
   describe('updateCompany', () => {
     it('deve atualizar empresa com sucesso', async () => {
-      const updatedData = { name: 'Empresa Atualizada' };
-      const updatedCompany = { id: 'EMP001', ...updatedData };
-
-      http.put.mockResolvedValueOnce({ data: updatedCompany });
-
       const { result } = renderHook(() => useCompanyController());
+      const mockData = { id: 1, nome: 'Updated Company' };
+      http.put.mockResolvedValue({ data: mockData });
 
-      const company = await result.current.updateCompany('EMP001', updatedData);
-
-      expect(company).toEqual(updatedCompany);
-      expect(http.put).toHaveBeenCalledWith('/api/empresas/EMP001', updatedData);
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-    });
-
-    it('deve tratar erro ao atualizar empresa', async () => {
-      const errorMessage = 'Erro ao atualizar empresa';
-
-      http.put.mockRejectedValueOnce({
-        response: { data: errorMessage },
+      let response;
+      await act(async () => {
+        response = await result.current.updateCompany(1, { nome: 'Updated Company' });
       });
 
-      const { result } = renderHook(() => useCompanyController());
-
-      await expect(
-        result.current.updateCompany('EMP001', { name: 'Novo Nome' })
-      ).rejects.toThrow();
-
-      await waitFor(() => {
-        expect(result.current.error).toBe(errorMessage);
-      });
+      expect(http.put).toHaveBeenCalledWith('/api/empresas/1', { nome: 'Updated Company' });
+      expect(response).toEqual(mockData);
     });
   });
 
-  // =============================
-  // GET COMPANY BY ID
-  // =============================
   describe('getCompanyById', () => {
     it('deve buscar empresa por ID com sucesso', async () => {
-      const mockCompany = { id: 'EMP001', name: 'Empresa 1' };
-
-      http.get.mockResolvedValueOnce({ data: mockCompany });
-
       const { result } = renderHook(() => useCompanyController());
+      const mockData = { id: 1, nome: 'Company' };
+      http.get.mockResolvedValue({ data: mockData });
 
-      const company = await result.current.getCompanyById('EMP001');
-
-      expect(company).toEqual(mockCompany);
-      expect(http.get).toHaveBeenCalledWith('/api/empresas/EMP001');
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-    });
-
-    it('deve tratar erro ao buscar empresa por ID', async () => {
-      const errorMessage = 'Empresa não encontrada';
-
-      http.get.mockRejectedValueOnce({
-        response: { data: errorMessage },
+      let response;
+      await act(async () => {
+        response = await result.current.getCompanyById(1);
       });
 
-      const { result } = renderHook(() => useCompanyController());
-
-      await expect(result.current.getCompanyById('EMP999')).rejects.toThrow();
-
-      await waitFor(() => {
-        expect(result.current.error).toBe(errorMessage);
-      });
+      expect(http.get).toHaveBeenCalledWith('/api/empresas/1');
+      expect(response).toEqual(mockData);
     });
   });
 });

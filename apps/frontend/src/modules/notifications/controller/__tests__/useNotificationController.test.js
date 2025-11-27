@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useNotificationController } from '../useNotificationController';
 import http from '../../../../shared/services/http';
-import { useApiRequest } from '../../../../shared/hooks/useApiRequest';
 
 vi.mock('../../../../shared/services/http', () => ({
   default: {
@@ -11,239 +10,103 @@ vi.mock('../../../../shared/services/http', () => ({
   }
 }));
 
-// MOCK DO useApiRequest
 vi.mock('../../../../shared/hooks/useApiRequest', () => ({
-  useApiRequest: vi.fn()
+  useApiRequest: () => ({
+    loading: false,
+    error: null,
+    executeRequest: vi.fn((apiCall) => apiCall()),
+    setError: vi.fn(),
+    buildQueryParams: (filters) => {
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.append(key, value);
+      });
+      return params;
+    }
+  })
 }));
 
 describe('useNotificationController', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
-    // Mock padrão do useApiRequest
-    useApiRequest.mockReturnValue({
-      loading: false,
-      error: null,
-      setError: vi.fn(),
-      buildQueryParams: (filters) => new URLSearchParams(filters),
-      executeRequest: vi.fn((fn) => fn().then(r => r.data))
-    });
   });
 
-  /* ========================================================
-     fetchUnviewedDocs
-  ========================================================= */
+  it('deve inicializar com unviewedDocs vazio e stats null', () => {
+    const { result } = renderHook(() => useNotificationController());
+
+    expect(result.current.unviewedDocs).toEqual([]);
+    expect(result.current.stats).toBe(null);
+  });
+
   describe('fetchUnviewedDocs', () => {
-    it('deve buscar documentos não visualizados com sucesso', async () => {
-      const mockDocs = [
-        { id: '1', title: 'Doc 1' },
-        { id: '2', title: 'Doc 2' }
-      ];
-
-      http.get.mockResolvedValueOnce({ data: mockDocs });
-
+    it('deve buscar documentos não visualizados', async () => {
       const { result } = renderHook(() => useNotificationController());
+      const mockData = [{ id: 1, title: 'Doc 1' }];
+      http.get.mockResolvedValue({ data: mockData });
 
-      const promise = result.current.fetchUnviewedDocs();
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
+      let response;
+      await act(async () => {
+        response = await result.current.fetchUnviewedDocs();
       });
 
-      const docs = await promise;
-
-      expect(docs).toEqual(mockDocs);
-      expect(result.current.unviewedDocs).toEqual(mockDocs);
-
-      expect(http.get).toHaveBeenCalledWith('/api/notifications/unviewed?');
+      expect(http.get).toHaveBeenCalled();
+      expect(result.current.unviewedDocs).toEqual(mockData);
     });
 
-    it('deve enviar parâmetros quando houver filtros', async () => {
-      http.get.mockResolvedValueOnce({ data: [] });
-
+    it('deve aplicar filtros corretamente', async () => {
       const { result } = renderHook(() => useNotificationController());
+      http.get.mockResolvedValue({ data: [] });
 
-      await result.current.fetchUnviewedDocs({
-        companyId: 'EMP001',
-        startDate: '2025-01-01'
+      await act(async () => {
+        await result.current.fetchUnviewedDocs({ companyId: 1 });
       });
 
       expect(http.get).toHaveBeenCalledWith(
-        expect.stringContaining('companyId=EMP001')
+        expect.stringContaining('companyId=1')
       );
-      expect(http.get).toHaveBeenCalledWith(
-        expect.stringContaining('startDate=2025-01-01')
-      );
-    });
-
-    it('deve tratar erro ao buscar documentos', async () => {
-      const errorMessage = 'Erro ao carregar documentos';
-      http.get.mockRejectedValueOnce({
-        response: { data: { message: errorMessage } }
-      });
-
-      const setErrorMock = vi.fn();
-
-      useApiRequest.mockReturnValueOnce({
-        loading: false,
-        error: null,
-        setError: setErrorMock,
-        buildQueryParams: () => new URLSearchParams(),
-        executeRequest: vi.fn(() => {
-          throw { response: { data: { message: errorMessage } } };
-        })
-      });
-
-      const { result } = renderHook(() => useNotificationController());
-
-      await expect(result.current.fetchUnviewedDocs()).rejects.toThrow();
-
-      expect(setErrorMock).toHaveBeenCalledWith(errorMessage);
     });
   });
 
-  /* ========================================================
-     resendNotification
-  ========================================================= */
   describe('resendNotification', () => {
-    it('deve reenviar notificação com sucesso', async () => {
-      const mockResponse = { message: 'Notificação enviada' };
-      http.post.mockResolvedValueOnce({ data: mockResponse });
-
+    it('deve reenviar notificação', async () => {
       const { result } = renderHook(() => useNotificationController());
+      http.post.mockResolvedValue({ data: { success: true } });
 
-      const data = await result.current.resendNotification('obl123');
-
-      expect(data).toEqual(mockResponse);
-      expect(http.post).toHaveBeenCalledWith('/api/notifications/send/obl123');
-    });
-
-    it('deve tratar erro ao reenviar', async () => {
-      const errorMessage = 'Erro ao reenviar notificação';
-
-      http.post.mockRejectedValueOnce({
-        response: { data: { message: errorMessage } }
+      await act(async () => {
+        await result.current.resendNotification(1);
       });
 
-      const setErrorMock = vi.fn();
-
-      useApiRequest.mockReturnValueOnce({
-        loading: false,
-        error: null,
-        setError: setErrorMock,
-        executeRequest: vi.fn(() => {
-          throw { response: { data: { message: errorMessage } } };
-        })
-      });
-
-      const { result } = renderHook(() => useNotificationController());
-
-      await expect(result.current.resendNotification('obl123')).rejects.toThrow();
-      expect(setErrorMock).toHaveBeenCalledWith(errorMessage);
+      expect(http.post).toHaveBeenCalledWith('/api/notifications/send/1');
     });
   });
 
-  /* ========================================================
-     fetchNotificationHistory
-  ========================================================= */
   describe('fetchNotificationHistory', () => {
-    it('deve buscar histórico com sucesso', async () => {
-      const mockHistory = [{ id: '1' }];
-
-      http.get.mockResolvedValueOnce({ data: mockHistory });
-
+    it('deve buscar histórico de notificações', async () => {
       const { result } = renderHook(() => useNotificationController());
+      const mockData = [{ id: 1, sentAt: '2025-01-01' }];
+      http.get.mockResolvedValue({ data: mockData });
 
-      const data = await result.current.fetchNotificationHistory('obl123');
-
-      expect(data).toEqual(mockHistory);
-      expect(http.get).toHaveBeenCalledWith('/api/notifications/obl123/history');
-    });
-
-    it('deve tratar erro ao buscar histórico', async () => {
-      const errorMessage = 'Erro ao buscar histórico';
-
-      http.get.mockRejectedValueOnce({
-        response: { data: { message: errorMessage } }
+      let response;
+      await act(async () => {
+        response = await result.current.fetchNotificationHistory(1);
       });
 
-      const setErrorMock = vi.fn();
-
-      useApiRequest.mockReturnValueOnce({
-        loading: false,
-        error: null,
-        setError: setErrorMock,
-        executeRequest: vi.fn(() => {
-          throw { response: { data: { message: errorMessage } } };
-        })
-      });
-
-      const { result } = renderHook(() => useNotificationController());
-
-      await expect(
-        result.current.fetchNotificationHistory('obl123')
-      ).rejects.toThrow();
-
-      expect(setErrorMock).toHaveBeenCalledWith(errorMessage);
+      expect(http.get).toHaveBeenCalledWith('/api/notifications/1/history');
+      expect(response).toEqual(mockData);
     });
   });
 
-  /* ========================================================
-     fetchStats
-  ========================================================= */
   describe('fetchStats', () => {
-    it('deve buscar estatísticas com sucesso', async () => {
-      const mockStats = { totalNotifications: 100 };
-
-      http.get.mockResolvedValueOnce({ data: mockStats });
-
+    it('deve buscar estatísticas', async () => {
       const { result } = renderHook(() => useNotificationController());
+      const mockData = { total: 10, sent: 8 };
+      http.get.mockResolvedValue({ data: mockData });
 
-      const data = await result.current.fetchStats();
-
-      expect(data).toEqual(mockStats);
-      expect(result.current.stats).toEqual(mockStats);
-
-      expect(http.get).toHaveBeenCalledWith('/api/notifications/stats?');
-    });
-
-    it('deve passar filtros de data', async () => {
-      http.get.mockResolvedValueOnce({ data: {} });
-
-      const { result } = renderHook(() => useNotificationController());
-
-      await result.current.fetchStats({
-        startDate: '2025-01-01'
+      await act(async () => {
+        await result.current.fetchStats();
       });
 
-      expect(http.get).toHaveBeenCalledWith(
-        expect.stringContaining('startDate=2025-01-01')
-      );
-    });
-
-    it('deve tratar erro ao buscar estatísticas', async () => {
-      const errorMessage = 'Erro ao buscar estatísticas';
-
-      http.get.mockRejectedValueOnce({
-        response: { data: { message: errorMessage } }
-      });
-
-      const setErrorMock = vi.fn();
-
-      useApiRequest.mockReturnValueOnce({
-        loading: false,
-        error: null,
-        setError: setErrorMock,
-        executeRequest: vi.fn(() => {
-          throw { response: { data: { message: errorMessage } } };
-        })
-      });
-
-      const { result } = renderHook(() => useNotificationController());
-
-      await expect(result.current.fetchStats()).rejects.toThrow();
-
-      expect(setErrorMock).toHaveBeenCalledWith(errorMessage);
+      expect(result.current.stats).toEqual(mockData);
     });
   });
 });

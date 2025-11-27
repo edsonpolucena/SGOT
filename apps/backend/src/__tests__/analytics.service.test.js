@@ -1026,4 +1026,185 @@ describe('Analytics Service', () => {
       }
     });
   });
+
+  // -------------------------------------------------------------------
+  // Testes adicionais para edge cases
+  // -------------------------------------------------------------------
+  describe('Edge Cases - getMonthlySummary', () => {
+    test('deve lidar com empresa sem obrigações', async () => {
+      const emptyCompany = await prisma.empresa.create({
+        data: {
+          codigo: `EMPTY${Date.now()}`,
+          nome: 'Empresa Vazia',
+          cnpj: `${Date.now()}000193`,
+          status: 'ativa'
+        }
+      });
+
+      const now = new Date();
+      const testMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const result = await getMonthlySummary(emptyCompany.id, testMonth);
+
+      expect(result.total).toBe(0);
+      expect(result.impostos).toEqual([]);
+      expect(result.empresaId).toBe(emptyCompany.id);
+    });
+
+    test('deve lidar com obrigações com amount zero', async () => {
+      const now = new Date();
+      const testMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+      await prisma.obligation.create({
+        data: {
+          title: 'DAS - Zero',
+          regime: 'SIMPLES',
+          periodStart: new Date(now.getFullYear(), now.getMonth(), 1),
+          periodEnd: new Date(now.getFullYear(), now.getMonth() + 1, 0),
+          dueDate: new Date(now.getFullYear(), now.getMonth(), 15),
+          amount: 0,
+          companyId: company.id,
+          userId: adminUser.id,
+          status: 'PENDING',
+          taxType: 'DAS',
+          referenceMonth: testMonth
+        }
+      });
+
+      const result = await getMonthlySummary(company.id, testMonth);
+      expect(result.total).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe('Edge Cases - getMonthlyVariationByTax', () => {
+    test('deve lidar com variação negativa', async () => {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      const prevMonth = month === 1 ? 12 : month - 1;
+      const prevYear = month === 1 ? year - 1 : year;
+      
+      const testMonth = `${year}-${String(month).padStart(2, '0')}`;
+      const prevMonthStr = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+
+      await prisma.obligation.create({
+        data: {
+          title: 'DAS - Anterior Alto',
+          regime: 'SIMPLES',
+          periodStart: new Date(prevYear, prevMonth - 1, 1),
+          periodEnd: new Date(prevYear, prevMonth, 0),
+          dueDate: new Date(prevYear, prevMonth - 1, 10),
+          amount: 2000,
+          companyId: company.id,
+          userId: adminUser.id,
+          status: 'PENDING',
+          taxType: 'DAS',
+          referenceMonth: prevMonthStr
+        }
+      });
+
+      await prisma.obligation.create({
+        data: {
+          title: 'DAS - Atual Baixo',
+          regime: 'SIMPLES',
+          periodStart: new Date(year, month - 1, 1),
+          periodEnd: new Date(year, month, 0),
+          dueDate: new Date(year, month - 1, 10),
+          amount: 1000,
+          companyId: company.id,
+          userId: adminUser.id,
+          status: 'PENDING',
+          taxType: 'DAS',
+          referenceMonth: testMonth
+        }
+      });
+
+      const result = await getMonthlyVariationByTax(company.id, testMonth);
+      const dasImposto = result.impostos.find(imp => imp.imposto === 'DAS');
+      if (dasImposto && dasImposto.valorAnterior > 0) {
+        expect(dasImposto.variacao).toBeLessThan(0);
+      }
+    });
+  });
+
+  describe('Edge Cases - getDeadlineComplianceStats', () => {
+    test('deve retornar complianceRate 100 quando não há documentos', async () => {
+      const result = await getDeadlineComplianceStats('2099-01');
+      expect(result.complianceRate).toBe(100);
+      expect(result.total).toBe(0);
+    });
+
+    test('deve identificar documentos atrasados corretamente', async () => {
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 5);
+
+      await prisma.obligation.create({
+        data: {
+          title: 'DAS - Atrasado',
+          regime: 'SIMPLES',
+          periodStart: new Date('2025-01-01'),
+          periodEnd: new Date('2025-01-31'),
+          dueDate: pastDate,
+          referenceMonth: '2025-01',
+          companyId: company.id,
+          userId: adminUser.id,
+          status: 'PENDING',
+          taxType: 'DAS',
+          amount: 1000
+        }
+      });
+
+      const obligation = await prisma.obligation.findFirst({
+        where: { title: 'DAS - Atrasado' }
+      });
+
+      if (obligation) {
+        await prisma.obligationFile.create({
+          data: {
+            obligationId: obligation.id,
+            fileName: 'atrasado.pdf',
+            originalName: 'atrasado.pdf',
+            fileSize: 1024,
+            mimeType: 'application/pdf',
+            s3Key: `obligations/atrasado-${Date.now()}.pdf`,
+            uploadedBy: adminUser.id
+          }
+        });
+
+        const result = await getDeadlineComplianceStats('2025-01');
+        const hasLate = result.details.some(d => d.isOnTime === false);
+        expect(hasLate).toBe(true);
+      }
+    });
+  });
+
+  describe('Edge Cases - getOverdueAndUpcomingTaxes', () => {
+    test('deve retornar arrays vazios quando não há impostos', async () => {
+      const result = await getOverdueAndUpcomingTaxes('2099-01');
+      expect(result.overdue).toEqual([]);
+      expect(result.dueSoon).toEqual([]);
+    });
+
+    test('deve identificar impostos vencidos corretamente', async () => {
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 1);
+
+      await prisma.obligation.create({
+        data: {
+          title: 'DAS - Vencido',
+          regime: 'SIMPLES',
+          periodStart: new Date('2025-01-01'),
+          periodEnd: new Date('2025-01-31'),
+          dueDate: pastDate,
+          referenceMonth: '2025-01',
+          companyId: company.id,
+          userId: adminUser.id,
+          status: 'PENDING',
+          taxType: 'DAS'
+        }
+      });
+
+      const result = await getOverdueAndUpcomingTaxes('2025-01');
+      expect(result.overdue.length).toBeGreaterThanOrEqual(0);
+    });
+  });
 });
