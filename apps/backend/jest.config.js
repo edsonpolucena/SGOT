@@ -25,7 +25,10 @@ module.exports = {
     'src/**/*.js',
     '!src/__tests__/**',
     '!src/swagger.js',
-    '!src/server.js'
+    '!src/server.js',
+    '!src/migrations/**',    // se existirem
+    '!src/prisma/**'       // se tiver pasta prisma gerada
+
     // // Arquivos base
     // 'src/app.js',
     // 'src/prisma.js',

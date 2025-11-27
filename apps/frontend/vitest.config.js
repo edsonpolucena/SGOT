@@ -15,35 +15,13 @@ export default defineConfig({
       reporter: ['text', 'html', 'lcov'], // lcov gera lcov.info, lcovonly não
       // Incluir todos os arquivos que podem ser testados
       all: true, // true = instrumenta todos os arquivos incluídos
-      include: [
-        // Arquivos que são realmente testados
-        'src/shared/lib/**/*.js',
-        'src/shared/utils/**/*.js',
-        'src/shared/services/**/*.js',  // ✅ Adicionado: http.js
-        'src/shared/context/**/*.jsx',   // ✅ Adicionado: AuthContext.jsx
-        'src/shared/hooks/**/*.js',
-        'src/shared/ui/**/*.jsx',
-        'src/routes/**/*.{js,jsx}',      // ✅ Inclui .js também (index.js)
-        'src/shared/icons/**/*.js',
-        // Módulos que têm testes
-        'src/modules/analytics/**/*.{js,jsx}',
-        'src/modules/audit/**/*.{js,jsx}',
-        'src/modules/notifications/**/*.{js,jsx}',
-        'src/modules/company/**/*.{js,jsx}',
-        'src/modules/users/**/*.{js,jsx}',
-        'src/modules/auth/**/*.{js,jsx}', // ✅ Adicionado: auth controller
-        // Arquivos base
-        'src/app/**/*.jsx'
-      ],
+      include: ['src/**/*.{js,jsx}'],
       exclude: [
         'src/**/__tests__/**',
-        'src/**/styles/**',
-        'src/**/*.test.{js,jsx}',
-        'src/**/*.spec.{js,jsx}',
-        'src/test/**',
-        // Excluir apenas views grandes que não são testadas
-        'src/modules/**/view/**',
-        'src/**/components/**'
+    'src/**/*.test.{js,jsx}',
+    'src/**/*.spec.{js,jsx}',
+    'src/test/**',
+    'src/**/styles/**',
       ],
   
       // Thresholds removidos para não bloquear geração de relatórios
