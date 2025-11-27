@@ -18,11 +18,12 @@ export default defineConfig({
       include: [
         // Arquivos que são realmente testados
         'src/shared/lib/**/*.js',
-        'src/shared/utils/exportUtils.js',
-        'src/shared/hooks/useApiRequest.js',
-        'src/shared/hooks/useObligationActions.js',
+        'src/shared/utils/**/*.js',
+        'src/shared/services/**/*.js',  // ✅ Adicionado: http.js
+        'src/shared/context/**/*.jsx',   // ✅ Adicionado: AuthContext.jsx
+        'src/shared/hooks/**/*.js',
         'src/shared/ui/**/*.jsx',
-        'src/routes/**/*.jsx',
+        'src/routes/**/*.{js,jsx}',      // ✅ Inclui .js também (index.js)
         'src/shared/icons/**/*.js',
         // Módulos que têm testes
         'src/modules/analytics/**/*.{js,jsx}',
@@ -30,6 +31,7 @@ export default defineConfig({
         'src/modules/notifications/**/*.{js,jsx}',
         'src/modules/company/**/*.{js,jsx}',
         'src/modules/users/**/*.{js,jsx}',
+        'src/modules/auth/**/*.{js,jsx}', // ✅ Adicionado: auth controller
         // Arquivos base
         'src/app/**/*.jsx'
       ],
