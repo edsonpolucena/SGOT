@@ -2,38 +2,29 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  plugins: [react()], // Plugin React necessário para transformar JSX
+  plugins: [react()],
+
   test: {
     environment: 'jsdom',
-    setupFiles: ['./src/test/setup.js'], // Setup file para configurações globais
-    // Padrão para encontrar testes: __tests__ dentro dos módulos ou arquivos .test.js
-    include: ['**/__tests__/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', '**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    setupFiles: ['./src/test/setup.js'],
+    include: [
+      '**/__tests__/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
+      '**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
+    ],
     coverage: {
       provider: 'v8',
-      // garante a criação de coverage/lcov.info para o passo do GitHub Action
-      reportsDirectory: 'coverage',
-      reporter: ['text', 'html', 'lcov'], // lcov gera lcov.info, lcovonly não
-      // Incluir todos os arquivos que podem ser testados
-      all: true, // true = instrumenta todos os arquivos incluídos
+      reportsDirectory: './coverage',
+      reporter: ['text', 'html', 'lcov'],
+      reportOnFailure: true, // Gera coverage mesmo quando há falhas nos testes
+      all: true,
       include: ['src/**/*.{js,jsx}'],
       exclude: [
         'src/**/__tests__/**',
-    'src/**/*.test.{js,jsx}',
-    'src/**/*.spec.{js,jsx}',
-    'src/test/**',
-    'src/**/styles/**',
+        'src/**/*.test.{js,jsx}',
+        'src/**/*.spec.{js,jsx}',
+        'src/test/**',
+        'src/**/styles/**',
       ],
-  
-      // Thresholds removidos para não bloquear geração de relatórios
-      // A cobertura será reportada mesmo que abaixo dos thresholds
-      // thresholds: {
-      //   lines: 25,
-      //   functions: 25,
-      //   branches: 25,
-      //   statements: 25,
-      // },
     },
   },
 });
-
-

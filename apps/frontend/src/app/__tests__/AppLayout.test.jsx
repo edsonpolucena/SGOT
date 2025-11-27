@@ -1,35 +1,49 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import AppLayout from '../AppLayout';
+import Sidebar from '../../shared/ui/Sidebar';
 
-// Mock do Sidebar
-vi.mock('../../shared/ui/Sidebar.jsx', () => ({
-  default: () => <div data-testid="sidebar">Sidebar</div>
+vi.mock('../../shared/ui/Sidebar', () => ({
+  default: () => <div data-testid="sidebar">Sidebar</div>,
 }));
 
-describe('AppLayout', () => {
+describe('AppLayout.jsx - 100% Coverage', () => {
   it('deve renderizar Sidebar e children', () => {
     render(
-      <AppLayout>
-        <div data-testid="content">Test Content</div>
-      </AppLayout>
+      <BrowserRouter>
+        <AppLayout>
+          <div>Test Content</div>
+        </AppLayout>
+      </BrowserRouter>
     );
-
+    
     expect(screen.getByTestId('sidebar')).toBeInTheDocument();
-    expect(screen.getByTestId('content')).toBeInTheDocument();
-    expect(screen.getByTestId('content')).toHaveTextContent('Test Content');
+    expect(screen.getByText('Test Content')).toBeInTheDocument();
   });
 
   it('deve renderizar múltiplos children', () => {
     render(
-      <AppLayout>
-        <div data-testid="child1">Child 1</div>
-        <div data-testid="child2">Child 2</div>
-      </AppLayout>
+      <BrowserRouter>
+        <AppLayout>
+          <div>Child 1</div>
+          <div>Child 2</div>
+        </AppLayout>
+      </BrowserRouter>
     );
+    
+    expect(screen.getByText('Child 1')).toBeInTheDocument();
+    expect(screen.getByText('Child 2')).toBeInTheDocument();
+  });
 
-    expect(screen.getByTestId('child1')).toBeInTheDocument();
-    expect(screen.getByTestId('child2')).toBeInTheDocument();
+  it('deve renderizar sem children', () => {
+    const { container } = render(
+      <BrowserRouter>
+        <AppLayout />
+      </BrowserRouter>
+    );
+    
+    expect(container.firstChild).toBeInTheDocument();
+    expect(screen.getByTestId('sidebar')).toBeInTheDocument();
   });
 });
-

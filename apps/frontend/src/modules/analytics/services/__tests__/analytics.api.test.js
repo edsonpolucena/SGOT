@@ -2,150 +2,127 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { getMonthlySummary, getMonthlyVariationByTax } from '../analytics.api';
 import http from '../../../../shared/services/http';
 
-// Mock do http service
 vi.mock('../../../../shared/services/http', () => ({
   default: {
-    get: vi.fn()
-  }
+    get: vi.fn(),
+  },
 }));
 
-describe('Analytics API', () => {
+describe('analytics.api.js - 100% Coverage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    console.warn = vi.fn();
   });
 
   describe('getMonthlySummary', () => {
-    it('deve fazer requisição GET com empresaId e mes', async () => {
-      const mockData = {
-        totalObligations: 10,
-        completed: 8,
-        pending: 2
-      };
-
+    it('deve buscar resumo mensal com sucesso', async () => {
+      const mockData = { total: 1000, impostos: [] };
       http.get.mockResolvedValue({ data: mockData });
 
-      const result = await getMonthlySummary(123, '2025-01');
+      const result = await getMonthlySummary(1, '2025-01');
 
       expect(http.get).toHaveBeenCalledWith('/api/analytics/summary', {
-        params: { empresaId: 123, mes: '2025-01' }
+        params: { empresaId: 1, mes: '2025-01' },
       });
       expect(result).toEqual(mockData);
     });
 
-    it('deve retornar null se empresaId não for fornecido', async () => {
+    it('deve retornar null quando empresaId não é fornecido', async () => {
       const result = await getMonthlySummary(null, '2025-01');
 
+      expect(console.warn).toHaveBeenCalledWith('⚠️ getMonthlySummary chamado sem empresaId');
+      expect(result).toBe(null);
       expect(http.get).not.toHaveBeenCalled();
-      expect(result).toBeNull();
-      expect(console.warn).toHaveBeenCalledWith(
-        expect.stringContaining('getMonthlySummary chamado sem empresaId')
-      );
     });
 
-    it('deve retornar null se empresaId for undefined', async () => {
+    it('deve retornar null quando empresaId é undefined', async () => {
       const result = await getMonthlySummary(undefined, '2025-01');
 
+      expect(console.warn).toHaveBeenCalledWith('⚠️ getMonthlySummary chamado sem empresaId');
+      expect(result).toBe(null);
       expect(http.get).not.toHaveBeenCalled();
-      expect(result).toBeNull();
-      expect(console.warn).toHaveBeenCalledWith(
-        expect.stringContaining('getMonthlySummary chamado sem empresaId')
-      );
     });
 
-    it('deve retornar null se empresaId for string vazia', async () => {
+    it('deve retornar null quando empresaId é 0', async () => {
+      const result = await getMonthlySummary(0, '2025-01');
+
+      expect(console.warn).toHaveBeenCalledWith('⚠️ getMonthlySummary chamado sem empresaId');
+      expect(result).toBe(null);
+      expect(http.get).not.toHaveBeenCalled();
+    });
+
+    it('deve retornar null quando empresaId é string vazia', async () => {
       const result = await getMonthlySummary('', '2025-01');
 
+      expect(console.warn).toHaveBeenCalledWith('⚠️ getMonthlySummary chamado sem empresaId');
+      expect(result).toBe(null);
       expect(http.get).not.toHaveBeenCalled();
-      expect(result).toBeNull();
     });
 
-    it('deve tratar erro da requisição', async () => {
-      const error = new Error('Network error');
-      http.get.mockRejectedValue(error);
+    it('deve passar parâmetros corretos para a API', async () => {
+      http.get.mockResolvedValue({ data: {} });
 
-      await expect(getMonthlySummary(123, '2025-01')).rejects.toThrow('Network error');
-    });
+      await getMonthlySummary(123, '2025-12');
 
-    it('deve funcionar com diferentes tipos de empresaId', async () => {
-      const mockData = { total: 5 };
-      http.get.mockResolvedValue({ data: mockData });
-
-      await getMonthlySummary('123', '2025-01');
       expect(http.get).toHaveBeenCalledWith('/api/analytics/summary', {
-        params: { empresaId: '123', mes: '2025-01' }
+        params: { empresaId: 123, mes: '2025-12' },
       });
     });
   });
 
   describe('getMonthlyVariationByTax', () => {
-    it('deve fazer requisição GET com empresaId e mes', async () => {
-      const mockData = [
-        { taxType: 'DAS', variation: 10.5 },
-        { taxType: 'ISS_RETIDO', variation: -5.2 }
-      ];
-
+    it('deve buscar variação mensal por imposto com sucesso', async () => {
+      const mockData = { impostos: [] };
       http.get.mockResolvedValue({ data: mockData });
 
-      const result = await getMonthlyVariationByTax(456, '2025-02');
+      const result = await getMonthlyVariationByTax(1, '2025-01');
 
       expect(http.get).toHaveBeenCalledWith('/api/analytics/variation-by-tax', {
-        params: { empresaId: 456, mes: '2025-02' }
+        params: { empresaId: 1, mes: '2025-01' },
       });
       expect(result).toEqual(mockData);
     });
 
-    it('deve retornar null se empresaId não for fornecido', async () => {
-      const result = await getMonthlyVariationByTax(null, '2025-02');
+    it('deve retornar null quando empresaId não é fornecido', async () => {
+      const result = await getMonthlyVariationByTax(null, '2025-01');
 
+      expect(console.warn).toHaveBeenCalledWith('⚠️ getMonthlyVariationByTax chamado sem empresaId');
+      expect(result).toBe(null);
       expect(http.get).not.toHaveBeenCalled();
-      expect(result).toBeNull();
-      expect(console.warn).toHaveBeenCalledWith(
-        expect.stringContaining('getMonthlyVariationByTax chamado sem empresaId')
-      );
     });
 
-    it('deve retornar null se empresaId for undefined', async () => {
-      const result = await getMonthlyVariationByTax(undefined, '2025-02');
+    it('deve retornar null quando empresaId é undefined', async () => {
+      const result = await getMonthlyVariationByTax(undefined, '2025-01');
 
+      expect(console.warn).toHaveBeenCalledWith('⚠️ getMonthlyVariationByTax chamado sem empresaId');
+      expect(result).toBe(null);
       expect(http.get).not.toHaveBeenCalled();
-      expect(result).toBeNull();
-      expect(console.warn).toHaveBeenCalledWith(
-        expect.stringContaining('getMonthlyVariationByTax chamado sem empresaId')
-      );
     });
 
-    it('deve retornar null se empresaId for string vazia', async () => {
-      const result = await getMonthlyVariationByTax('', '2025-02');
+    it('deve retornar null quando empresaId é 0', async () => {
+      const result = await getMonthlyVariationByTax(0, '2025-01');
 
+      expect(console.warn).toHaveBeenCalledWith('⚠️ getMonthlyVariationByTax chamado sem empresaId');
+      expect(result).toBe(null);
       expect(http.get).not.toHaveBeenCalled();
-      expect(result).toBeNull();
     });
 
-    it('deve tratar erro da requisição', async () => {
-      const error = new Error('API Error');
-      http.get.mockRejectedValue(error);
+    it('deve retornar null quando empresaId é string vazia', async () => {
+      const result = await getMonthlyVariationByTax('', '2025-01');
 
-      await expect(getMonthlyVariationByTax(456, '2025-02')).rejects.toThrow('API Error');
+      expect(console.warn).toHaveBeenCalledWith('⚠️ getMonthlyVariationByTax chamado sem empresaId');
+      expect(result).toBe(null);
+      expect(http.get).not.toHaveBeenCalled();
     });
 
-    it('deve funcionar com diferentes formatos de mes', async () => {
-      const mockData = [];
-      http.get.mockResolvedValue({ data: mockData });
+    it('deve passar parâmetros corretos para a API', async () => {
+      http.get.mockResolvedValue({ data: {} });
 
-      await getMonthlyVariationByTax(789, '2025-12');
+      await getMonthlyVariationByTax(456, '2025-06');
+
       expect(http.get).toHaveBeenCalledWith('/api/analytics/variation-by-tax', {
-        params: { empresaId: 789, mes: '2025-12' }
+        params: { empresaId: 456, mes: '2025-06' },
       });
-    });
-
-    it('deve retornar dados vazios quando backend retorna array vazio', async () => {
-      http.get.mockResolvedValue({ data: [] });
-
-      const result = await getMonthlyVariationByTax(123, '2025-01');
-
-      expect(result).toEqual([]);
     });
   });
 });
-

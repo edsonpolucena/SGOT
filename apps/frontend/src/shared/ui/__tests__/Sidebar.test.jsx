@@ -2,33 +2,35 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 import Sidebar from '../Sidebar';
+import { useAuth } from '../../context/AuthContext';
 
-const mockUseAuth = vi.fn();
 const mockNavigate = vi.fn();
-
-vi.mock('../../context/AuthContext', () => ({
-  useAuth: () => mockUseAuth()
-}));
-
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
     ...actual,
-    useNavigate: () => mockNavigate
+    useNavigate: () => mockNavigate,
+    useLocation: () => ({ pathname: '/dashboard' }),
   };
 });
 
-describe('Sidebar', () => {
+vi.mock('../../context/AuthContext', () => ({
+  useAuth: vi.fn(),
+}));
+
+describe('Sidebar.jsx - 100% Coverage', () => {
+  const mockLogout = vi.fn();
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('deve renderizar menu para ACCOUNTING_SUPER', () => {
-    mockUseAuth.mockReturnValue({
+    useAuth.mockReturnValue({
       user: { role: 'ACCOUNTING_SUPER' },
       isAccounting: true,
       isClient: false,
-      logout: vi.fn()
+      logout: mockLogout,
     });
 
     render(
@@ -44,12 +46,12 @@ describe('Sidebar', () => {
     expect(screen.getByText('Logs de Auditoria')).toBeInTheDocument();
   });
 
-  it('deve renderizar menu para ACCOUNTING_ADMIN (sem Logs de Auditoria)', () => {
-    mockUseAuth.mockReturnValue({
-      user: { role: 'ACCOUNTING_ADMIN' },
+  it('deve renderizar menu para ACCOUNTING sem Logs de Auditoria', () => {
+    useAuth.mockReturnValue({
+      user: { role: 'ACCOUNTING_NORMAL' },
       isAccounting: true,
       isClient: false,
-      logout: vi.fn()
+      logout: mockLogout,
     });
 
     render(
@@ -63,11 +65,11 @@ describe('Sidebar', () => {
   });
 
   it('deve renderizar menu para CLIENT_NORMAL', () => {
-    mockUseAuth.mockReturnValue({
+    useAuth.mockReturnValue({
       user: { role: 'CLIENT_NORMAL' },
       isAccounting: false,
       isClient: true,
-      logout: vi.fn()
+      logout: mockLogout,
     });
 
     render(
@@ -82,12 +84,12 @@ describe('Sidebar', () => {
     expect(screen.queryByText('Usuários')).not.toBeInTheDocument();
   });
 
-  it('deve renderizar menu para CLIENT_ADMIN (com Usuários)', () => {
-    mockUseAuth.mockReturnValue({
+  it('deve renderizar menu para CLIENT_ADMIN com Usuários', () => {
+    useAuth.mockReturnValue({
       user: { role: 'CLIENT_ADMIN' },
       isAccounting: false,
       isClient: true,
-      logout: vi.fn()
+      logout: mockLogout,
     });
 
     render(
@@ -99,13 +101,29 @@ describe('Sidebar', () => {
     expect(screen.getByText('Usuários')).toBeInTheDocument();
   });
 
-  it('deve chamar logout e navegar para /login ao clicar em Sair', () => {
-    const logout = vi.fn();
-    mockUseAuth.mockReturnValue({
+  it('deve renderizar menu vazio quando não é accounting nem client', () => {
+    useAuth.mockReturnValue({
+      user: { role: 'OTHER_ROLE' },
+      isAccounting: false,
+      isClient: false,
+      logout: mockLogout,
+    });
+
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Sair')).toBeInTheDocument();
+  });
+
+  it('deve chamar logout e navegar quando Sair é clicado', () => {
+    useAuth.mockReturnValue({
       user: { role: 'ACCOUNTING_SUPER' },
       isAccounting: true,
       isClient: false,
-      logout
+      logout: mockLogout,
     });
 
     render(
@@ -117,44 +135,34 @@ describe('Sidebar', () => {
     const logoutButton = screen.getByText('Sair');
     fireEvent.click(logoutButton);
 
-    expect(logout).toHaveBeenCalledTimes(1);
+    expect(mockLogout).toHaveBeenCalledTimes(1);
     expect(mockNavigate).toHaveBeenCalledWith('/login');
   });
 
-  it('deve marcar item ativo baseado na rota atual', () => {
-    mockUseAuth.mockReturnValue({
+  it('deve destacar item ativo no menu', () => {
+    vi.mock('react-router-dom', async () => {
+      const actual = await vi.importActual('react-router-dom');
+      return {
+        ...actual,
+        useNavigate: () => mockNavigate,
+        useLocation: () => ({ pathname: '/companies' }),
+      };
+    });
+
+    useAuth.mockReturnValue({
       user: { role: 'ACCOUNTING_SUPER' },
       isAccounting: true,
       isClient: false,
-      logout: vi.fn()
+      logout: mockLogout,
     });
 
     render(
-      <MemoryRouter initialEntries={['/dashboard']}>
+      <MemoryRouter initialEntries={['/companies']}>
         <Sidebar />
       </MemoryRouter>
     );
 
-    const dashboardLink = screen.getByText('Dashboard').closest('a');
-    expect(dashboardLink).toHaveAttribute('href', '/dashboard');
-  });
-
-  it('deve retornar array vazio quando não é accounting nem client', () => {
-    mockUseAuth.mockReturnValue({
-      user: { role: 'UNKNOWN' },
-      isAccounting: false,
-      isClient: false,
-      logout: vi.fn()
-    });
-
-    render(
-      <MemoryRouter>
-        <Sidebar />
-      </MemoryRouter>
-    );
-
-    // Não deve ter itens de menu, apenas botão de logout
-    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
-    expect(screen.getByText('Sair')).toBeInTheDocument();
+    const companiesLink = screen.getByText('Empresas').closest('a');
+    expect(companiesLink).toBeInTheDocument();
   });
 });

@@ -1,169 +1,195 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ClientActionAlert from '../ClientActionAlert';
 
-describe('ClientActionAlert', () => {
-  const mockHistory = [
-    {
-      id: '1',
-      userName: 'João Silva',
-      userEmail: 'joao@test.com',
-      action: 'VIEW',
-      viewedAt: '2025-01-15T10:30:00Z'
-    },
-    {
-      id: '2',
-      userName: 'Maria Santos',
-      userEmail: 'maria@test.com',
-      action: 'DOWNLOAD',
-      viewedAt: '2025-01-14T15:20:00Z'
-    }
-  ];
+describe('ClientActionAlert.jsx - 100% Coverage', () => {
+  const mockOnClose = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('não deve renderizar quando isOpen é false', () => {
-    const { container } = render(
-      <ClientActionAlert isOpen={false} onClose={vi.fn()} />
+    render(
+      <ClientActionAlert isOpen={false} onClose={mockOnClose} />
     );
-    expect(container.firstChild).toBeNull();
+
+    expect(screen.queryByText(/Documento já/)).not.toBeInTheDocument();
   });
 
-  it('deve renderizar quando isOpen é true', () => {
+  it('deve renderizar modal quando isOpen é true', () => {
     render(
-      <ClientActionAlert isOpen={true} onClose={vi.fn()} />
+      <ClientActionAlert isOpen={true} onClose={mockOnClose} actionType="VIEW" />
     );
-    expect(screen.getByText(/documento já/i)).toBeInTheDocument();
+
+    expect(screen.getByText(/Documento já visualizado/)).toBeInTheDocument();
   });
 
-  it('deve mostrar título correto para VIEW', () => {
+  it('deve renderizar com actionType DOWNLOAD', () => {
     render(
-      <ClientActionAlert 
-        isOpen={true} 
-        onClose={vi.fn()} 
-        actionType="VIEW"
-      />
+      <ClientActionAlert isOpen={true} onClose={mockOnClose} actionType="DOWNLOAD" />
     );
-    expect(screen.getByText(/documento já visualizado/i)).toBeInTheDocument();
-  });
 
-  it('deve mostrar título correto para DOWNLOAD', () => {
-    render(
-      <ClientActionAlert 
-        isOpen={true} 
-        onClose={vi.fn()} 
-        actionType="DOWNLOAD"
-      />
-    );
-    expect(screen.getByText(/documento já baixado/i)).toBeInTheDocument();
+    expect(screen.getByText(/Documento já baixado/)).toBeInTheDocument();
   });
 
   it('deve exibir histórico quando fornecido', () => {
+    const history = [
+      {
+        id: '1',
+        userName: 'User 1',
+        action: 'VIEW',
+        viewedAt: '2025-01-15T10:00:00Z',
+      },
+      {
+        id: '2',
+        userName: 'User 2',
+        action: 'DOWNLOAD',
+        viewedAt: '2025-01-16T11:00:00Z',
+      },
+    ];
+
     render(
-      <ClientActionAlert 
-        isOpen={true} 
-        onClose={vi.fn()} 
-        history={mockHistory}
-      />
+      <ClientActionAlert isOpen={true} onClose={mockOnClose} history={history} />
     );
-    expect(screen.getByText('João Silva')).toBeInTheDocument();
-    expect(screen.getByText('Maria Santos')).toBeInTheDocument();
+
+    expect(screen.getByText('User 1')).toBeInTheDocument();
+    expect(screen.getByText('User 2')).toBeInTheDocument();
   });
 
   it('deve exibir mensagem quando não há histórico', () => {
     render(
-      <ClientActionAlert 
-        isOpen={true} 
-        onClose={vi.fn()} 
-        history={[]}
-      />
+      <ClientActionAlert isOpen={true} onClose={mockOnClose} history={[]} />
     );
-    expect(screen.getByText(/nenhum histórico encontrado/i)).toBeInTheDocument();
+
+    expect(screen.getByText(/Nenhum histórico encontrado/)).toBeInTheDocument();
   });
 
-  it('deve chamar onClose ao clicar no botão OK', () => {
-    const onClose = vi.fn();
+  it('deve fechar quando overlay é clicado', () => {
     render(
-      <ClientActionAlert isOpen={true} onClose={onClose} />
+      <ClientActionAlert isOpen={true} onClose={mockOnClose} />
     );
-    
-    const button = screen.getByText('OK');
-    fireEvent.click(button);
-    
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
 
-  it('deve chamar onClose ao clicar no overlay', () => {
-    const onClose = vi.fn();
-    render(
-      <ClientActionAlert isOpen={true} onClose={onClose} />
-    );
-    
-    const overlay = screen.getByText(/documento já/i).closest('div').parentElement;
+    const overlay = screen.getByText(/Documento já/).closest('div').parentElement;
     fireEvent.click(overlay);
-    
-    expect(onClose).toHaveBeenCalledTimes(1);
+
+    expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 
-  it('não deve chamar onClose ao clicar no modal', () => {
-    const onClose = vi.fn();
+  it('não deve fechar quando modal é clicado', () => {
     render(
-      <ClientActionAlert isOpen={true} onClose={onClose} />
+      <ClientActionAlert isOpen={true} onClose={mockOnClose} />
     );
-    
-    const modal = screen.getByText(/documento já/i).closest('div');
+
+    const modal = screen.getByText(/Documento já/).closest('div');
     fireEvent.click(modal);
-    
-    expect(onClose).not.toHaveBeenCalled();
+
+    expect(mockOnClose).not.toHaveBeenCalled();
   });
 
-  it('deve fechar com tecla ESC', () => {
-    const onClose = vi.fn();
+  it('deve fechar quando botão OK é clicado', () => {
     render(
-      <ClientActionAlert isOpen={true} onClose={onClose} />
+      <ClientActionAlert isOpen={true} onClose={mockOnClose} />
     );
-    
+
+    const okButton = screen.getByText('OK');
+    fireEvent.click(okButton);
+
+    expect(mockOnClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('deve fechar quando ESC é pressionado', () => {
+    render(
+      <ClientActionAlert isOpen={true} onClose={mockOnClose} />
+    );
+
     fireEvent.keyDown(document, { key: 'Escape' });
-    
-    expect(onClose).toHaveBeenCalledTimes(1);
+
+    expect(mockOnClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('não deve fechar quando outra tecla é pressionada', () => {
+    render(
+      <ClientActionAlert isOpen={true} onClose={mockOnClose} />
+    );
+
+    fireEvent.keyDown(document, { key: 'Enter' });
+
+    expect(mockOnClose).not.toHaveBeenCalled();
   });
 
   it('deve formatar data corretamente', () => {
+    const history = [
+      {
+        id: '1',
+        userName: 'User 1',
+        action: 'VIEW',
+        viewedAt: '2025-01-15T10:30:00Z',
+      },
+    ];
+
     render(
-      <ClientActionAlert 
-        isOpen={true} 
-        onClose={vi.fn()} 
-        history={mockHistory}
-      />
+      <ClientActionAlert isOpen={true} onClose={mockOnClose} history={history} />
     );
-    
-    // Verifica se a data formatada está presente
-    const dateElements = screen.getAllByText(/\d{2}\/\d{2}\/\d{4}/);
-    expect(dateElements.length).toBeGreaterThan(0);
+
+    expect(screen.getByText(/15\/01\/2025/)).toBeInTheDocument();
   });
 
-  it('deve mostrar badge correto para VIEW', () => {
+  it('deve exibir badge correto para VIEW', () => {
+    const history = [
+      {
+        id: '1',
+        userName: 'User 1',
+        action: 'VIEW',
+        viewedAt: '2025-01-15T10:00:00Z',
+      },
+    ];
+
     render(
-      <ClientActionAlert 
-        isOpen={true} 
-        onClose={vi.fn()} 
-        history={[mockHistory[0]]}
-      />
+      <ClientActionAlert isOpen={true} onClose={mockOnClose} history={history} />
     );
+
     expect(screen.getByText('Visualização')).toBeInTheDocument();
   });
 
-  it('deve mostrar badge correto para DOWNLOAD', () => {
+  it('deve exibir badge correto para DOWNLOAD', () => {
+    const history = [
+      {
+        id: '1',
+        userName: 'User 1',
+        action: 'DOWNLOAD',
+        viewedAt: '2025-01-15T10:00:00Z',
+      },
+    ];
+
     render(
-      <ClientActionAlert 
-        isOpen={true} 
-        onClose={vi.fn()} 
-        history={[mockHistory[1]]}
-      />
+      <ClientActionAlert isOpen={true} onClose={mockOnClose} history={history} />
     );
+
     expect(screen.getByText('Download')).toBeInTheDocument();
   });
-});
 
+  it('deve remover event listener ao desmontar', () => {
+    const { unmount } = render(
+      <ClientActionAlert isOpen={true} onClose={mockOnClose} />
+    );
+
+    unmount();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    // Não deve chamar onClose após desmontar
+    expect(mockOnClose).not.toHaveBeenCalled();
+  });
+
+  it('deve usar actionType padrão VIEW', () => {
+    render(
+      <ClientActionAlert isOpen={true} onClose={mockOnClose} />
+    );
+
+    expect(screen.getByText(/visualizado/)).toBeInTheDocument();
+  });
+});

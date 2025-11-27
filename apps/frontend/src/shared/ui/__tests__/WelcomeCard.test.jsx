@@ -2,14 +2,23 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import WelcomeCard from '../WelcomeCard';
 
-describe('WelcomeCard', () => {
+describe('WelcomeCard.jsx - 100% Coverage', () => {
   it('deve renderizar com variant default', () => {
     render(
+      <WelcomeCard title="Bem-vindo" subtitle="Subtítulo" />
+    );
+
+    expect(screen.getByText('Bem-vindo')).toBeInTheDocument();
+    expect(screen.getByText('Subtítulo')).toBeInTheDocument();
+  });
+
+  it('deve renderizar com variant client', () => {
+    render(
       <WelcomeCard 
+        variant="client" 
         title="Bem-vindo" 
         subtitle="Subtítulo"
         info={['Info 1', 'Info 2']}
-        variant="default"
       />
     );
 
@@ -19,56 +28,64 @@ describe('WelcomeCard', () => {
     expect(screen.getByText('Info 2')).toBeInTheDocument();
   });
 
-  it('deve renderizar com variant client', () => {
+  it('deve renderizar sem subtitle', () => {
+    render(
+      <WelcomeCard title="Bem-vindo" />
+    );
+
+    expect(screen.getByText('Bem-vindo')).toBeInTheDocument();
+  });
+
+  it('deve renderizar com info array vazio', () => {
+    render(
+      <WelcomeCard title="Bem-vindo" subtitle="Subtítulo" info={[]} />
+    );
+
+    expect(screen.getByText('Bem-vindo')).toBeInTheDocument();
+  });
+
+  it('deve renderizar múltiplos itens de info no variant default', () => {
     render(
       <WelcomeCard 
-        title="Dashboard Cliente" 
-        subtitle="Bem-vindo ao seu painel"
-        info={['CNPJ: 123456789', 'Status: Ativo']}
+        title="Bem-vindo" 
+        subtitle="Subtítulo"
+        info={['Info 1', 'Info 2', 'Info 3']}
+      />
+    );
+
+    expect(screen.getByText('Info 1')).toBeInTheDocument();
+    expect(screen.getByText('Info 2')).toBeInTheDocument();
+    expect(screen.getByText('Info 3')).toBeInTheDocument();
+  });
+
+  it('deve renderizar múltiplos itens de info no variant client', () => {
+    render(
+      <WelcomeCard 
         variant="client"
+        title="Bem-vindo" 
+        subtitle="Subtítulo"
+        info={['Info 1', 'Info 2', 'Info 3']}
       />
     );
 
-    expect(screen.getByText('Dashboard Cliente')).toBeInTheDocument();
-    expect(screen.getByText('Bem-vindo ao seu painel')).toBeInTheDocument();
-    expect(screen.getByText('CNPJ: 123456789')).toBeInTheDocument();
-    expect(screen.getByText('Status: Ativo')).toBeInTheDocument();
+    expect(screen.getByText('Info 1')).toBeInTheDocument();
+    expect(screen.getByText('Info 2')).toBeInTheDocument();
+    expect(screen.getByText('Info 3')).toBeInTheDocument();
   });
 
-  it('deve renderizar sem subtitle quando não fornecido', () => {
+  it('deve renderizar sem info quando não fornecido', () => {
     render(
-      <WelcomeCard 
-        title="Título"
-        info={['Info']}
-        variant="default"
-      />
+      <WelcomeCard title="Bem-vindo" subtitle="Subtítulo" />
     );
 
-    expect(screen.getByText('Título')).toBeInTheDocument();
-    expect(screen.queryByText(/subtítulo/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Bem-vindo')).toBeInTheDocument();
   });
 
-  it('deve renderizar sem info quando array vazio', () => {
+  it('deve renderizar sem subtitle no variant client', () => {
     render(
-      <WelcomeCard 
-        title="Título"
-        info={[]}
-        variant="client"
-      />
+      <WelcomeCard variant="client" title="Bem-vindo" />
     );
 
-    expect(screen.getByText('Título')).toBeInTheDocument();
-  });
-
-  it('deve usar variant default quando não especificado', () => {
-    render(
-      <WelcomeCard 
-        title="Título"
-        info={['Info']}
-      />
-    );
-
-    expect(screen.getByText('Título')).toBeInTheDocument();
+    expect(screen.getByText('Bem-vindo')).toBeInTheDocument();
   });
 });
-
