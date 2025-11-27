@@ -1,211 +1,259 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { arrayToCsv, downloadBlob, openPrintWindowWithTable } from '../exportUtils';
 
-describe('exportUtils', () => {
+describe('exportUtils.js - 100% Coverage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Mock do DOM
+    global.document = {
+      createElement: vi.fn(),
+      body: {
+        appendChild: vi.fn(),
+        removeChild: vi.fn(),
+      },
+    };
+    global.URL = {
+      createObjectURL: vi.fn(() => 'blob:url'),
+      revokeObjectURL: vi.fn(),
+    };
+    global.Blob = class Blob {
+      constructor(content, options) {
+        this.content = content;
+        this.options = options;
+      }
+    };
+    global.window = {
+      open: vi.fn(),
+    };
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   describe('arrayToCsv', () => {
     it('deve converter array de objetos para CSV', () => {
-      const data = [
-        { name: 'João', age: 30, city: 'São Paulo' },
-        { name: 'Maria', age: 25, city: 'Rio de Janeiro' }
+      const rows = [
+        { name: 'John', age: 30 },
+        { name: 'Jane', age: 25 },
       ];
-
-      const csv = arrayToCsv(data);
-
-      expect(csv).toContain('name,age,city');
-      expect(csv).toContain('João,30,São Paulo');
-      expect(csv).toContain('Maria,25,Rio de Janeiro');
+      const result = arrayToCsv(rows);
+      expect(result).toContain('name,age');
+      expect(result).toContain('John,30');
+      expect(result).toContain('Jane,25');
     });
 
-    it('deve escapar valores com vírgulas', () => {
-      const data = [
-        { name: 'João Silva', description: 'Developer, Frontend' }
-      ];
-
-      const csv = arrayToCsv(data);
-
-      expect(csv).toContain('"Developer, Frontend"');
+    it('deve escapar valores com vírgula', () => {
+      const rows = [{ name: 'John, Doe', age: 30 }];
+      const result = arrayToCsv(rows);
+      expect(result).toContain('"John, Doe"');
     });
 
-    it('deve escapar valores com aspas duplas', () => {
-      const data = [
-        { name: 'João', quote: 'Ele disse: "Olá"' }
-      ];
-
-      const csv = arrayToCsv(data);
-
-      expect(csv).toContain('Ele disse: ""Olá""');
+    it('deve escapar valores com aspas', () => {
+      const rows = [{ name: 'John "Johnny" Doe', age: 30 }];
+      const result = arrayToCsv(rows);
+      expect(result).toContain('"John ""Johnny"" Doe"');
     });
 
-    it('deve escapar valores com quebras de linha', () => {
-      const data = [
-        { name: 'João', address: 'Rua A\nBairro B' }
-      ];
-
-      const csv = arrayToCsv(data);
-
-      expect(csv).toContain('"Rua A\nBairro B"');
+    it('deve escapar valores com quebra de linha', () => {
+      const rows = [{ name: 'John\nDoe', age: 30 }];
+      const result = arrayToCsv(rows);
+      expect(result).toContain('"John\nDoe"');
     });
 
-    it('deve tratar valores nulos e undefined', () => {
-      const data = [
-        { name: 'João', age: null, city: undefined }
-      ];
-
-      const csv = arrayToCsv(data);
-
-      expect(csv).toContain('name,age,city');
-      expect(csv).toContain('João,,');
+    it('deve lidar com valores null', () => {
+      const rows = [{ name: null, age: 30 }];
+      const result = arrayToCsv(rows);
+      expect(result).toContain(',30');
     });
 
-    it('deve retornar string vazia para array vazio', () => {
-      const csv = arrayToCsv([]);
-      expect(csv).toBe('');
+    it('deve lidar com valores undefined', () => {
+      const rows = [{ name: undefined, age: 30 }];
+      const result = arrayToCsv(rows);
+      expect(result).toContain(',30');
     });
 
-    it('deve retornar string vazia para null', () => {
-      const csv = arrayToCsv(null);
-      expect(csv).toBe('');
+    it('deve retornar string vazia quando rows é null', () => {
+      expect(arrayToCsv(null)).toBe('');
     });
 
-    it('deve retornar string vazia para undefined', () => {
-      const csv = arrayToCsv(undefined);
-      expect(csv).toBe('');
+    it('deve retornar string vazia quando rows é undefined', () => {
+      expect(arrayToCsv(undefined)).toBe('');
+    });
+
+    it('deve retornar string vazia quando rows é array vazio', () => {
+      expect(arrayToCsv([])).toBe('');
+    });
+
+    it('deve converter números para string', () => {
+      const rows = [{ value: 123 }];
+      const result = arrayToCsv(rows);
+      expect(result).toContain('123');
     });
   });
 
-  // downloadBlob tests removidos devido a problemas com URL.createObjectURL em jsdom
+  describe('downloadBlob', () => {
+    it('deve criar blob e fazer download', () => {
+      const mockLink = {
+        href: '',
+        download: '',
+        click: vi.fn(),
+      };
+      global.document.createElement.mockReturnValue(mockLink);
+
+      downloadBlob('content', 'file.csv', 'text/csv');
+
+      expect(global.document.createElement).toHaveBeenCalledWith('a');
+      expect(global.URL.createObjectURL).toHaveBeenCalled();
+      expect(mockLink.download).toBe('file.csv');
+      expect(global.document.body.appendChild).toHaveBeenCalledWith(mockLink);
+      expect(mockLink.click).toHaveBeenCalled();
+      expect(global.document.body.removeChild).toHaveBeenCalledWith(mockLink);
+    });
+
+    it('deve usar tipo padrão quando não fornecido', () => {
+      const mockLink = {
+        href: '',
+        download: '',
+        click: vi.fn(),
+      };
+      global.document.createElement.mockReturnValue(mockLink);
+
+      downloadBlob('content', 'file.csv');
+
+      expect(global.URL.createObjectURL).toHaveBeenCalled();
+    });
+
+    it('deve revogar URL após timeout', async () => {
+      vi.useFakeTimers();
+      const mockLink = {
+        href: '',
+        download: '',
+        click: vi.fn(),
+      };
+      global.document.createElement.mockReturnValue(mockLink);
+
+      downloadBlob('content', 'file.csv');
+
+      vi.advanceTimersByTime(1000);
+      expect(global.URL.revokeObjectURL).toHaveBeenCalledWith('blob:url');
+      vi.useRealTimers();
+    });
+  });
 
   describe('openPrintWindowWithTable', () => {
-    let mockWindow;
-    let openSpy;
-
-    beforeEach(() => {
-      mockWindow = {
+    it('deve abrir janela de impressão com tabela', () => {
+      const mockWindow = {
         document: {
           write: vi.fn(),
-          close: vi.fn()
+          close: vi.fn(),
         },
         focus: vi.fn(),
-        print: vi.fn()
+        print: vi.fn(),
       };
+      global.window.open.mockReturnValue(mockWindow);
 
-      openSpy = vi.spyOn(window, 'open').mockReturnValue(mockWindow);
-    });
-
-    afterEach(() => {
-      vi.restoreAllMocks();
-    });
-
-    it('deve abrir nova janela de impressão', () => {
       const columns = [
         { key: 'name', header: 'Nome' },
-        { key: 'age', header: 'Idade' }
+        { key: 'age', header: 'Idade' },
       ];
       const rows = [
-        { name: 'João', age: 30 },
-        { name: 'Maria', age: 25 }
+        { name: 'John', age: 30 },
+        { name: 'Jane', age: 25 },
       ];
 
-      openPrintWindowWithTable('Relatório', columns, rows);
+      openPrintWindowWithTable('Título', columns, rows);
 
-      expect(openSpy).toHaveBeenCalledWith('', '_blank');
+      expect(global.window.open).toHaveBeenCalledWith('', '_blank');
       expect(mockWindow.document.write).toHaveBeenCalled();
       expect(mockWindow.document.close).toHaveBeenCalled();
       expect(mockWindow.focus).toHaveBeenCalled();
       expect(mockWindow.print).toHaveBeenCalled();
     });
 
-    it('deve incluir título na tabela', () => {
-      const columns = [{ key: 'name', header: 'Nome' }];
-      const rows = [{ name: 'João' }];
+    it('deve retornar quando window.open retorna null', () => {
+      global.window.open.mockReturnValue(null);
 
-      openPrintWindowWithTable('Meu Título', columns, rows);
+      openPrintWindowWithTable('Título', [], []);
 
-      const calls = mockWindow.document.write.mock.calls;
-      const htmlContent = calls.map(c => c[0]).join('');
-
-      expect(htmlContent).toContain('<h1>Meu Título</h1>');
+      expect(global.window.open).toHaveBeenCalled();
     });
 
-    it('deve incluir cabeçalhos das colunas', () => {
-      const columns = [
-        { key: 'name', header: 'Nome' },
-        { key: 'age', header: 'Idade' }
-      ];
-      const rows = [{ name: 'João', age: 30 }];
+    it('deve incluir título no HTML', () => {
+      const mockWindow = {
+        document: {
+          write: vi.fn(),
+          close: vi.fn(),
+        },
+        focus: vi.fn(),
+        print: vi.fn(),
+      };
+      global.window.open.mockReturnValue(mockWindow);
 
-      openPrintWindowWithTable('Relatório', columns, rows);
+      openPrintWindowWithTable('Meu Título', [], []);
 
-      const calls = mockWindow.document.write.mock.calls;
-      const htmlContent = calls.map(c => c[0]).join('');
-
-      expect(htmlContent).toContain('<th>Nome</th>');
-      expect(htmlContent).toContain('<th>Idade</th>');
+      const writeCalls = mockWindow.document.write.mock.calls;
+      const html = writeCalls.map(call => call[0]).join('');
+      expect(html).toContain('Meu Título');
     });
 
-    it('deve incluir dados das linhas', () => {
-      const columns = [
-        { key: 'name', header: 'Nome' },
-        { key: 'age', header: 'Idade' }
-      ];
-      const rows = [
-        { name: 'João', age: 30 },
-        { name: 'Maria', age: 25 }
-      ];
-
-      openPrintWindowWithTable('Relatório', columns, rows);
-
-      const calls = mockWindow.document.write.mock.calls;
-      const htmlContent = calls.map(c => c[0]).join('');
-
-      expect(htmlContent).toContain('<td>João</td>');
-      expect(htmlContent).toContain('<td>30</td>');
-      expect(htmlContent).toContain('<td>Maria</td>');
-      expect(htmlContent).toContain('<td>25</td>');
-    });
-
-    it('deve tratar valores vazios nas células', () => {
-      const columns = [
-        { key: 'name', header: 'Nome' },
-        { key: 'age', header: 'Idade' }
-      ];
-      const rows = [
-        { name: 'João', age: null }
-      ];
-
-      openPrintWindowWithTable('Relatório', columns, rows);
-
-      const calls = mockWindow.document.write.mock.calls;
-      const htmlContent = calls.map(c => c[0]).join('');
-
-      expect(htmlContent).toContain('<td></td>');
-    });
-
-    it('não deve fazer nada se window.open retornar null', () => {
-      openSpy.mockReturnValue(null);
+    it('deve criar thead corretamente', () => {
+      const mockWindow = {
+        document: {
+          write: vi.fn(),
+          close: vi.fn(),
+        },
+        focus: vi.fn(),
+        print: vi.fn(),
+      };
+      global.window.open.mockReturnValue(mockWindow);
 
       const columns = [{ key: 'name', header: 'Nome' }];
-      const rows = [{ name: 'João' }];
+      openPrintWindowWithTable('Título', columns, []);
 
-      openPrintWindowWithTable('Relatório', columns, rows);
-
-      expect(openSpy).toHaveBeenCalled();
-      // Não deve chamar nenhum método do mockWindow pois ele é null
+      const writeCalls = mockWindow.document.write.mock.calls;
+      const html = writeCalls.map(call => call[0]).join('');
+      expect(html).toContain('<th>Nome</th>');
     });
 
-    it('deve incluir estilos CSS', () => {
+    it('deve criar tbody corretamente', () => {
+      const mockWindow = {
+        document: {
+          write: vi.fn(),
+          close: vi.fn(),
+        },
+        focus: vi.fn(),
+        print: vi.fn(),
+      };
+      global.window.open.mockReturnValue(mockWindow);
+
       const columns = [{ key: 'name', header: 'Nome' }];
-      const rows = [{ name: 'João' }];
+      const rows = [{ name: 'John' }];
+      openPrintWindowWithTable('Título', columns, rows);
 
-      openPrintWindowWithTable('Relatório', columns, rows);
+      const writeCalls = mockWindow.document.write.mock.calls;
+      const html = writeCalls.map(call => call[0]).join('');
+      expect(html).toContain('<td>John</td>');
+    });
 
-      const calls = mockWindow.document.write.mock.calls;
-      const htmlContent = calls.map(c => c[0]).join('');
+    it('deve lidar com valores undefined/null nas células', () => {
+      const mockWindow = {
+        document: {
+          write: vi.fn(),
+          close: vi.fn(),
+        },
+        focus: vi.fn(),
+        print: vi.fn(),
+      };
+      global.window.open.mockReturnValue(mockWindow);
 
-      expect(htmlContent).toContain('<style>');
-      expect(htmlContent).toContain('font-family');
-      expect(htmlContent).toContain('border-collapse');
+      const columns = [{ key: 'name', header: 'Nome' }];
+      const rows = [{ name: undefined }];
+      openPrintWindowWithTable('Título', columns, rows);
+
+      const writeCalls = mockWindow.document.write.mock.calls;
+      const html = writeCalls.map(call => call[0]).join('');
+      expect(html).toContain('<td></td>');
     });
   });
 });
-

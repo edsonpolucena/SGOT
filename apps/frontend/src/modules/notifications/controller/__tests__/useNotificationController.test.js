@@ -14,7 +14,10 @@ vi.mock('../../../../shared/hooks/useApiRequest', () => ({
   useApiRequest: () => ({
     loading: false,
     error: null,
-    executeRequest: vi.fn((apiCall) => apiCall()),
+    executeRequest: vi.fn(async (apiCall) => {
+      const response = await apiCall();
+      return response.data; // Extrai response.data como o hook real faz
+    }),
     setError: vi.fn(),
     buildQueryParams: (filters) => {
       const params = new URLSearchParams();
@@ -50,6 +53,8 @@ describe('useNotificationController', () => {
       });
 
       expect(http.get).toHaveBeenCalled();
+      // executeRequest retorna response.data, então response deve ser mockData
+      expect(response).toEqual(mockData);
       expect(result.current.unviewedDocs).toEqual(mockData);
     });
 
@@ -92,6 +97,7 @@ describe('useNotificationController', () => {
       });
 
       expect(http.get).toHaveBeenCalledWith('/api/notifications/1/history');
+      // executeRequest retorna response.data, então response deve ser mockData
       expect(response).toEqual(mockData);
     });
   });
@@ -106,6 +112,7 @@ describe('useNotificationController', () => {
         await result.current.fetchStats();
       });
 
+      // executeRequest retorna response.data, então stats deve ser mockData
       expect(result.current.stats).toEqual(mockData);
     });
   });

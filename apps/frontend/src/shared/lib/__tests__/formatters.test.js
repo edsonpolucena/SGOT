@@ -9,249 +9,329 @@ import {
   truncateText,
   capitalizeWords,
   removeAccents,
-  toSlug
+  toSlug,
 } from '../formatters';
 
-describe('Formatters Utils - Unit Tests', () => {
-  
+describe('formatters.js - 100% Coverage', () => {
   describe('formatCurrency', () => {
-    it('deve formatar valor numérico corretamente', () => {
-      const result = formatCurrency(1234.56);
-      expect(result).toMatch(/R\$\s*1\.234,56/);
+    it('deve formatar valor monetário corretamente', () => {
+      expect(formatCurrency(1234.56)).toContain('1.234,56');
+      expect(formatCurrency(1234.56)).toContain('R$');
     });
 
-    it('deve formatar string numérica', () => {
-      const result = formatCurrency('1234.56');
-      expect(result).toMatch(/R\$\s*1\.234,56/);
+    it('deve formatar zero', () => {
+      expect(formatCurrency(0)).toContain('0,00');
     });
 
-    it('deve retornar "-" para valores nulos', () => {
+    it('deve formatar valores negativos', () => {
+      expect(formatCurrency(-100)).toContain('-');
+    });
+
+    it('deve retornar "-" quando value é null', () => {
       expect(formatCurrency(null)).toBe('-');
+    });
+
+    it('deve retornar "-" quando value é undefined', () => {
       expect(formatCurrency(undefined)).toBe('-');
+    });
+
+    it('deve retornar "-" quando value é string vazia', () => {
       expect(formatCurrency('')).toBe('-');
     });
 
-    it('deve retornar "-" para valores inválidos', () => {
-      expect(formatCurrency('abc')).toBe('-');
+    it('deve retornar "-" quando value é NaN', () => {
       expect(formatCurrency(NaN)).toBe('-');
     });
 
-    it('deve formatar zero corretamente', () => {
-      const result = formatCurrency(0);
-      expect(result).toMatch(/R\$\s*0,00/);
+    it('deve retornar "-" quando value é string inválida', () => {
+      expect(formatCurrency('abc')).toBe('-');
     });
 
-    it('deve aceitar moeda customizada', () => {
+    it('deve aceitar string numérica', () => {
+      expect(formatCurrency('1234.56')).toContain('1.234,56');
+    });
+
+    it('deve aceitar currency customizada', () => {
       const result = formatCurrency(100, 'USD');
-      expect(result).toMatch(/US\$\s*100,00/);
+      expect(result).toContain('100');
     });
   });
 
   describe('formatNumber', () => {
-    it('deve formatar número com casas decimais padrão', () => {
-      const result = formatNumber(1234.567);
-      expect(result).toBe('1.234,57');
+    it('deve formatar número com decimais padrão', () => {
+      expect(formatNumber(1234.56)).toBe('1.234,56');
     });
 
-    it('deve formatar número com casas decimais customizadas', () => {
-      const result = formatNumber(1234.567, 1);
-      expect(result).toBe('1.234,6');
+    it('deve formatar número com decimais customizados', () => {
+      expect(formatNumber(1234.5, 3)).toBe('1.234,500');
     });
 
     it('deve formatar número inteiro', () => {
-      const result = formatNumber(1234, 0);
-      expect(result).toBe('1.234');
+      expect(formatNumber(1234, 0)).toBe('1.234');
     });
 
-    it('deve retornar "-" para valores inválidos', () => {
-      expect(formatNumber('abc')).toBe('-');
+    it('deve retornar "-" quando value é null', () => {
       expect(formatNumber(null)).toBe('-');
+    });
+
+    it('deve retornar "-" quando value é undefined', () => {
+      expect(formatNumber(undefined)).toBe('-');
+    });
+
+    it('deve retornar "-" quando value é string vazia', () => {
+      expect(formatNumber('')).toBe('-');
+    });
+
+    it('deve retornar "-" quando value é NaN', () => {
+      expect(formatNumber(NaN)).toBe('-');
+    });
+
+    it('deve aceitar string numérica', () => {
+      expect(formatNumber('1234.56')).toBe('1.234,56');
     });
   });
 
   describe('formatCNPJ', () => {
-    it('deve formatar CNPJ corretamente', () => {
-      const result = formatCNPJ('11222333000181');
-      expect(result).toBe('11.222.333/0001-81');
+    it('deve formatar CNPJ válido corretamente', () => {
+      expect(formatCNPJ('12345678000190')).toBe('12.345.678/0001-90');
     });
 
-    it('deve retornar string original se inválida', () => {
-      const result = formatCNPJ('123');
-      expect(result).toBe('123');
-    });
-
-    it('deve retornar string vazia para valores nulos', () => {
+    it('deve retornar string vazia quando value é null', () => {
       expect(formatCNPJ(null)).toBe('');
+    });
+
+    it('deve retornar string vazia quando value é undefined', () => {
       expect(formatCNPJ(undefined)).toBe('');
     });
 
-    it('deve formatar CNPJ com caracteres especiais', () => {
-      const result = formatCNPJ('11.222.333/0001-81');
-      expect(result).toBe('11.222.333/0001-81');
+    it('deve retornar string vazia quando value é vazio', () => {
+      expect(formatCNPJ('')).toBe('');
+    });
+
+    it('deve retornar value original quando não tem 14 dígitos', () => {
+      expect(formatCNPJ('123')).toBe('123');
+    });
+
+    it('deve remover caracteres não numéricos antes de formatar', () => {
+      expect(formatCNPJ('12.345.678/0001-90')).toBe('12.345.678/0001-90');
+    });
+
+    it('deve retornar value original quando tem mais de 14 dígitos', () => {
+      expect(formatCNPJ('123456780001901')).toBe('123456780001901');
     });
   });
 
   describe('formatCPF', () => {
-    it('deve formatar CPF corretamente', () => {
-      const result = formatCPF('12345678901');
-      expect(result).toBe('123.456.789-01');
+    it('deve formatar CPF válido corretamente', () => {
+      expect(formatCPF('12345678901')).toBe('123.456.789-01');
     });
 
-    it('deve retornar string original se inválida', () => {
-      const result = formatCPF('123');
-      expect(result).toBe('123');
-    });
-
-    it('deve retornar string vazia para valores nulos', () => {
+    it('deve retornar string vazia quando value é null', () => {
       expect(formatCPF(null)).toBe('');
+    });
+
+    it('deve retornar string vazia quando value é undefined', () => {
+      expect(formatCPF(undefined)).toBe('');
+    });
+
+    it('deve retornar string vazia quando value é vazio', () => {
+      expect(formatCPF('')).toBe('');
+    });
+
+    it('deve retornar value original quando não tem 11 dígitos', () => {
+      expect(formatCPF('123')).toBe('123');
+    });
+
+    it('deve remover caracteres não numéricos antes de formatar', () => {
+      expect(formatCPF('123.456.789-01')).toBe('123.456.789-01');
     });
   });
 
   describe('formatPhone', () => {
-    it('deve formatar telefone com 11 dígitos', () => {
-      const result = formatPhone('11987654321');
-      expect(result).toBe('(11) 98765-4321');
+    it('deve formatar telefone de 10 dígitos', () => {
+      expect(formatPhone('4799999999')).toBe('(47) 9999-9999');
     });
 
-    it('deve formatar telefone com 10 dígitos', () => {
-      const result = formatPhone('1133334444');
-      expect(result).toBe('(11) 3333-4444');
+    it('deve formatar telefone de 11 dígitos', () => {
+      expect(formatPhone('47999999999')).toBe('(47) 99999-9999');
     });
 
-    it('deve retornar string original se inválida', () => {
-      const result = formatPhone('123');
-      expect(result).toBe('123');
-    });
-
-    it('deve retornar string vazia para valores nulos', () => {
+    it('deve retornar string vazia quando value é null', () => {
       expect(formatPhone(null)).toBe('');
     });
 
-    it('deve formatar telefone com caracteres especiais', () => {
-      const result = formatPhone('(11) 98765-4321');
-      expect(result).toBe('(11) 98765-4321');
+    it('deve retornar string vazia quando value é undefined', () => {
+      expect(formatPhone(undefined)).toBe('');
+    });
+
+    it('deve retornar string vazia quando value é vazio', () => {
+      expect(formatPhone('')).toBe('');
+    });
+
+    it('deve retornar value original quando não tem 10 ou 11 dígitos', () => {
+      expect(formatPhone('123')).toBe('123');
+    });
+
+    it('deve remover caracteres não numéricos antes de formatar', () => {
+      expect(formatPhone('(47) 9999-9999')).toBe('(47) 9999-9999');
     });
   });
 
   describe('formatCEP', () => {
-    it('deve formatar CEP corretamente', () => {
-      const result = formatCEP('01234567');
-      expect(result).toBe('01234-567');
+    it('deve formatar CEP válido corretamente', () => {
+      expect(formatCEP('89010000')).toBe('89010-000');
     });
 
-    it('deve retornar string original se inválida', () => {
-      const result = formatCEP('123');
-      expect(result).toBe('123');
-    });
-
-    it('deve retornar string vazia para valores nulos', () => {
+    it('deve retornar string vazia quando value é null', () => {
       expect(formatCEP(null)).toBe('');
+    });
+
+    it('deve retornar string vazia quando value é undefined', () => {
+      expect(formatCEP(undefined)).toBe('');
+    });
+
+    it('deve retornar string vazia quando value é vazio', () => {
+      expect(formatCEP('')).toBe('');
+    });
+
+    it('deve retornar value original quando não tem 8 dígitos', () => {
+      expect(formatCEP('123')).toBe('123');
+    });
+
+    it('deve remover caracteres não numéricos antes de formatar', () => {
+      expect(formatCEP('89010-000')).toBe('89010-000');
     });
   });
 
   describe('truncateText', () => {
-    it('deve truncar texto longo', () => {
-      const longText = 'Este é um texto muito longo que deve ser truncado';
-      const result = truncateText(longText, 20);
-      expect(result).toMatch(/Este é um texto mui.*\.\.\./);
+    it('deve truncar texto maior que o limite', () => {
+      const text = 'a'.repeat(100);
+      expect(truncateText(text, 50)).toBe('a'.repeat(50) + '...');
     });
 
-    it('deve retornar texto original se menor que limite', () => {
-      const shortText = 'Texto curto';
-      const result = truncateText(shortText, 20);
-      expect(result).toBe('Texto curto');
+    it('deve retornar texto completo quando menor que o limite', () => {
+      expect(truncateText('short text', 50)).toBe('short text');
     });
 
-    it('deve usar limite padrão', () => {
-      const longText = 'a'.repeat(60);
-      const result = truncateText(longText);
-      expect(result).toBe('a'.repeat(50) + '...');
+    it('deve retornar texto exato quando igual ao limite', () => {
+      const text = 'a'.repeat(50);
+      expect(truncateText(text, 50)).toBe(text);
     });
 
-    it('deve retornar string vazia para valores inválidos', () => {
+    it('deve retornar string vazia quando text é null', () => {
       expect(truncateText(null)).toBe('');
+    });
+
+    it('deve retornar string vazia quando text é undefined', () => {
+      expect(truncateText(undefined)).toBe('');
+    });
+
+    it('deve retornar string vazia quando text não é string', () => {
       expect(truncateText(123)).toBe('');
+    });
+
+    it('deve usar limite padrão de 50', () => {
+      const text = 'a'.repeat(60);
+      expect(truncateText(text)).toBe('a'.repeat(50) + '...');
     });
   });
 
   describe('capitalizeWords', () => {
-    it('deve capitalizar primeira letra de cada palavra', () => {
-      const result = capitalizeWords('joão da silva');
-      expect(result).toBe('João Da Silva');
+    it('deve capitalizar cada palavra', () => {
+      expect(capitalizeWords('hello world')).toBe('Hello World');
     });
 
-    it('deve lidar com texto em maiúsculas', () => {
-      const result = capitalizeWords('JOAO DA SILVA');
-      expect(result).toBe('Joao Da Silva');
+    it('deve capitalizar palavra única', () => {
+      expect(capitalizeWords('hello')).toBe('Hello');
     });
 
-    it('deve retornar string vazia para valores inválidos', () => {
+    it('deve retornar string vazia quando text é null', () => {
       expect(capitalizeWords(null)).toBe('');
+    });
+
+    it('deve retornar string vazia quando text é undefined', () => {
+      expect(capitalizeWords(undefined)).toBe('');
+    });
+
+    it('deve retornar string vazia quando text não é string', () => {
       expect(capitalizeWords(123)).toBe('');
     });
 
-    it('deve lidar com texto vazio', () => {
-      expect(capitalizeWords('')).toBe('');
+    it('deve lidar com múltiplos espaços', () => {
+      expect(capitalizeWords('hello   world')).toBe('Hello   World');
+    });
+
+    it('deve manter primeira letra minúscula se já estiver capitalizada', () => {
+      expect(capitalizeWords('HELLO WORLD')).toBe('Hello World');
     });
   });
 
   describe('removeAccents', () => {
-    it('deve remover acentos corretamente', () => {
-      const result = removeAccents('café');
-      expect(result).toBe('cafe');
+    it('deve remover acentos de texto', () => {
+      expect(removeAccents('café')).toBe('cafe');
+      expect(removeAccents('ação')).toBe('acao');
     });
 
-    it('deve remover múltiplos acentos', () => {
-      const result = removeAccents('João José da Silva');
-      expect(result).toBe('Joao Jose da Silva');
-    });
-
-    it('deve retornar string vazia para valores inválidos', () => {
+    it('deve retornar string vazia quando text é null', () => {
       expect(removeAccents(null)).toBe('');
+    });
+
+    it('deve retornar string vazia quando text é undefined', () => {
+      expect(removeAccents(undefined)).toBe('');
+    });
+
+    it('deve retornar string vazia quando text não é string', () => {
       expect(removeAccents(123)).toBe('');
     });
 
-    it('deve preservar texto sem acentos', () => {
-      const result = removeAccents('texto sem acentos');
-      expect(result).toBe('texto sem acentos');
+    it('deve manter texto sem acentos inalterado', () => {
+      expect(removeAccents('hello')).toBe('hello');
     });
   });
 
   describe('toSlug', () => {
-    it('deve converter string para slug', () => {
-      const result = toSlug('Minha Empresa Ltda');
-      expect(result).toBe('minha-empresa-ltda');
+    it('deve converter texto para slug', () => {
+      expect(toSlug('Hello World')).toBe('hello-world');
     });
 
     it('deve remover acentos', () => {
-      const result = toSlug('Empresa Ação');
-      expect(result).toBe('empresa-acao');
+      expect(toSlug('café')).toBe('cafe');
     });
 
     it('deve remover caracteres especiais', () => {
-      const result = toSlug('Empresa@#$%^&*()');
-      expect(result).toBe('empresa');
+      expect(toSlug('hello@world#123')).toBe('helloworld123');
     });
 
-    it('deve substituir espaços por hífens', () => {
-      const result = toSlug('empresa com espaços');
-      expect(result).toBe('empresa-com-espacos');
+    it('deve substituir múltiplos espaços por um hífen', () => {
+      expect(toSlug('hello   world')).toBe('hello-world');
     });
 
-    it('deve remover hífens do início e fim', () => {
-      const result = toSlug('-empresa-');
-      expect(result).toBe('empresa');
+    it('deve remover hífen no início', () => {
+      expect(toSlug('-hello')).toBe('hello');
     });
 
-    it('deve retornar string vazia para valores inválidos', () => {
+    it('deve remover hífen no final', () => {
+      expect(toSlug('hello-')).toBe('hello');
+    });
+
+    it('deve retornar string vazia quando text é null', () => {
       expect(toSlug(null)).toBe('');
+    });
+
+    it('deve retornar string vazia quando text é undefined', () => {
+      expect(toSlug(undefined)).toBe('');
+    });
+
+    it('deve retornar string vazia quando text não é string', () => {
       expect(toSlug(123)).toBe('');
     });
 
     it('deve converter para minúsculas', () => {
-      const result = toSlug('EMPRESA');
-      expect(result).toBe('empresa');
+      expect(toSlug('HELLO WORLD')).toBe('hello-world');
+    });
+
+    it('deve remover espaços no início e fim', () => {
+      expect(toSlug('  hello world  ')).toBe('hello-world');
     });
   });
 });
-

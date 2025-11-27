@@ -1,46 +1,63 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import Providers from '../providers';
-
-// Mock dos componentes
-vi.mock('../../styles/global', () => ({
-  default: () => <div data-testid="global-style">GlobalStyle</div>
-}));
-
-vi.mock('../../styles/theme', () => ({
-  theme: { colors: { primary: '#000' } }
-}));
-
-vi.mock('../../shared/context/AuthContext.jsx', () => ({
-  AuthProvider: ({ children }) => <div data-testid="auth-provider">{children}</div>
-}));
+import { ThemeProvider } from 'styled-components';
+import { AuthProvider } from '../../shared/context/AuthContext';
 
 vi.mock('styled-components', () => ({
-  ThemeProvider: ({ children }) => <div data-testid="theme-provider">{children}</div>
+  ThemeProvider: ({ children }) => <div data-testid="theme-provider">{children}</div>,
 }));
 
-describe('Providers', () => {
-  it('deve renderizar todos os providers', () => {
+vi.mock('../../shared/context/AuthContext', () => ({
+  AuthProvider: ({ children }) => <div data-testid="auth-provider">{children}</div>,
+}));
+
+vi.mock('../../styles/global', () => ({
+  default: () => <div data-testid="global-style">GlobalStyle</div>,
+}));
+
+describe('providers.jsx - 100% Coverage', () => {
+  it('deve renderizar ThemeProvider, AuthProvider e GlobalStyle', () => {
     render(
       <Providers>
-        <div data-testid="child">Test Child</div>
+        <div>Test Content</div>
       </Providers>
     );
 
     expect(screen.getByTestId('theme-provider')).toBeInTheDocument();
     expect(screen.getByTestId('auth-provider')).toBeInTheDocument();
     expect(screen.getByTestId('global-style')).toBeInTheDocument();
-    expect(screen.getByTestId('child')).toBeInTheDocument();
+    expect(screen.getByText('Test Content')).toBeInTheDocument();
   });
 
-  it('deve renderizar children corretamente', () => {
+  it('deve renderizar múltiplos children', () => {
     render(
       <Providers>
-        <div data-testid="test-content">Content</div>
+        <div>Child 1</div>
+        <div>Child 2</div>
       </Providers>
     );
 
-    expect(screen.getByTestId('test-content')).toHaveTextContent('Content');
+    expect(screen.getByText('Child 1')).toBeInTheDocument();
+    expect(screen.getByText('Child 2')).toBeInTheDocument();
+  });
+
+  it('deve renderizar sem children', () => {
+    const { container } = render(<Providers />);
+    expect(container.firstChild).toBeInTheDocument();
+  });
+
+  it('deve manter hierarquia correta de providers', () => {
+    const { container } = render(
+      <Providers>
+        <div>Content</div>
+      </Providers>
+    );
+
+    const themeProvider = screen.getByTestId('theme-provider');
+    const authProvider = screen.getByTestId('auth-provider');
+    
+    expect(themeProvider).toContainElement(authProvider);
+    expect(authProvider).toContainElement(screen.getByTestId('global-style'));
   });
 });
-

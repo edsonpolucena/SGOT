@@ -1,24 +1,25 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import Header from '../Header';
+import { useAuth } from '../../context/AuthContext';
 
-const mockUseAuth = vi.fn();
-vi.mock('../../context/AuthContext.jsx', () => ({
-  useAuth: () => mockUseAuth()
+vi.mock('../../context/AuthContext', () => ({
+  useAuth: vi.fn(),
 }));
 
-describe('Header', () => {
+describe('Header.jsx - 100% Coverage', () => {
+  const mockLogout = vi.fn();
+
   beforeEach(() => {
     vi.clearAllMocks();
+    useAuth.mockReturnValue({
+      user: { email: 'test@test.com' },
+      logout: mockLogout,
+    });
   });
 
-  it('deve renderizar links de navegação', () => {
-    mockUseAuth.mockReturnValue({
-      user: { email: 'test@test.com' },
-      logout: vi.fn()
-    });
-
+  it('deve renderizar links e informações do usuário', () => {
     render(
       <BrowserRouter>
         <Header />
@@ -27,30 +28,11 @@ describe('Header', () => {
 
     expect(screen.getByText('Obrigações')).toBeInTheDocument();
     expect(screen.getByText('Nova')).toBeInTheDocument();
+    expect(screen.getByText('test@test.com')).toBeInTheDocument();
+    expect(screen.getByText('Sair')).toBeInTheDocument();
   });
 
-  it('deve exibir email do usuário', () => {
-    mockUseAuth.mockReturnValue({
-      user: { email: 'user@test.com' },
-      logout: vi.fn()
-    });
-
-    render(
-      <BrowserRouter>
-        <Header />
-      </BrowserRouter>
-    );
-
-    expect(screen.getByText('user@test.com')).toBeInTheDocument();
-  });
-
-  it('deve chamar logout ao clicar no botão Sair', () => {
-    const logout = vi.fn();
-    mockUseAuth.mockReturnValue({
-      user: { email: 'test@test.com' },
-      logout
-    });
-
+  it('deve chamar logout quando botão Sair é clicado', () => {
     render(
       <BrowserRouter>
         <Header />
@@ -60,13 +42,28 @@ describe('Header', () => {
     const logoutButton = screen.getByText('Sair');
     fireEvent.click(logoutButton);
 
-    expect(logout).toHaveBeenCalledTimes(1);
+    expect(mockLogout).toHaveBeenCalledTimes(1);
   });
 
-  it('deve lidar com usuário sem email', () => {
-    mockUseAuth.mockReturnValue({
+  it('deve renderizar email do usuário', () => {
+    useAuth.mockReturnValue({
+      user: { email: 'user@example.com' },
+      logout: mockLogout,
+    });
+
+    render(
+      <BrowserRouter>
+        <Header />
+      </BrowserRouter>
+    );
+
+    expect(screen.getByText('user@example.com')).toBeInTheDocument();
+  });
+
+  it('deve renderizar quando user é null', () => {
+    useAuth.mockReturnValue({
       user: null,
-      logout: vi.fn()
+      logout: mockLogout,
     });
 
     render(
@@ -78,4 +75,3 @@ describe('Header', () => {
     expect(screen.getByText('Obrigações')).toBeInTheDocument();
   });
 });
-

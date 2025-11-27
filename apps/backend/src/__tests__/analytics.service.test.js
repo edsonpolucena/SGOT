@@ -1,6 +1,6 @@
 // apps/backend/src/modules/analytics/__tests__/analytics.service.test.js
 
-jest.mock('../../prisma', () => {
+jest.mock('../prisma', () => {
   // Mock básico do prisma usado pelo analytics.service
   const prisma = {
     obligation: {
@@ -15,7 +15,7 @@ jest.mock('../../prisma', () => {
   return { prisma };
 });
 
-const { prisma } = require('../../prisma');
+const { prisma } = require('../prisma');
 
 const {
   getMonthlySummary,
@@ -26,7 +26,8 @@ const {
   getDeadlineComplianceStats,
   getOverdueAndUpcomingTaxes,
   getUnviewedAlertsForAccounting,
-} = require('../analytics.service');
+  getTaxName,
+} = require('../modules/analytics/analytics.service');
 
 describe('Analytics Service (unit - cobertura)', () => {
   beforeEach(() => {
@@ -770,5 +771,42 @@ describe('Analytics Service (unit - cobertura)', () => {
 
     expect(result.threeDays.length).toBe(1);
     expect(result.threeDays[0].daysUntilDue).toBe(3);
+  });
+
+  // -------------------------------------------------------------------
+  // getTaxName
+  // -------------------------------------------------------------------
+  describe('getTaxName (função auxiliar)', () => {
+    test('deve retornar nome mapeado para DAS', () => {
+      expect(getTaxName('DAS')).toBe('DAS');
+    });
+
+    test('deve retornar nome mapeado para ISS_RETIDO', () => {
+      expect(getTaxName('ISS_RETIDO')).toBe('ISS Retido');
+    });
+
+    test('deve retornar nome mapeado para FGTS', () => {
+      expect(getTaxName('FGTS')).toBe('FGTS');
+    });
+
+    test('deve retornar nome mapeado para DCTFWeb', () => {
+      expect(getTaxName('DCTFWeb')).toBe('DCTFWeb');
+    });
+
+    test('deve retornar nome mapeado para OUTRO', () => {
+      expect(getTaxName('OUTRO')).toBe('Outro');
+    });
+
+    test('deve retornar taxType quando não está no mapeamento (fallback)', () => {
+      expect(getTaxName('IMPOSTO_DESCONHECIDO')).toBe('IMPOSTO_DESCONHECIDO');
+    });
+
+    test('deve retornar taxType quando é null', () => {
+      expect(getTaxName(null)).toBe(null);
+    });
+
+    test('deve retornar taxType quando é undefined', () => {
+      expect(getTaxName(undefined)).toBe(undefined);
+    });
   });
 });

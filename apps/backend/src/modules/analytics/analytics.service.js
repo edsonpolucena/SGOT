@@ -525,18 +525,6 @@ async function getOverdueAndUpcomingTaxes(month) {
   };
 }
 
-module.exports = { 
-  getMonthlySummary, 
-  getMonthlyVariationByTax,
-  getDocumentControlDashboard,
-  getTaxTypeStats,
-  getClientTaxReport,
-  getDeadlineComplianceStats,
-  getOverdueAndUpcomingTaxes,
-  getUnviewedAlertsForAccounting,
-  getTaxName // Exportada para testes de cobertura
-};
-
 /**
  * Retorna alertas de documentos não visualizados para contabilidade
  * Agrupa por dias até vencimento (3, 2, 1 dia)
@@ -592,3 +580,15 @@ async function getUnviewedAlertsForAccounting() {
 
   return alerts;
 }
+
+module.exports = { 
+  getMonthlySummary, 
+  getMonthlyVariationByTax,
+  getDocumentControlDashboard,
+  getTaxTypeStats,
+  getClientTaxReport,
+  getDeadlineComplianceStats,
+  getOverdueAndUpcomingTaxes,
+  getUnviewedAlertsForAccounting,
+  getTaxName // Exportada para testes de cobertura
+};

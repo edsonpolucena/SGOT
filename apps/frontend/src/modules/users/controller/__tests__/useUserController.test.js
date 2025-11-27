@@ -101,7 +101,7 @@ describe('useUserController', () => {
         response = await result.current.createUser({ email: 'new@test.com' });
       });
 
-      expect(http.post).toHaveBeenCalledWith('/api/users', { email: 'new@test.com' });
+      expect(http.post).toHaveBeenCalledWith('/api/auth/register', { email: 'new@test.com' });
       expect(response).toEqual(mockData);
     });
   });
