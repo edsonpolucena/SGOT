@@ -118,18 +118,21 @@ jobs:
 
       - name: Fix LCOV paths (backend & frontend)
         run: |
-          # Backend: caminhos gerados como "SF:src\..." ou "SF:src/..."
-          # IMPORTANTE: SonarCloud precisa de caminhos relativos à raiz do projeto
-          # Primeiro corrige barras invertidas para barras normais
-          sed -i 's#\\#/#g' apps/backend/coverage/lcov.info
-          # Depois adiciona o prefixo apps/backend/
-          sed -i 's#SF:src/#SF:apps/backend/src/#g' apps/backend/coverage/lcov.info
-          sed -i 's#SF:apps/backend/src/../#SF:apps/backend/src/#g' apps/backend/coverage/lcov.info
+          # Backend: normaliza barras e prefixa com apps/backend/src
+          if [ -f apps/backend/coverage/lcov.info ]; then
+            sed -i 's#\\#/#g' apps/backend/coverage/lcov.info
+            # usa SF:src (sem /) pra pegar tanto "SF:src" quanto "SF:src/..."
+            sed -i 's#SF:src#SF:apps/backend/src#g' apps/backend/coverage/lcov.info
+            sed -i 's#SF:apps/backend/src/../#SF:apps/backend/src/#g' apps/backend/coverage/lcov.info
+          fi
 
-          # Frontend: caminhos gerados como "SF:src\..." ou "SF:src/..."
-          sed -i 's#\\#/#g' apps/frontend/coverage/lcov.info
-          sed -i 's#SF:src/#SF:apps/frontend/src/#g' apps/frontend/coverage/lcov.info
-          sed -i 's#SF:apps/frontend/src/../#SF:apps/frontend/src/#g' apps/frontend/coverage/lcov.info
+          # Frontend: normaliza barras e prefixa com apps/frontend/src
+          if [ -f apps/frontend/coverage/lcov.info ]; then
+            sed -i 's#\\#/#g' apps/frontend/coverage/lcov.info
+            sed -i 's#SF:src#SF:apps/frontend/src#g' apps/frontend/coverage/lcov.info
+            sed -i 's#SF:apps/frontend/src/../#SF:apps/frontend/src/#g' apps/frontend/coverage/lcov.info
+          fi
+
 
       - name: Verify fixed LCOV paths
         run: |
