@@ -5,18 +5,34 @@ const jwt = require('jsonwebtoken');
 const { env } = require('../config/env');
 const bcrypt = require('bcryptjs');
 
-describe('Notification Controller', () => {
+// Mocks dos services usados pelo controller
+jest.mock('../modules/notifications/notification.service', () => ({
+  getUnviewedObligations: jest.fn().mockResolvedValue([]),
+  sendObligationNotification: jest.fn().mockResolvedValue({ success: true }),
+  getObligationNotifications: jest.fn().mockResolvedValue([]),
+  getObligationViews: jest.fn().mockResolvedValue([]),
+  getClientViewsHistory: jest.fn().mockResolvedValue([]),
+  getNotificationStats: jest.fn().mockResolvedValue({ total: 0 }),
+}));
+
+const {
+  getUnviewedObligations,
+  sendObligationNotification,
+  getObligationNotifications,
+  getObligationViews,
+  getClientViewsHistory,
+  getNotificationStats
+} = require('../modules/notifications/notification.service');
+
+describe('📌 Notification Controller', () => {
   let token;
   let adminUser;
   let company;
   let obligation;
 
   beforeAll(async () => {
-    // Criar usuário admin
-    adminUser = await prisma.user.upsert({
-      where: { email: 'admin@notification.com' },
-      update: {},
-      create: {
+    adminUser = await prisma.user.create({
+      data: {
         email: 'admin@notification.com',
         name: 'Admin User',
         passwordHash: await bcrypt.hash('password', 10),
@@ -31,21 +47,19 @@ describe('Notification Controller', () => {
       { expiresIn: '1h' }
     );
 
-    // Criar empresa
     company = await prisma.empresa.create({
       data: {
         codigo: `NOTIF${Date.now()}`,
-        nome: 'Notification Test Company',
+        nome: 'Empresa Notificação',
         cnpj: `${Date.now()}000190`,
-        email: 'company@notification.com',
+        email: 'company@test.com',
         status: 'ativa'
       }
     });
 
-    // Criar obrigação
     obligation = await prisma.obligation.create({
       data: {
-        title: 'Test Obligation',
+        title: 'Obr Teste',
         regime: 'SIMPLES',
         periodStart: new Date('2025-01-01'),
         periodEnd: new Date('2025-01-31'),
@@ -64,6 +78,9 @@ describe('Notification Controller', () => {
     await prisma.user.deleteMany();
   });
 
+  // --------------------------------------------------------------------------------------
+  // GET /unviewed
+  // --------------------------------------------------------------------------------------
   describe('GET /api/notifications/unviewed', () => {
     test('deve listar obrigações não visualizadas', async () => {
       const res = await request(app)
@@ -71,23 +88,42 @@ describe('Notification Controller', () => {
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
+      expect(getUnviewedObligations).toHaveBeenCalled();
       expect(Array.isArray(res.body)).toBe(true);
+    });
+
+    test('deve aplicar filtros corretamente', async () => {
+      const res = await request(app)
+        .get(`/api/notifications/unviewed?companyId=${company.id}&startDate=2025-01-01`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(getUnviewedObligations).toHaveBeenCalledWith({
+        companyId: `${company.id}`,
+        startDate: '2025-01-01',
+        endDate: undefined
+      });
     });
   });
 
+  // --------------------------------------------------------------------------------------
+  // GET /stats
+  // --------------------------------------------------------------------------------------
   describe('GET /api/notifications/stats', () => {
-    test('deve retornar estatísticas', async () => {
+    test('deve retornar estatísticas de notificações', async () => {
       const res = await request(app)
         .get('/api/notifications/stats')
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
-      expect(res.body).toBeDefined();
-      // Pode ter totalNotifications ou ser um array/objeto vazio
+      expect(getNotificationStats).toHaveBeenCalled();
       expect(typeof res.body).toBe('object');
     });
   });
 
+  // --------------------------------------------------------------------------------------
+  // GET /:obligationId/history
+  // --------------------------------------------------------------------------------------
   describe('GET /api/notifications/:obligationId/history', () => {
     test('deve retornar histórico de notificações', async () => {
       const res = await request(app)
@@ -95,10 +131,14 @@ describe('Notification Controller', () => {
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
+      expect(getObligationNotifications).toHaveBeenCalledWith(`${obligation.id}`);
       expect(Array.isArray(res.body)).toBe(true);
     });
   });
 
+  // --------------------------------------------------------------------------------------
+  // GET /:obligationId/views
+  // --------------------------------------------------------------------------------------
   describe('GET /api/notifications/:obligationId/views', () => {
     test('deve retornar histórico de visualizações', async () => {
       const res = await request(app)
@@ -106,10 +146,14 @@ describe('Notification Controller', () => {
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
+      expect(getObligationViews).toHaveBeenCalledWith(`${obligation.id}`);
       expect(Array.isArray(res.body)).toBe(true);
     });
   });
 
+  // --------------------------------------------------------------------------------------
+  // GET /api/obligations/:obligationId/client-views
+  // --------------------------------------------------------------------------------------
   describe('GET /api/obligations/:obligationId/client-views', () => {
     test('deve retornar histórico de visualizações de clientes', async () => {
       const res = await request(app)
@@ -117,46 +161,34 @@ describe('Notification Controller', () => {
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
+      expect(getClientViewsHistory).toHaveBeenCalledWith(`${obligation.id}`);
       expect(Array.isArray(res.body)).toBe(true);
     });
   });
 
+  // --------------------------------------------------------------------------------------
+  // POST /send/:obligationId
+  // --------------------------------------------------------------------------------------
   describe('POST /api/notifications/send/:obligationId', () => {
-    test('deve enviar notificação de obrigação', async () => {
-      // Mock do email service
-      jest.spyOn(require('../services/email.service'), 'sendNewDocumentNotification').mockResolvedValue({ success: true });
-
-      const res = await request(app)
-        .post(`/api/notifications/send/${obligation.id}`)
-        .set('Authorization', `Bearer ${token}`)
-        .expect(200);
-
-      expect(res.body).toHaveProperty('message');
-    });
-  });
-
-  describe('GET /api/notifications/unviewed com filtros', () => {
-    test('deve filtrar por companyId', async () => {
-      const res = await request(app)
-        .get(`/api/notifications/unviewed?companyId=${company.id}`)
-        .set('Authorization', `Bearer ${token}`)
-        .expect(200);
-
-      expect(Array.isArray(res.body)).toBe(true);
-    });
-  });
-
-  describe('POST /api/notifications/send/:obligationId (resend)', () => {
     test('deve reenviar notificação', async () => {
-      // Mock do email service
-      jest.spyOn(require('../services/email.service'), 'sendNewDocumentNotification').mockResolvedValue({ success: true });
-
       const res = await request(app)
         .post(`/api/notifications/send/${obligation.id}`)
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
+      expect(sendObligationNotification).toHaveBeenCalled();
       expect(res.body).toHaveProperty('message');
+    });
+
+    test('deve retornar 404 se obrigação não existir', async () => {
+      sendObligationNotification.mockRejectedValueOnce(new Error('OBLIGATION_NOT_FOUND'));
+
+      const res = await request(app)
+        .post('/api/notifications/send/999999')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(404);
+
+      expect(res.body.message).toBe('Obrigação não encontrada');
     });
   });
 });

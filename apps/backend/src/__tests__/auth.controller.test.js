@@ -1,187 +1,530 @@
-const request = require("supertest");
-const {app} = require("../app");
-const { prisma } = require("../prisma");
-const jwt = require("jsonwebtoken");
-const { env } = require("../config/env");
-const bcrypt = require("bcryptjs");
+// apps/backend/src/__tests__/auth.controller.test.js
 
-describe("AuthController", () => {
-  let adminToken;
+const { jest } = require('@jest/globals');
 
-  beforeEach(async () => {
-    // Criar usuário admin para testes
-    const adminUser = await prisma.user.upsert({
-      where: { email: 'admin@test.com' },
-      update: {},
-      create: {
-        email: 'admin@test.com',
-        name: 'Admin User',
-        passwordHash: await bcrypt.hash('password123', 10),
+// Mocks dos serviços usados pelo controller
+jest.mock('../modules/auth/auth.service', () => ({
+  registerUser: jest.fn(),
+  loginUser: jest.fn()
+}));
+
+jest.mock('../modules/auth/password-reset.service', () => ({
+  requestPasswordReset: jest.fn(),
+  validateResetToken: jest.fn(),
+  resetPassword: jest.fn()
+}));
+
+jest.mock('../prisma', () => ({
+  prisma: {
+    user: {
+      findUnique: jest.fn()
+    }
+  }
+}));
+
+jest.mock('../utils/audit.helper', () => ({
+  logAudit: jest.fn().mockResolvedValue()
+}));
+
+const { registerUser, loginUser } = require('../modules/auth/auth.service');
+const {
+  requestPasswordReset,
+  validateResetToken,
+  resetPassword
+} = require('../modules/auth/password-reset.service');
+const { prisma } = require('../prisma');
+const { logAudit } = require('../utils/audit.helper');
+
+const {
+  postRegister,
+  postLogin,
+  getMe,
+  postForgotPassword,
+  getValidateResetToken,
+  postResetPassword
+} = require('../modules/auth/auth.controller');
+
+describe('Auth Controller', () => {
+  let res;
+
+  beforeEach(() => {
+    res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis()
+    };
+    jest.clearAllMocks();
+  });
+
+  // ========== postRegister ==========
+  describe('postRegister', () => {
+    test('deve retornar 400 se email ou senha não forem enviados', async () => {
+      const req = {
+        body: { name: 'User sem senha', email: 'user@test.com' },
+        user: null
+      };
+
+      await postRegister(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Email e senha são obrigatórios'
+      });
+      expect(registerUser).not.toHaveBeenCalled();
+    });
+
+    test('deve registrar usuário via admin (req.user presente) e chamar logAudit', async () => {
+      registerUser.mockResolvedValue({
+        id: 1,
+        name: 'Admin Created',
+        email: 'admincreated@test.com',
+        role: 'CLIENT_NORMAL'
+      });
+
+      const req = {
+        body: {
+          name: 'Admin Created',
+          email: 'admincreated@test.com',
+          password: '123456',
+          role: 'CLIENT_NORMAL',
+          companyId: 10,
+          status: 'ACTIVE'
+        },
+        user: { id: 999, role: 'ACCOUNTING_SUPER' },
+        userId: 999
+      };
+
+      await postRegister(req, res);
+
+      expect(registerUser).toHaveBeenCalledWith(
+        'Admin Created',
+        'admincreated@test.com',
+        '123456',
+        'CLIENT_NORMAL',
+        10,
+        'ACTIVE',
+        false // generateToken = !req.user
+      );
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 1,
+          email: 'admincreated@test.com'
+        })
+      );
+      expect(logAudit).toHaveBeenCalledWith(
+        req,
+        'CREATE',
+        'User',
+        1,
+        expect.objectContaining({
+          email: 'admincreated@test.com',
+          role: 'CLIENT_NORMAL',
+          companyId: 10
+        })
+      );
+    });
+
+    test('deve registrar usuário em auto-registro (sem req.user) sem chamar logAudit', async () => {
+      registerUser.mockResolvedValue({
+        id: 2,
+        name: 'Auto User',
+        email: 'auto@test.com',
+        role: 'CLIENT_ADMIN'
+      });
+
+      const req = {
+        body: {
+          name: 'Auto User',
+          email: 'auto@test.com',
+          password: '123456',
+          role: 'CLIENT_ADMIN'
+        },
+        user: null,
+        userId: null
+      };
+
+      await postRegister(req, res);
+
+      expect(registerUser).toHaveBeenCalledWith(
+        'Auto User',
+        'auto@test.com',
+        '123456',
+        'CLIENT_ADMIN',
+        undefined,
+        undefined,
+        true // generateToken = !req.user
+      );
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(logAudit).not.toHaveBeenCalled();
+    });
+
+    test('deve retornar 409 se serviço lançar EMAIL_IN_USE', async () => {
+      registerUser.mockRejectedValue(new Error('EMAIL_IN_USE'));
+
+      const req = {
+        body: {
+          name: 'Duplicado',
+          email: 'dup@test.com',
+          password: '123456'
+        },
+        user: null
+      };
+
+      await postRegister(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(409);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Email já cadastrado'
+      });
+    });
+
+    test('deve retornar 500 em erro genérico', async () => {
+      registerUser.mockRejectedValue(new Error('Erro qualquer'));
+
+      const req = {
+        body: {
+          name: 'Erro',
+          email: 'erro@test.com',
+          password: '123456'
+        },
+        user: null
+      };
+
+      await postRegister(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Erro interno'
+      });
+    });
+  });
+
+  // ========== postLogin ==========
+  describe('postLogin', () => {
+    test('deve retornar 400 se email ou senha não forem enviados', async () => {
+      const req = { body: { email: 'user@test.com' } };
+
+      await postLogin(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Email e senha são obrigatórios'
+      });
+      expect(loginUser).not.toHaveBeenCalled();
+    });
+
+    test('deve logar com sucesso e chamar logAudit', async () => {
+      loginUser.mockResolvedValue({
+        token: 'fake-jwt',
+        user: { id: 1, email: 'user@test.com', role: 'ACCOUNTING_SUPER' }
+      });
+
+      const req = {
+        body: {
+          email: 'user@test.com',
+          password: '123456'
+        }
+      };
+
+      await postLogin(req, res);
+
+      expect(loginUser).toHaveBeenCalledWith('user@test.com', '123456');
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        token: 'fake-jwt',
+        user: expect.objectContaining({
+          id: 1,
+          email: 'user@test.com'
+        })
+      });
+      expect(logAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'LOGIN',
+          headers: { _auditSkipAuth: true }
+        }),
+        'LOGIN_SUCCESS',
+        'User',
+        1,
+        expect.objectContaining({
+          email: 'user@test.com',
+          role: 'ACCOUNTING_SUPER'
+        })
+      );
+    });
+
+    test('deve retornar 401 se credenciais forem inválidas', async () => {
+      loginUser.mockRejectedValue(new Error('INVALID_CREDENTIALS'));
+
+      const req = {
+        body: {
+          email: 'user@test.com',
+          password: 'wrong'
+        }
+      };
+
+      await postLogin(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Credenciais inválidas'
+      });
+    });
+
+    test('deve retornar 403 se usuário estiver inativo', async () => {
+      loginUser.mockRejectedValue(new Error('USER_INACTIVE'));
+
+      const req = {
+        body: {
+          email: 'inactive@test.com',
+          password: '123456'
+        }
+      };
+
+      await postLogin(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Usuário inativo'
+      });
+    });
+
+    test('deve retornar 500 em erro genérico', async () => {
+      loginUser.mockRejectedValue(new Error('Erro inesperado'));
+
+      const req = {
+        body: {
+          email: 'user@test.com',
+          password: '123456'
+        }
+      };
+
+      await postLogin(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Erro interno'
+      });
+    });
+  });
+
+  // ========== getMe ==========
+  describe('getMe', () => {
+    test('deve retornar dados do usuário logado', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        name: 'User Test',
+        email: 'me@test.com',
         role: 'ACCOUNTING_SUPER',
-        status: 'ACTIVE'
-      }
-    });
-
-    // Gerar token para o admin
-    adminToken = jwt.sign(
-      { sub: adminUser.id, role: adminUser.role },
-      env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
-  });
-
-  afterEach(async () => {
-    // Limpar usuários de teste (exceto admin)
-    await prisma.user.deleteMany({
-      where: {
-        email: { not: 'admin@test.com' }
-      }
-    });
-  });
-
-  test("deve registrar um usuário novo (com autenticação admin)", async () => {
-    const res = await request(app)
-      .post("/api/auth/register")
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ 
-        email: "newuser@test.com", 
-        password: "123456",
-        name: "New User",
-        role: "CLIENT_NORMAL"
+        status: 'ACTIVE',
+        companyId: 10
       });
 
-    expect(res.status).toBe(201);
-    expect(res.body.user.email).toBe("newuser@test.com");
-  });
+      const req = { userId: 1 };
 
-  test("não deve registrar usuário existente", async () => {
-    // Criar usuário existente
-    await prisma.user.create({
-      data: {
-        email: "existing@test.com",
-        name: "Existing User",
-        passwordHash: await bcrypt.hash("password123", 10),
-        role: "CLIENT_NORMAL",
-        status: "ACTIVE"
-      }
-    });
+      await getMe(req, res);
 
-    const res = await request(app)
-      .post("/api/auth/register")
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ 
-        email: "existing@test.com", 
-        password: "123456",
-        name: "Existing User",
-        role: "CLIENT_NORMAL"
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 1 }
       });
-
-    expect(res.status).toBe(409);
-  });
-
-  test("deve logar usuário válido", async () => {
-    // Criar usuário para login
-    await prisma.user.create({
-      data: {
-        email: "login@test.com",
-        name: "Login User",
-        passwordHash: await bcrypt.hash("123456", 10),
-        role: "CLIENT_NORMAL",
-        status: "ACTIVE"
-      }
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        id: 1,
+        name: 'User Test',
+        email: 'me@test.com',
+        role: 'ACCOUNTING_SUPER',
+        status: 'ACTIVE',
+        companyId: 10
+      });
     });
 
-    const res = await request(app)
-      .post("/api/auth/login")
-      .send({ email: "login@test.com", password: "123456" });
+    test('deve retornar 404 se usuário não for encontrado', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
 
-    expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty("token");
-    expect(res.body).toHaveProperty("user");
+      const req = { userId: 999 };
+
+      await getMe(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Usuário não encontrado'
+      });
+    });
   });
 
-  test("não deve logar com credenciais inválidas", async () => {
-    const res = await request(app)
-      .post("/api/auth/login")
-      .send({ email: "wrong@test.com", password: "wrongpassword" });
+  // ========== postForgotPassword ==========
+  describe('postForgotPassword', () => {
+    test('deve retornar 400 se email não for enviado', async () => {
+      const req = { body: {} };
 
-    expect(res.status).toBe(401);
-  });
+      await postForgotPassword(req, res);
 
-  test("deve retornar erro 400 se email ou senha não forem fornecidos no login", async () => {
-    const res = await request(app)
-      .post("/api/auth/login")
-      .send({ email: "test@test.com" });
-
-    expect(res.status).toBe(400);
-  });
-
-  test("não deve logar usuário inativo", async () => {
-    const inactiveUser = await prisma.user.create({
-      data: {
-        email: "inactive@test.com",
-        name: "Inactive User",
-        passwordHash: await bcrypt.hash("123456", 10),
-        role: "CLIENT_NORMAL",
-        status: "INACTIVE"
-      }
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Email é obrigatório'
+      });
+      expect(requestPasswordReset).not.toHaveBeenCalled();
     });
 
-    const res = await request(app)
-      .post("/api/auth/login")
-      .send({ email: "inactive@test.com", password: "123456" });
+    test('deve solicitar reset de senha com sucesso', async () => {
+      requestPasswordReset.mockResolvedValue(undefined);
 
-    expect(res.status).toBe(403);
-  });
+      const req = { body: { email: 'user@test.com' } };
 
-  test("deve retornar dados do usuário autenticado", async () => {
-    const res = await request(app)
-      .get("/api/auth/me")
-      .set('Authorization', `Bearer ${adminToken}`);
+      await postForgotPassword(req, res);
 
-    expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty("email");
-    expect(res.body).toHaveProperty("role");
-  });
-
-  test("deve retornar erro 400 se email não for fornecido no forgot-password", async () => {
-    const res = await request(app)
-      .post("/api/auth/forgot-password")
-      .send({});
-
-    expect(res.status).toBe(400);
-  });
-
-  test("deve solicitar recuperação de senha", async () => {
-    const user = await prisma.user.create({
-      data: {
-        email: "forgot@test.com",
-        name: "Forgot User",
-        passwordHash: await bcrypt.hash("123456", 10),
-        role: "CLIENT_NORMAL",
-        status: "ACTIVE"
-      }
+      expect(requestPasswordReset).toHaveBeenCalledWith('user@test.com');
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Se o email existir e estiver ativo, enviaremos instruções de redefinição.'
+      });
     });
 
-    const res = await request(app)
-      .post("/api/auth/forgot-password")
-      .send({ email: "forgot@test.com" });
+    test('deve retornar 403 se serviço indicar usuário inativo', async () => {
+      requestPasswordReset.mockRejectedValue(
+        new Error('Usuário inativo na base')
+      );
 
-    expect(res.status).toBe(200);
+      const req = { body: { email: 'inactive@test.com' } };
+
+      await postForgotPassword(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Usuário inativo ou sem permissão para reset de senha'
+      });
+    });
+
+    test('deve retornar 500 em erro genérico', async () => {
+      requestPasswordReset.mockRejectedValue(new Error('Falha inesperada'));
+
+      const req = { body: { email: 'user@test.com' } };
+
+      await postForgotPassword(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Erro interno'
+      });
+    });
   });
 
-  test("deve retornar erro 400 se token não for fornecido no validate-reset-token", async () => {
-    const res = await request(app)
-      .get("/api/auth/validate-reset-token/");
+  // ========== getValidateResetToken ==========
+  describe('getValidateResetToken', () => {
+    test('deve retornar 400 se token não for fornecido', async () => {
+      const req = { params: {} };
 
-    expect(res.status).toBe(404);
+      await getValidateResetToken(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        valid: false,
+        reason: 'Token não fornecido'
+      });
+    });
+
+    test('deve validar token com sucesso', async () => {
+      validateResetToken.mockResolvedValue({ userId: 1 });
+
+      const req = { params: { token: 'valid-token' } };
+
+      await getValidateResetToken(req, res);
+
+      expect(validateResetToken).toHaveBeenCalledWith('valid-token');
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        valid: true,
+        userId: 1
+      });
+    });
+
+    test('deve retornar 500 em erro de validação', async () => {
+      validateResetToken.mockRejectedValue(new Error('Erro qualquer'));
+
+      const req = { params: { token: 'invalid' } };
+
+      await getValidateResetToken(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        valid: false,
+        reason: 'Erro interno'
+      });
+    });
   });
 
-  test("deve retornar erro 400 se token ou senha não forem fornecidos no reset-password", async () => {
-    const res = await request(app)
-      .post("/api/auth/reset-password")
-      .send({ token: "test-token" });
+  // ========== postResetPassword ==========
+  describe('postResetPassword', () => {
+    test('deve retornar 400 se token não for enviado', async () => {
+      const req = { body: { newPassword: '123456' } };
 
-    expect(res.status).toBe(400);
+      await postResetPassword(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Token e nova senha são obrigatórios'
+      });
+    });
+
+    test('deve retornar 400 se nova senha não for enviada', async () => {
+      const req = { body: { token: 'abc' } };
+
+      await postResetPassword(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Token e nova senha são obrigatórios'
+      });
+    });
+
+    test('deve redefinir senha com sucesso', async () => {
+      resetPassword.mockResolvedValue(undefined);
+
+      const req = {
+        body: { token: 'valid-token', newPassword: 'nova-senha' }
+      };
+
+      await postResetPassword(req, res);
+
+      expect(resetPassword).toHaveBeenCalledWith(
+        'valid-token',
+        'nova-senha'
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Senha redefinida com sucesso'
+      });
+    });
+
+    test('deve retornar 400 se serviço lançar erro de token/senha', async () => {
+      resetPassword.mockRejectedValue(
+        new Error('Token inválido ou expirado')
+      );
+
+      const req = {
+        body: { token: 'invalid', newPassword: 'nova' }
+      };
+
+      await postResetPassword(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Token inválido ou senha inválida'
+      });
+    });
+
+    test('deve retornar 500 em erro genérico', async () => {
+      resetPassword.mockRejectedValue(new Error('Erro inesperado'));
+
+      const req = {
+        body: { token: 't', newPassword: 'nova' }
+      };
+
+      await postResetPassword(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Erro interno'
+      });
+    });
   });
 });

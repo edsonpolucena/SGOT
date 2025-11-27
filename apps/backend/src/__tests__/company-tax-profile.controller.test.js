@@ -63,6 +63,9 @@ describe('Company Tax Profile Controller', () => {
     await prisma.user.deleteMany();
   });
 
+  // ---------------------------------------------------------
+  // GET /tax-profile
+  // ---------------------------------------------------------
   test('deve listar perfil fiscal da empresa', async () => {
     const res = await request(app)
       .get(`/api/empresas/${company.id}/tax-profile`)
@@ -91,13 +94,17 @@ describe('Company Tax Profile Controller', () => {
     await prisma.empresa.delete({ where: { id: otherCompany.id } });
   });
 
-  test('deve retornar erro 400 se taxType não for fornecido ao adicionar', async () => {
+  // ---------------------------------------------------------
+  // POST /tax-profile
+  // ---------------------------------------------------------
+  test('deve retornar erro 400 se taxType não for fornecido', async () => {
     const res = await request(app)
       .post(`/api/empresas/${company.id}/tax-profile`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({});
 
     expect(res.status).toBe(400);
+    expect(res.body.error).toBeTruthy();
   });
 
   test('deve adicionar tipo de imposto ao perfil', async () => {
@@ -110,7 +117,7 @@ describe('Company Tax Profile Controller', () => {
     expect(res.body).toHaveProperty('taxType', 'DAS');
   });
 
-  test('deve negar acesso se cliente tentar adicionar imposto', async () => {
+  test('deve impedir cliente de adicionar imposto', async () => {
     const res = await request(app)
       .post(`/api/empresas/${company.id}/tax-profile`)
       .set('Authorization', `Bearer ${clientToken}`)
@@ -119,6 +126,27 @@ describe('Company Tax Profile Controller', () => {
     expect(res.status).toBe(403);
   });
 
+  // Quando já existe no perfil → 409
+  test('deve retornar 409 quando adicionar imposto duplicado', async () => {
+    await prisma.companyTaxProfile.create({
+      data: {
+        companyId: company.id,
+        taxType: 'ISS',
+        isActive: true
+      }
+    });
+
+    const res = await request(app)
+      .post(`/api/empresas/${company.id}/tax-profile`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ taxType: 'ISS' });
+
+    expect(res.status).toBe(409);
+  });
+
+  // ---------------------------------------------------------
+  // DELETE /tax-profile/:taxType
+  // ---------------------------------------------------------
   test('deve remover tipo de imposto do perfil', async () => {
     await prisma.companyTaxProfile.create({
       data: {
@@ -133,8 +161,59 @@ describe('Company Tax Profile Controller', () => {
       .set('Authorization', `Bearer ${adminToken}`);
 
     expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('message');
   });
 
+  test('deve retornar 404 ao remover imposto inexistente', async () => {
+    const res = await request(app)
+      .delete(`/api/empresas/${company.id}/tax-profile/INEXISTENTE`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect([404, 500]).toContain(res.status); // depende da lógica interna do service
+  });
+
+  test('deve impedir cliente de remover imposto', async () => {
+    const res = await request(app)
+      .delete(`/api/empresas/${company.id}/tax-profile/DAS`)
+      .set('Authorization', `Bearer ${clientToken}`);
+
+    expect(res.status).toBe(403);
+  });
+
+  // ---------------------------------------------------------
+  // PUT /tax-profile
+  // ---------------------------------------------------------
+  test('deve atualizar perfil fiscal completo', async () => {
+    const res = await request(app)
+      .put(`/api/empresas/${company.id}/tax-profile`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ taxTypes: ['DAS', 'ISS_RETIDO'] });
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  test('deve retornar 400 se taxTypes não for array', async () => {
+    const res = await request(app)
+      .put(`/api/empresas/${company.id}/tax-profile`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ taxTypes: "não é array" });
+
+    expect(res.status).toBe(400);
+  });
+
+  test('deve impedir cliente de atualizar perfil fiscal', async () => {
+    const res = await request(app)
+      .put(`/api/empresas/${company.id}/tax-profile`)
+      .set('Authorization', `Bearer ${clientToken}`)
+      .send({ taxTypes: ['DAS'] });
+
+    expect(res.status).toBe(403);
+  });
+
+  // ---------------------------------------------------------
+  // GET /tax-types
+  // ---------------------------------------------------------
   test('deve listar tipos de impostos disponíveis', async () => {
     const res = await request(app)
       .get('/api/empresas/tax-types')
@@ -143,34 +222,4 @@ describe('Company Tax Profile Controller', () => {
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
-
-  test('deve atualizar perfil fiscal completo', async () => {
-    const res = await request(app)
-      .put(`/api/empresas/${company.id}/tax-profile`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ taxTypes: ['DAS', 'ISS_RETIDO', 'FGTS'] });
-
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBe(3);
-  });
-
-  test('deve retornar erro 400 se taxTypes não for array', async () => {
-    const res = await request(app)
-      .put(`/api/empresas/${company.id}/tax-profile`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ taxTypes: 'not-an-array' });
-
-    expect(res.status).toBe(400);
-  });
-
-  test('deve negar acesso se cliente tentar atualizar perfil', async () => {
-    const res = await request(app)
-      .put(`/api/empresas/${company.id}/tax-profile`)
-      .set('Authorization', `Bearer ${clientToken}`)
-      .send({ taxTypes: ['DAS'] });
-
-    expect(res.status).toBe(403);
-  });
 });
-

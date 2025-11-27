@@ -13,6 +13,8 @@ describe('Users Service', () => {
   let normalUser;
   let clientAdmin;
   let company;
+  let otherCompany;
+  let extraUser;
 
   beforeAll(async () => {
     company = await prisma.empresa.create({
@@ -20,6 +22,15 @@ describe('Users Service', () => {
         codigo: `COMP${Date.now()}`,
         nome: 'Empresa Test',
         cnpj: `${Date.now()}000190`,
+        status: 'ativa'
+      }
+    });
+
+    otherCompany = await prisma.empresa.create({
+      data: {
+        codigo: `COMP${Date.now()}99`,
+        nome: 'Empresa Secundária',
+        cnpj: `${Date.now()}999190`,
         status: 'ativa'
       }
     });
@@ -55,6 +66,17 @@ describe('Users Service', () => {
         companyId: company.id
       }
     });
+
+    extraUser = await prisma.user.create({
+      data: {
+        email: `extra${Date.now()}@service.com`,
+        name: 'Extra',
+        passwordHash: await bcrypt.hash('password', 10),
+        role: 'CLIENT_NORMAL',
+        status: 'ACTIVE',
+        companyId: otherCompany.id
+      }
+    });
   });
 
   afterAll(async () => {
@@ -62,106 +84,116 @@ describe('Users Service', () => {
     await prisma.empresa.deleteMany();
   });
 
+  // ---------------------------------------------------------------------
+  // GET USERS
+  // ---------------------------------------------------------------------
   describe('getUsers', () => {
     test('deve listar usuários', async () => {
       const users = await getUsers({}, adminUser);
       expect(Array.isArray(users)).toBe(true);
     });
 
-    test('deve filtrar usuários por role', async () => {
-      const users = await getUsers({ role: 'CLIENT_NORMAL' }, adminUser);
-      expect(users.every(u => u.role === 'CLIENT_NORMAL')).toBe(true);
-    });
-
     test('CLIENT_ADMIN deve ver apenas usuários da própria empresa', async () => {
       const users = await getUsers({}, clientAdmin);
       expect(users.every(u => u.companyId === company.id)).toBe(true);
     });
+
+    test('filtro por role', async () => {
+      const users = await getUsers({ role: 'CLIENT_NORMAL' }, adminUser);
+      expect(users.every(u => u.role === 'CLIENT_NORMAL')).toBe(true);
+    });
+
+    test('filtro por companyId (ACCOUNTING)', async () => {
+      const users = await getUsers({ companyId: company.id }, adminUser);
+      expect(users.every(u => u.companyId === company.id)).toBe(true);
+    });
+
+    test('filtro por status', async () => {
+      const users = await getUsers({ status: 'ACTIVE' }, adminUser);
+      expect(users.every(u => u.status === 'ACTIVE')).toBe(true);
+    });
   });
 
+  // ---------------------------------------------------------------------
+  // GET USER BY ID
+  // ---------------------------------------------------------------------
   describe('getUserById', () => {
-    test('deve buscar usuário por ID', async () => {
+    test('deve retornar usuário por ID', async () => {
       const user = await getUserById(normalUser.id, adminUser);
       expect(user.id).toBe(normalUser.id);
     });
 
-    test('deve lançar erro se usuário não encontrado', async () => {
+    test('deve lançar USER_NOT_FOUND', async () => {
       await expect(getUserById('invalid-id', adminUser))
+        .rejects.toThrow('USER_NOT_FOUND');
+    });
+
+    test('CLIENT_ADMIN não pode ver usuário de outra empresa', async () => {
+      await expect(getUserById(extraUser.id, clientAdmin))
+        .rejects.toThrow('FORBIDDEN');
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // UPDATE USER
+  // ---------------------------------------------------------------------
+  describe('updateUser', () => {
+    test('deve atualizar nome', async () => {
+      const updated = await updateUser(normalUser.id, { name: 'Novo Nome' }, adminUser);
+      expect(updated.name).toBe('Novo Nome');
+    });
+
+    test('deve atualizar e-mail', async () => {
+      const updated = await updateUser(normalUser.id, { email: 'new@mail.com' }, adminUser);
+      expect(updated.email).toBe('new@mail.com');
+    });
+
+    test('deve atualizar senha', async () => {
+      const updated = await updateUser(normalUser.id, { password: '12345678' }, adminUser);
+      expect(updated).toBeDefined();
+    });
+
+    test('não deve permitir email já usado', async () => {
+      const dummy = await prisma.user.create({
+        data: {
+          email: 'testemail@service.com',
+          name: 'Dummy',
+          passwordHash: await bcrypt.hash('password', 10),
+          role: 'CLIENT_NORMAL',
+          status: 'ACTIVE'
+        }
+      });
+
+      await expect(
+        updateUser(normalUser.id, { email: 'testemail@service.com' }, adminUser)
+      ).rejects.toThrow('EMAIL_IN_USE');
+
+      await prisma.user.delete({ where: { id: dummy.id } });
+    });
+
+    test('CLIENT_ADMIN não pode alterar role para ACCOUNTING', async () => {
+      await expect(
+        updateUser(normalUser.id, { role: 'ACCOUNTING_ADMIN' }, clientAdmin)
+      ).rejects.toThrow('FORBIDDEN_ROLE_CHANGE');
+    });
+
+    test('CLIENT_ADMIN não pode editar usuário de outra empresa', async () => {
+      await expect(
+        updateUser(extraUser.id, { name: 'Teste' }, clientAdmin)
+      ).rejects.toThrow('FORBIDDEN');
+    });
+
+    test('deve lançar USER_NOT_FOUND', async () => {
+      await expect(updateUser('invalid', { name: 'X' }, adminUser))
         .rejects.toThrow('USER_NOT_FOUND');
     });
   });
 
-  describe('updateUser', () => {
-    test('deve atualizar usuário', async () => {
-      const updated = await updateUser(normalUser.id, { name: 'Updated Name' }, adminUser);
-      expect(updated.name).toBe('Updated Name');
-    });
-
-    test('deve atualizar email do usuário', async () => {
-      const newEmail = 'updated@userservice.com';
-      const updated = await updateUser(normalUser.id, { email: newEmail }, adminUser);
-      expect(updated.email).toBe(newEmail);
-    });
-
-    test('deve atualizar senha do usuário', async () => {
-      const updated = await updateUser(normalUser.id, { password: 'newPassword123' }, adminUser);
-      expect(updated).toBeDefined();
-    });
-
-    test('deve lançar erro se email já estiver em uso', async () => {
-      const otherUser = await prisma.user.create({
-        data: {
-          email: 'existing@userservice.com',
-          name: 'Existing User',
-          passwordHash: await bcrypt.hash('password', 10),
-          role: 'CLIENT_NORMAL',
-          status: 'ACTIVE',
-          companyId: company.id
-        }
-      });
-
-      await expect(updateUser(normalUser.id, { email: 'existing@userservice.com' }, adminUser))
-        .rejects.toThrow('EMAIL_IN_USE');
-
-      await prisma.user.delete({ where: { id: otherUser.id } });
-    });
-
-    test('CLIENT_ADMIN não deve alterar role para ACCOUNTING', async () => {
-      await expect(updateUser(normalUser.id, { role: 'ACCOUNTING_SUPER' }, clientAdmin))
-        .rejects.toThrow('FORBIDDEN_ROLE_CHANGE');
-    });
-
-    test('CLIENT_ADMIN não deve editar usuário de outra empresa', async () => {
-      const otherCompany = await prisma.empresa.create({
-        data: {
-          codigo: `OTHER${Date.now()}`,
-          nome: 'Other Company',
-          cnpj: `${Date.now()}000191`,
-          status: 'ativa'
-        }
-      });
-
-      const otherUser = await prisma.user.create({
-        data: {
-          email: `other${Date.now()}@test.com`,
-          name: 'Other User',
-          passwordHash: await bcrypt.hash('password', 10),
-          role: 'CLIENT_NORMAL',
-          status: 'ACTIVE',
-          companyId: otherCompany.id
-        }
-      });
-
-      await expect(updateUser(otherUser.id, { name: 'Test' }, clientAdmin))
-        .rejects.toThrow('FORBIDDEN');
-
-      await prisma.user.delete({ where: { id: otherUser.id } });
-      await prisma.empresa.delete({ where: { id: otherCompany.id } });
-    });
-  });
-
+  // ---------------------------------------------------------------------
+  // UPDATE USER STATUS
+  // ---------------------------------------------------------------------
   describe('updateUserStatus', () => {
-    test('deve atualizar status do usuário', async () => {
+    test('deve inativar usuário', async () => {
       const updated = await updateUserStatus(normalUser.id, 'INACTIVE', adminUser);
       expect(updated.status).toBe('INACTIVE');
     });
@@ -171,18 +203,31 @@ describe('Users Service', () => {
       expect(updated.status).toBe('ACTIVE');
     });
 
-    test('não deve permitir que usuário desative a si mesmo', async () => {
+    test('CLIENT_ADMIN não pode alterar usuário de outra empresa', async () => {
+      await expect(updateUserStatus(extraUser.id, 'INACTIVE', clientAdmin))
+        .rejects.toThrow('FORBIDDEN');
+    });
+
+    test('não pode desativar a si mesmo', async () => {
       await expect(updateUserStatus(adminUser.id, 'INACTIVE', adminUser))
         .rejects.toThrow('CANNOT_DEACTIVATE_SELF');
     });
+
+    test('deve lançar USER_NOT_FOUND', async () => {
+      await expect(updateUserStatus('invalid', 'ACTIVE', adminUser))
+        .rejects.toThrow('USER_NOT_FOUND');
+    });
   });
 
+  // ---------------------------------------------------------------------
+  // DELETE USER (SOFT DELETE)
+  // ---------------------------------------------------------------------
   describe('deleteUser', () => {
-    test('deve deletar usuário (soft delete)', async () => {
+    test('deve deletar (soft delete)', async () => {
       const testUser = await prisma.user.create({
         data: {
           email: `delete${Date.now()}@test.com`,
-          name: 'Delete User',
+          name: 'Delete Test',
           passwordHash: await bcrypt.hash('password', 10),
           role: 'CLIENT_NORMAL',
           status: 'ACTIVE',
@@ -191,64 +236,25 @@ describe('Users Service', () => {
       });
 
       const result = await deleteUser(testUser.id, adminUser);
-      expect(result).toHaveProperty('message', 'Usuário desativado com sucesso');
+      expect(result.message).toBe('Usuário desativado com sucesso');
 
-      const deleted = await prisma.user.findUnique({ where: { id: testUser.id } });
-      expect(deleted.status).toBe('INACTIVE');
-    });
-  });
-
-  describe('getUsers com filtros', () => {
-    test('deve filtrar por companyId', async () => {
-      const users = await getUsers({ companyId: company.id }, adminUser);
-      expect(users.every(u => u.companyId === company.id)).toBe(true);
+      const deletedUser = await prisma.user.findUnique({ where: { id: testUser.id } });
+      expect(deletedUser.status).toBe('INACTIVE');
     });
 
-    test('deve filtrar por status', async () => {
-      const users = await getUsers({ status: 'ACTIVE' }, adminUser);
-      expect(users.every(u => u.status === 'ACTIVE')).toBe(true);
+    test('CLIENT_ADMIN não pode deletar usuário de outra empresa', async () => {
+      await expect(deleteUser(extraUser.id, clientAdmin))
+        .rejects.toThrow('FORBIDDEN');
     });
-  });
 
-  describe('getUserById com restrições', () => {
-    test('CLIENT_ADMIN não deve ver usuário de outra empresa', async () => {
-      const otherCompany = await prisma.empresa.create({
-        data: {
-          codigo: `OTHER${Date.now()}`,
-          nome: 'Other Company',
-          cnpj: `${Date.now()}000191`,
-          status: 'ativa'
-        }
-      });
+    test('não pode deletar a si mesmo', async () => {
+      await expect(deleteUser(adminUser.id, adminUser))
+        .rejects.toThrow('CANNOT_DELETE_SELF');
+    });
 
-      const otherUser = await prisma.user.create({
-        data: {
-          email: `other${Date.now()}@test.com`,
-          name: 'Other User',
-          passwordHash: await bcrypt.hash('password', 10),
-          role: 'CLIENT_NORMAL',
-          status: 'ACTIVE',
-          companyId: otherCompany.id
-        }
-      });
-
-      await expect(getUserById(otherUser.id, clientAdmin)).rejects.toThrow('FORBIDDEN');
-
-      await prisma.user.delete({ where: { id: otherUser.id } });
-      await prisma.empresa.delete({ where: { id: otherCompany.id } });
+    test('USER_NOT_FOUND ao deletar', async () => {
+      await expect(deleteUser('invalid', adminUser))
+        .rejects.toThrow('USER_NOT_FOUND');
     });
   });
 });
-
-
-
-
-
-
-
-
-
-
-
-
-

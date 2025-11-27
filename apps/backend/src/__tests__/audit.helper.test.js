@@ -1,19 +1,32 @@
-const { logAudit } = require('../utils/audit.helper');
-const { prisma } = require('../prisma');
-const bcrypt = require('bcryptjs');
+const { logAudit } = require("../utils/audit.helper");
+const { prisma } = require("../prisma");
+const bcrypt = require("bcryptjs");
 
-describe('Audit Helper', () => {
+// Mock completo do createAuditLog
+jest.mock("../modules/audit/audit.service", () => ({
+  createAuditLog: jest.fn((data) =>
+    Promise.resolve({
+      id: "mock-log-id",
+      ...data,
+      createdAt: new Date(),
+    })
+  ),
+}));
+
+const { createAuditLog } = require("../modules/audit/audit.service");
+
+describe("Audit Helper", () => {
   let user;
 
   beforeAll(async () => {
     user = await prisma.user.create({
       data: {
         email: `audit${Date.now()}@test.com`,
-        name: 'Audit Test User',
-        passwordHash: await bcrypt.hash('password', 10),
-        role: 'ACCOUNTING_SUPER',
-        status: 'ACTIVE'
-      }
+        name: "Audit Test User",
+        passwordHash: await bcrypt.hash("password", 10),
+        role: "ACCOUNTING_SUPER",
+        status: "ACTIVE",
+      },
     });
   });
 
@@ -22,111 +35,122 @@ describe('Audit Helper', () => {
     await prisma.user.deleteMany();
   });
 
-  test('deve criar log de auditoria', async () => {
+  test("deve criar log de auditoria com todos os campos", async () => {
     const req = {
-      user: { id: user.id, role: user.role },
-      method: 'POST',
-      url: '/api/test',
-      ip: '127.0.0.1',
-      headers: {
-        'user-agent': 'test-agent'
-      }
+      userId: user.id,
+      method: "POST",
+      url: "/api/test",
+      ip: "127.0.0.1",
+      headers: { "user-agent": "test-agent" },
     };
 
-    await logAudit(req, 'CREATE', 'User', 'test-id');
+    const result = await logAudit(req, "CREATE", "User", "123");
 
-    const logs = await prisma.auditLog.findMany({
-      where: { userId: user.id }
-    });
+    expect(createAuditLog).toHaveBeenCalledTimes(1);
+    expect(createAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: user.id,
+        action: "CREATE",
+        entity: "User",
+        entityId: "123",
+        ipAddress: "127.0.0.1",
+        userAgent: "test-agent",
+      })
+    );
 
-    expect(logs.length).toBeGreaterThan(0);
-    expect(logs[0].action).toBe('CREATE');
-    expect(logs[0].entity).toBe('User');
-    expect(logs[0].entityId).toBe('test-id');
+    expect(result).toHaveProperty("id");
   });
 
-  test('deve lidar com req sem user', async () => {
+  test("deve lidar com req sem user (retorna null e não lança erro)", async () => {
     const req = {
-      method: 'GET',
-      url: '/api/test',
-      connection: { remoteAddress: '127.0.0.1' },
-      headers: {
-        'user-agent': 'test-agent'
-      }
+      method: "GET",
+      url: "/api/test",
+      connection: { remoteAddress: "127.0.0.1" },
+      headers: { "user-agent": "test-agent" },
     };
 
-    // Não deve lançar erro
-    await expect(logAudit(req, 'VIEW', 'User', 'test-id')).resolves.not.toThrow();
+    const result = await logAudit(req, "VIEW", "User", "123");
+
+    expect(result).toBeNull();
+    expect(createAuditLog).toHaveBeenCalledTimes(1); // não é chamada novamente
   });
 
-  test('deve lidar com req sem headers', async () => {
+  test("deve lidar com req sem headers", async () => {
     const req = {
-      user: { id: user.id, role: user.role },
-      method: 'GET',
-      url: '/api/test'
+      user: { id: user.id },
+      method: "GET",
+      url: "/api/test",
     };
 
-    // Não deve lançar erro
-    await expect(logAudit(req, 'VIEW', 'User', 'test-id')).resolves.not.toThrow();
+    const result = await logAudit(req, "VIEW", "User", "123");
+
+    expect(result).not.toBeNull();
+    expect(createAuditLog).toHaveBeenCalledTimes(2);
+
+    expect(createAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: user.id,
+        userAgent: "unknown",
+      })
+    );
   });
 
-  test('deve criar log com metadata', async () => {
+  test("deve criar log com metadata", async () => {
     const req = {
-      user: { id: user.id, role: user.role },
-      method: 'PUT',
-      url: '/api/test',
-      ip: '127.0.0.1',
-      headers: { 'user-agent': 'test-agent' }
+      userId: user.id,
+      method: "PUT",
+      url: "/api/test",
+      ip: "127.0.0.1",
+      headers: { "user-agent": "test-agent" },
     };
 
-    await logAudit(req, 'UPDATE', 'User', 'test-id', { field: 'email', oldValue: 'old@test.com', newValue: 'new@test.com' });
+    const metadata = {
+      field: "email",
+      oldValue: "old@test.com",
+      newValue: "new@test.com",
+    };
 
-    const logs = await prisma.auditLog.findMany({
-      where: { userId: user.id, action: 'UPDATE' },
-      orderBy: { createdAt: 'desc' },
-      take: 1
-    });
+    const result = await logAudit(req, "UPDATE", "User", "123", metadata);
 
-    expect(logs.length).toBeGreaterThan(0);
-    const metadata = JSON.parse(logs[0].metadata);
-    expect(metadata).toHaveProperty('field', 'email');
+    expect(result).toHaveProperty("metadata", metadata);
+    expect(createAuditLog).toHaveBeenCalledTimes(3);
   });
 
-  test('deve criar log com diferentes tipos de ação', async () => {
+  test("deve criar log com diferentes ações", async () => {
     const req = {
-      user: { id: user.id, role: user.role },
-      method: 'DELETE',
-      url: '/api/test',
-      ip: '127.0.0.1',
-      headers: { 'user-agent': 'test-agent' }
+      userId: user.id,
+      method: "DELETE",
+      url: "/api/test",
+      ip: "127.0.0.1",
+      headers: { "user-agent": "test-agent" },
     };
 
-    await logAudit(req, 'DELETE', 'Obligation', 'obligation-id');
+    await logAudit(req, "DELETE", "Obligation", "obl-1");
 
-    const logs = await prisma.auditLog.findMany({
-      where: { userId: user.id, action: 'DELETE' }
-    });
-
-    expect(logs.length).toBeGreaterThan(0);
-    expect(logs[0].entity).toBe('Obligation');
+    expect(createAuditLog).toHaveBeenCalledTimes(4);
+    expect(createAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "DELETE",
+        entity: "Obligation",
+        entityId: "obl-1",
+      })
+    );
   });
 
-  test('deve lidar com erro ao criar log sem falhar', async () => {
+  test("deve lidar com erro interno sem lançar erro", async () => {
+    createAuditLog.mockRejectedValueOnce(new Error("DB error"));
+
     const req = {
-      user: { id: 'invalid-user-id', role: 'ADMIN' },
-      method: 'POST',
-      url: '/api/test',
-      ip: '127.0.0.1',
-      headers: { 'user-agent': 'test-agent' }
+      userId: user.id,
+      method: "POST",
+      url: "/api/test",
+      ip: "127.0.0.1",
+      headers: { "user-agent": "test-agent" },
     };
 
-    // Não deve lançar erro mesmo com userId inválido
-    await expect(logAudit(req, 'CREATE', 'User', 'test-id')).resolves.not.toThrow();
+    const result = await logAudit(req, "CREATE", "User", "123");
+
+    expect(result).toBeNull();
+    expect(createAuditLog).toHaveBeenCalledTimes(5);
   });
 });
-
-
-
-
-
-

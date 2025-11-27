@@ -18,8 +18,8 @@ describe('requireAuth Middleware', () => {
         name: 'Require Auth User',
         passwordHash: await bcrypt.hash('password', 10),
         role: 'ACCOUNTING_SUPER',
-        status: 'ACTIVE'
-      }
+        status: 'ACTIVE',
+      },
     });
 
     token = jwt.sign(
@@ -34,8 +34,8 @@ describe('requireAuth Middleware', () => {
         name: 'Inactive Auth User',
         passwordHash: await bcrypt.hash('password', 10),
         role: 'CLIENT_NORMAL',
-        status: 'INACTIVE'
-      }
+        status: 'INACTIVE',
+      },
     });
 
     inactiveToken = jwt.sign(
@@ -50,8 +50,17 @@ describe('requireAuth Middleware', () => {
   });
 
   test('deve retornar 401 se token não for fornecido', async () => {
+    const res = await request(app).get('/api/auth/me');
+
+    expect(res.status).toBe(401);
+    expect(res.body.message).toBe('Missing token');
+  });
+
+  test('deve retornar 401 se Authorization não começar com Bearer', async () => {
     const res = await request(app)
-      .get('/api/auth/me');
+      .get('/api/auth/me')
+      // Header presente, mas formato errado
+      .set('Authorization', `Token ${token}`);
 
     expect(res.status).toBe(401);
     expect(res.body.message).toBe('Missing token');
@@ -73,6 +82,7 @@ describe('requireAuth Middleware', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('email');
+    expect(res.body.email).toBe(user.email);
   });
 
   test('deve bloquear usuário inativo', async () => {
@@ -86,7 +96,7 @@ describe('requireAuth Middleware', () => {
 
   test('deve retornar 401 se usuário não existir', async () => {
     const fakeToken = jwt.sign(
-      { sub: '99999', role: 'ACCOUNTING_SUPER' },
+      { sub: 999999, role: 'ACCOUNTING_SUPER' }, // ID que não existe
       env.JWT_SECRET,
       { expiresIn: '1h' }
     );

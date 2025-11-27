@@ -1,93 +1,143 @@
 const request = require("supertest");
 const { app } = require("../app");
-const { prisma } = require("../prisma");
+
+// MOCK do audit.service
+jest.mock("../modules/audit/audit.service", () => ({
+  getAuditLogs: jest.fn(),
+  getAuditLogById: jest.fn(),
+  getAuditStats: jest.fn()
+}));
+
+const {
+  getAuditLogs,
+  getAuditLogById,
+  getAuditStats
+} = require("../modules/audit/audit.service");
+
 const jwt = require("jsonwebtoken");
 const { env } = require("../config/env");
-const bcrypt = require("bcryptjs");
-const { EntityType } = require("@prisma/client");
 
 describe("AuditController", () => {
-  let adminToken;
-  let user;
+  let token;
 
-  beforeAll(async () => {
-    const admin = await prisma.user.upsert({
-      where: { email: 'admin@audit.com' },
-      update: {},
-      create: {
-        email: 'admin@audit.com',
-        name: 'Admin',
-        passwordHash: await bcrypt.hash('password', 10),
-        role: 'ACCOUNTING_SUPER',
-        status: 'ACTIVE'
-      }
-    });
-
-    adminToken = jwt.sign(
-      { sub: admin.id, role: admin.role },
+  beforeAll(() => {
+    token = jwt.sign(
+      { sub: 1, role: "ACCOUNTING_SUPER" },
       env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: "1h" }
     );
+  });
 
-    user = await prisma.user.create({
-      data: {
-        email: 'audit@test.com',
-        name: 'Test User',
-        passwordHash: await bcrypt.hash('password', 10),
-        role: 'CLIENT_NORMAL',
-        status: 'ACTIVE'
-      }
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // ========================================================
+  //  LIST /api/audit/logs
+  // ========================================================
+  test("deve listar logs de auditoria com filtros", async () => {
+    getAuditLogs.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+
+    const res = await request(app)
+      .get("/api/audit/logs?action=CREATE&page=1&limit=10")
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+
+    expect(getAuditLogs).toHaveBeenCalledWith({
+      userId: undefined,
+      action: "CREATE",
+      entity: undefined,
+      entityId: undefined,
+      startDate: undefined,
+      endDate: undefined,
+      page: "1",
+      limit: "10"
     });
+
+    expect(res.body.length).toBe(2);
   });
 
-  afterAll(async () => {
-    await prisma.auditLog.deleteMany();
-    await prisma.user.deleteMany();
-  });
+  test("deve retornar 500 ao listar logs (erro interno)", async () => {
+    getAuditLogs.mockRejectedValue(new Error("DB_ERROR"));
 
-  test("deve listar logs de auditoria", async () => {
     const res = await request(app)
       .get("/api/audit/logs")
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
+      .set("Authorization", `Bearer ${token}`)
+      .expect(500);
 
-    expect(res.body).toBeDefined();
+    expect(res.body).toHaveProperty("message");
   });
 
+  // ========================================================
+  //  GET /api/audit/logs/:id
+  // ========================================================
   test("deve buscar log por ID", async () => {
-    // Criar um log primeiro (usando enum EntityType)
-    const log = await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'CREATE',
-        entity: EntityType.USER,
-        entityId: user.id,
-        metadata: JSON.stringify({}),
-        ipAddress: '127.0.0.1',
-        userAgent: 'Test'
-      }
+    getAuditLogById.mockResolvedValue({ id: 10 });
+
+    const res = await request(app)
+      .get("/api/audit/logs/10")
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+
+    expect(getAuditLogById).toHaveBeenCalledWith("10");
+    expect(res.body.id).toBe(10);
+  });
+
+  test("deve retornar 404 quando log não existir", async () => {
+    const err = new Error("LOG_NOT_FOUND");
+    err.message = "LOG_NOT_FOUND";
+
+    getAuditLogById.mockRejectedValue(err);
+
+    const res = await request(app)
+      .get("/api/audit/logs/999")
+      .set("Authorization", `Bearer ${token}`)
+      .expect(404);
+
+    expect(res.body).toHaveProperty("message", "Log não encontrado");
+  });
+
+  test("deve retornar 500 ao buscar log (erro interno)", async () => {
+    getAuditLogById.mockRejectedValue(new Error("SERVER_FAIL"));
+
+    const res = await request(app)
+      .get("/api/audit/logs/20")
+      .set("Authorization", `Bearer ${token}`)
+      .expect(500);
+
+    expect(res.body.message).toContain("Erro ao buscar log");
+  });
+
+  // ========================================================
+  //  GET /api/audit/stats
+  // ========================================================
+  test("deve retornar estatísticas de auditoria", async () => {
+    getAuditStats.mockResolvedValue({
+      total: 5,
+      last24h: 2
     });
 
     const res = await request(app)
-      .get(`/api/audit/logs/${log.id}`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .get("/api/audit/stats?startDate=2024-01-01&endDate=2024-01-31")
+      .set("Authorization", `Bearer ${token}`)
       .expect(200);
 
-    expect(res.body.id).toBe(log.id);
+    expect(getAuditStats).toHaveBeenCalledWith({
+      startDate: "2024-01-01",
+      endDate: "2024-01-31"
+    });
+
+    expect(res.body.total).toBe(5);
   });
 
-  test("deve retornar estatísticas de auditoria", async () => {
+  test("deve retornar 500 ao buscar estatísticas (erro interno)", async () => {
+    getAuditStats.mockRejectedValue(new Error("STATS_FAIL"));
+
     const res = await request(app)
       .get("/api/audit/stats")
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
+      .set("Authorization", `Bearer ${token}`)
+      .expect(500);
 
-    expect(res.body).toBeDefined();
+    expect(res.body.message).toContain("Erro ao buscar estatísticas");
   });
 });
-
-
-
-
-
-

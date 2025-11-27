@@ -1,159 +1,168 @@
-const request = require("supertest");
-const {app} = require("../app");
-const { prisma } = require("../prisma");
-const jwt = require("jsonwebtoken");
-const { env } = require("../config/env");
-const bcrypt = require("bcryptjs");
+// apps/backend/src/tests/company.controller.test.js
+const companyController = require('../modules/company/company.controller');
+const companyService = require('../modules/company/company.service');
 
-describe("CompanyController", () => {
-  let token;
+jest.mock('../modules/company/company.service');
 
-  beforeAll(async () => {
-    const user = await prisma.user.upsert({
-      where: { email: 'test@company.com' },
-      update: {},
-      create: {
-        email: 'test@company.com',
-        name: 'Test User',
-        passwordHash: await bcrypt.hash('password', 10),
-        role: 'ACCOUNTING_SUPER',
-        status: 'ACTIVE'
-      }
+const createMockRes = () => {
+  const res = {};
+  res.status = jest.fn().mockReturnValue(res);
+  res.json = jest.fn().mockReturnValue(res);
+  res.sendStatus = jest.fn().mockReturnValue(res);
+  return res;
+};
+
+describe('CompanyController', () => {
+  let next;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    next = jest.fn();
+  });
+
+  describe('create', () => {
+    it('deve criar empresa e retornar 201', async () => {
+      const req = { body: { nome: 'Empresa Teste' } };
+      const res = createMockRes();
+      const empresaMock = { id: 1, nome: 'Empresa Teste' };
+
+      companyService.create.mockResolvedValue(empresaMock);
+
+      await companyController.create(req, res, next);
+
+      expect(companyService.create).toHaveBeenCalledWith(req.body);
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith(empresaMock);
+      expect(next).not.toHaveBeenCalled();
     });
 
-    token = jwt.sign(
-      { sub: user.id, role: user.role },
-      env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
+    it('deve chamar next em caso de erro no create', async () => {
+      const req = { body: { nome: 'Empresa Erro' } };
+      const res = createMockRes();
+      const error = new Error('Erro ao criar');
+
+      companyService.create.mockRejectedValue(error);
+
+      await companyController.create(req, res, next);
+
+      expect(companyService.create).toHaveBeenCalledWith(req.body);
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+    });
   });
 
-  beforeEach(async () => {
-    // Limpar empresas antes de cada teste para evitar conflitos
-    await prisma.empresa.deleteMany();
-  });
+  describe('getAll', () => {
+    it('deve retornar lista de empresas', async () => {
+      const req = {};
+      const res = createMockRes();
+      const empresasMock = [{ id: 1 }, { id: 2 }];
 
-  afterAll(async () => {
-    await prisma.empresa.deleteMany();
-    await prisma.user.deleteMany();
-  });
+      companyService.getAll.mockResolvedValue(empresasMock);
 
-  test("deve criar empresa", async () => {
-    const timestamp = Date.now();
-    // Gerar CNPJ válido de 14 dígitos
-    const cnpjNumeros = `12${timestamp.toString().slice(-12)}`;
-    const res = await request(app)
-      .post("/api/empresas")
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        codigo: `TEST${timestamp}`,
-        nome: "Empresa Teste",
-        cnpj: cnpjNumeros,
-        email: `teste${timestamp}@empresa.com`,
-        telefone: "47999999999",
-        endereco: "Rua Teste, 123",
-        status: "ativa"
-      });
+      await companyController.getAll(req, res, next);
 
-    expect(res.status).toBe(201);
-    expect(res.body.nome).toBe("Empresa Teste");
-  });
-
-  test("deve listar empresas", async () => {
-    const timestamp = Date.now();
-    // Criar empresas de teste com CNPJs válidos
-    await prisma.empresa.createMany({
-      data: [
-        {
-          codigo: `COMP${timestamp}1`,
-          nome: "Empresa A",
-          cnpj: `11.222.333/0001-81`,
-          status: "ativa"
-        },
-        {
-          codigo: `COMP${timestamp}2`,
-          nome: "Empresa B",
-          cnpj: `22.333.444/0001-92`,
-          status: "ativa"
-        }
-      ]
+      expect(companyService.getAll).toHaveBeenCalledTimes(1);
+      expect(res.json).toHaveBeenCalledWith(empresasMock);
+      expect(next).not.toHaveBeenCalled();
     });
 
-    const res = await request(app)
-      .get("/api/empresas")
-      .set('Authorization', `Bearer ${token}`)
-      .expect(200);
+    it('deve chamar next em caso de erro no getAll', async () => {
+      const req = {};
+      const res = createMockRes();
+      const error = new Error('Erro ao listar');
 
-    expect(Array.isArray(res.body)).toBe(true);
+      companyService.getAll.mockRejectedValue(error);
+
+      await companyController.getAll(req, res, next);
+
+      expect(companyService.getAll).toHaveBeenCalledTimes(1);
+      expect(next).toHaveBeenCalledWith(error);
+    });
   });
 
-  test("deve atualizar empresa existente", async () => {
-    const timestamp = Date.now();
-    const empresa = await prisma.empresa.create({
-      data: {
-        codigo: `UPD${timestamp}`,
-        nome: "Empresa Original",
-        cnpj: `33.444.555/0001-03`,
-        status: "ativa"
-      }
+  describe('getById', () => {
+    it('deve buscar empresa por ID', async () => {
+      const req = { params: { id: '10' } };
+      const res = createMockRes();
+      const empresaMock = { id: 10, nome: 'Empresa X' };
+
+      companyService.getById.mockResolvedValue(empresaMock);
+
+      await companyController.getById(req, res, next);
+
+      expect(companyService.getById).toHaveBeenCalledWith(10);
+      expect(res.json).toHaveBeenCalledWith(empresaMock);
+      expect(next).not.toHaveBeenCalled();
     });
 
-    const res = await request(app)
-      .put(`/api/empresas/${empresa.id}`)
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        nome: "Empresa Atualizada",
-        telefone: "47988888888"
-      });
+    it('deve chamar next em caso de erro no getById', async () => {
+      const req = { params: { id: '10' } };
+      const res = createMockRes();
+      const error = new Error('Erro ao buscar empresa');
 
-    expect(res.status).toBe(200);
-    expect(res.body.nome).toBe("Empresa Atualizada");
+      companyService.getById.mockRejectedValue(error);
+
+      await companyController.getById(req, res, next);
+
+      expect(companyService.getById).toHaveBeenCalledWith(10);
+      expect(next).toHaveBeenCalledWith(error);
+    });
   });
 
-  test("não deve criar empresa com CNPJ duplicado", async () => {
-    const timestamp = Date.now();
-    const cnpj = `98.765.432/0001-10`; // CNPJ com máscara
-    
-    await prisma.empresa.create({
-      data: {
-        codigo: `DUP${timestamp}1`,
-        nome: "Primeira Empresa",
-        cnpj: cnpj,
-        status: "ativa"
-      }
+  describe('update', () => {
+    it('deve atualizar empresa', async () => {
+      const req = { params: { id: '5' }, body: { nome: 'Atualizada' } };
+      const res = createMockRes();
+      const empresaAtualizada = { id: 5, nome: 'Atualizada' };
+
+      companyService.update.mockResolvedValue(empresaAtualizada);
+
+      await companyController.update(req, res, next);
+
+      expect(companyService.update).toHaveBeenCalledWith(5, req.body);
+      expect(res.json).toHaveBeenCalledWith(empresaAtualizada);
+      expect(next).not.toHaveBeenCalled();
     });
 
-    const res = await request(app)
-      .post("/api/empresas")
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        codigo: `DUP${timestamp}2`,
-        nome: "Segunda Empresa",
-        cnpj: cnpj,
-        status: "ativa"
-      });
+    it('deve chamar next em caso de erro no update', async () => {
+      const req = { params: { id: '5' }, body: { nome: 'Erro' } };
+      const res = createMockRes();
+      const error = new Error('Erro ao atualizar');
 
-    // Pode retornar 409 (conflict) ou 500 (error interno)
-    expect([409, 500]).toContain(res.status);
+      companyService.update.mockRejectedValue(error);
+
+      await companyController.update(req, res, next);
+
+      expect(companyService.update).toHaveBeenCalledWith(5, req.body);
+      expect(next).toHaveBeenCalledWith(error);
+    });
   });
 
-  test("deve buscar empresa por ID", async () => {
-    const timestamp = Date.now();
-    const empresa = await prisma.empresa.create({
-      data: {
-        codigo: `GET${timestamp}`,
-        nome: "Empresa Get",
-        cnpj: `44.555.666/0001-14`,
-        status: "ativa"
-      }
+  describe('remove', () => {
+    it('deve remover empresa e retornar 204', async () => {
+      const req = { params: { id: '7' } };
+      const res = createMockRes();
+
+      companyService.remove.mockResolvedValue();
+
+      await companyController.remove(req, res, next);
+
+      expect(companyService.remove).toHaveBeenCalledWith(7);
+      expect(res.sendStatus).toHaveBeenCalledWith(204);
+      expect(next).not.toHaveBeenCalled();
     });
 
-    const res = await request(app)
-      .get(`/api/empresas/${empresa.id}`)
-      .set('Authorization', `Bearer ${token}`)
-      .expect(200);
+    it('deve chamar next em caso de erro no remove', async () => {
+      const req = { params: { id: '7' } };
+      const res = createMockRes();
+      const error = new Error('Erro ao remover');
 
-    expect(res.body.id).toBe(empresa.id);
-    expect(res.body.codigo).toBe(`GET${timestamp}`);
+      companyService.remove.mockRejectedValue(error);
+
+      await companyController.remove(req, res, next);
+
+      expect(companyService.remove).toHaveBeenCalledWith(7);
+      expect(next).toHaveBeenCalledWith(error);
+    });
   });
 });

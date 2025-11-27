@@ -485,3 +485,6 @@ Para dúvidas, sugestões ou problemas, abra uma [issue](https://github.com/edso
   <p>© 2025 SGOT - Sistema de Gestão de Obrigações Tributárias</p>
 </div>
 
+
+
+

@@ -9,9 +9,7 @@ const {
   getUnviewedAlertsForAccounting
 } = require('../modules/analytics/analytics.service');
 const { prisma } = require('../prisma');
-const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { env } = require('../config/env');
 
 describe('Analytics Service', () => {
   let adminUser;
@@ -80,16 +78,21 @@ describe('Analytics Service', () => {
       }
     });
     
-    // Armazenar o mês para usar nos testes
+    // Armazenar o mês para usar nos testes, se precisar
     module.exports.testMonth = `${year}-${month}`;
   });
 
   afterAll(async () => {
+    await prisma.obligationFile.deleteMany();
     await prisma.obligation.deleteMany();
+    await prisma.companyTaxProfile.deleteMany();
     await prisma.empresa.deleteMany();
     await prisma.user.deleteMany();
   });
 
+  // -------------------------------------------------------------------
+  // getMonthlySummary
+  // -------------------------------------------------------------------
   describe('getMonthlySummary', () => {
     test('deve retornar estrutura correta do resumo', async () => {
       const now = new Date();
@@ -233,7 +236,6 @@ describe('Analytics Service', () => {
 
       const result = await getMonthlySummary(company.id, testMonth);
       
-      // Obrigações sem amount não devem ser contabilizadas
       const hasNullAmount = result.impostos.some(imp => imp.valor === 0 && imp.percentual === 0);
       expect(hasNullAmount).toBe(false);
     });
@@ -244,7 +246,6 @@ describe('Analytics Service', () => {
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const testMonth = `${year}-${month}`;
 
-      // Limpar obrigações anteriores do mês para este teste
       await prisma.obligation.deleteMany({
         where: {
           companyId: company.id,
@@ -277,6 +278,9 @@ describe('Analytics Service', () => {
     });
   });
 
+  // -------------------------------------------------------------------
+  // getMonthlyVariationByTax
+  // -------------------------------------------------------------------
   describe('getMonthlyVariationByTax', () => {
     test('deve calcular variação mensal por imposto', async () => {
       const now = new Date();
@@ -304,7 +308,6 @@ describe('Analytics Service', () => {
     });
 
     test('deve calcular variação quando mês anterior é dezembro do ano anterior', async () => {
-      // Testar janeiro (mês 1) que deve comparar com dezembro do ano anterior
       const result = await getMonthlyVariationByTax(company.id, '2025-01');
       
       expect(result.mesAtual).toBe('2025-01');
@@ -321,7 +324,6 @@ describe('Analytics Service', () => {
       const testMonth = `${year}-${String(month).padStart(2, '0')}`;
       const prevMonthStr = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
 
-      // Criar obrigação no mês anterior
       await prisma.obligation.create({
         data: {
           title: 'DAS - Anterior',
@@ -338,7 +340,6 @@ describe('Analytics Service', () => {
         }
       });
 
-      // Criar obrigação no mês atual com valor maior
       await prisma.obligation.create({
         data: {
           title: 'DAS - Atual',
@@ -369,7 +370,6 @@ describe('Analytics Service', () => {
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const testMonth = `${year}-${month}`;
 
-      // Criar obrigação apenas no mês atual
       await prisma.obligation.create({
         data: {
           title: 'FGTS - Novo',
@@ -418,11 +418,13 @@ describe('Analytics Service', () => {
 
       const result = await getMonthlyVariationByTax(company.id, testMonth);
       
-      // Obrigações sem amount não devem afetar o cálculo
       expect(result.impostos).toBeDefined();
     });
   });
 
+  // -------------------------------------------------------------------
+  // getDocumentControlDashboard
+  // -------------------------------------------------------------------
   describe('getDocumentControlDashboard', () => {
     test('deve retornar estrutura correta do dashboard', async () => {
       const result = await getDocumentControlDashboard('2025-01', 'ACCOUNTING_SUPER', null);
@@ -442,7 +444,6 @@ describe('Analytics Service', () => {
     });
 
     test('deve calcular completionRate corretamente', async () => {
-      // Criar perfil fiscal e obrigações
       await prisma.companyTaxProfile.create({
         data: {
           companyId: company.id,
@@ -537,6 +538,9 @@ describe('Analytics Service', () => {
     });
   });
 
+  // -------------------------------------------------------------------
+  // getTaxTypeStats
+  // -------------------------------------------------------------------
   describe('getTaxTypeStats', () => {
     test('deve retornar estatísticas por tipo de imposto', async () => {
       const result = await getTaxTypeStats('2025-01');
@@ -548,7 +552,6 @@ describe('Analytics Service', () => {
     });
 
     test('deve excluir empresa EMP001 (contabilidade)', async () => {
-      // Criar empresa contabilidade
       const accountingCompany = await prisma.empresa.create({
         data: {
           codigo: 'EMP001',
@@ -560,7 +563,6 @@ describe('Analytics Service', () => {
 
       const result = await getTaxTypeStats('2025-01');
       
-      // Verificar que EMP001 não está contada
       expect(result.totalCompanies).toBeGreaterThanOrEqual(0);
       
       await prisma.empresa.delete({ where: { id: accountingCompany.id } });
@@ -619,6 +621,9 @@ describe('Analytics Service', () => {
     });
   });
 
+  // -------------------------------------------------------------------
+  // getClientTaxReport
+  // -------------------------------------------------------------------
   describe('getClientTaxReport', () => {
     test('deve retornar relatório de impostos do cliente', async () => {
       const result = await getClientTaxReport(company.id, 12);
@@ -647,7 +652,6 @@ describe('Analytics Service', () => {
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const referenceMonth = `${year}-${month}`;
 
-      // Criar obrigações em meses diferentes
       await prisma.obligation.create({
         data: {
           title: 'DAS - Variação',
@@ -693,7 +697,6 @@ describe('Analytics Service', () => {
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const referenceMonth = `${year}-${month}`;
 
-      // Limpar obrigações do mês para este teste
       await prisma.obligation.deleteMany({
         where: {
           companyId: company.id,
@@ -719,7 +722,6 @@ describe('Analytics Service', () => {
 
       const result = await getClientTaxReport(company.id, 3);
       
-      // NOT_APPLICABLE não deve aparecer no total
       const monthData = result.monthlyData.find(m => m.month === referenceMonth);
       if (monthData) {
         expect(monthData.total).toBe(0);
@@ -733,6 +735,9 @@ describe('Analytics Service', () => {
     });
   });
 
+  // -------------------------------------------------------------------
+  // getDeadlineComplianceStats
+  // -------------------------------------------------------------------
   describe('getDeadlineComplianceStats', () => {
     test('deve retornar estatísticas de cumprimento de prazos', async () => {
       const result = await getDeadlineComplianceStats('2025-01');
@@ -748,7 +753,6 @@ describe('Analytics Service', () => {
     test('deve excluir empresa EMP001 e NOT_APPLICABLE', async () => {
       const result = await getDeadlineComplianceStats('2025-01');
       
-      // Verificar que não há detalhes de EMP001
       const hasEmp001 = result.details.some(d => d.company === 'EMP001');
       expect(hasEmp001).toBe(false);
     });
@@ -767,7 +771,7 @@ describe('Analytics Service', () => {
     test('deve identificar documentos no prazo (4+ dias antes)', async () => {
       const now = new Date();
       const dueDate = new Date(now);
-      dueDate.setDate(dueDate.getDate() + 5); // 5 dias no futuro
+      dueDate.setDate(dueDate.getDate() + 5);
 
       await prisma.obligation.create({
         data: {
@@ -789,7 +793,7 @@ describe('Analytics Service', () => {
         where: { title: 'DAS - No Prazo' }
       });
 
-      const file = await prisma.obligationFile.upsert({
+      await prisma.obligationFile.upsert({
         where: { s3Key: `obligations/test-deadline-${Date.now()}.pdf` },
         update: {},
         create: {
@@ -800,7 +804,7 @@ describe('Analytics Service', () => {
           mimeType: 'application/pdf',
           s3Key: `obligations/test-deadline-${Date.now()}.pdf`,
           uploadedBy: adminUser.id,
-          createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000) // 2 dias atrás
+          createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000)
         }
       });
 
@@ -819,6 +823,9 @@ describe('Analytics Service', () => {
     });
   });
 
+  // -------------------------------------------------------------------
+  // getOverdueAndUpcomingTaxes
+  // -------------------------------------------------------------------
   describe('getOverdueAndUpcomingTaxes', () => {
     test('deve retornar impostos atrasados e próximos ao vencimento', async () => {
       const result = await getOverdueAndUpcomingTaxes('2025-01');
@@ -857,7 +864,7 @@ describe('Analytics Service', () => {
           userId: adminUser.id,
           status: 'PENDING',
           taxType: 'DAS',
-          amount: null // Sem valor = não postado
+          amount: null
         }
       });
 
@@ -886,8 +893,11 @@ describe('Analytics Service', () => {
     });
   });
 
+  // -------------------------------------------------------------------
+  // getUnviewedAlertsForAccounting
+  // -------------------------------------------------------------------
   describe('getUnviewedAlertsForAccounting', () => {
-    test('deve retornar alertas de documentos não visualizados', async () => {
+    test('deve retornar estrutura básica dos alertas', async () => {
       const result = await getUnviewedAlertsForAccounting();
       
       expect(result).toHaveProperty('threeDays');
@@ -899,20 +909,93 @@ describe('Analytics Service', () => {
       expect(Array.isArray(result.oneDay)).toBe(true);
     });
 
+    test('deve criar alertas em 1, 2 e 3 dias corretamente', async () => {
+      const now = new Date();
+
+      // Criar empresa válida (não EMP001)
+      const alertCompany = await prisma.empresa.create({
+        data: {
+          codigo: `COMP-ALERT-${Date.now()}`,
+          nome: 'Empresa Alertas',
+          cnpj: `${Date.now()}000199`,
+          status: 'ativa'
+        }
+      });
+
+      // Função auxiliar para criar obrigação + arquivo
+      async function criaObrigacao(daysAhead) {
+        const dueDate = new Date(now);
+        dueDate.setDate(dueDate.getDate() + daysAhead);
+
+        const obligation = await prisma.obligation.create({
+          data: {
+            title: `DAS - Alert ${daysAhead}`,
+            regime: 'SIMPLES',
+            periodStart: new Date(),
+            periodEnd: new Date(),
+            dueDate,
+            referenceMonth: '2025-01',
+            companyId: alertCompany.id,
+            userId: adminUser.id,
+            status: 'PENDING',
+            taxType: 'DAS',
+            amount: 100
+          }
+        });
+
+        await prisma.obligationFile.create({
+          data: {
+            obligationId: obligation.id,
+            fileName: `alert-${daysAhead}.pdf`,
+            originalName: `alert-${daysAhead}.pdf`,
+            fileSize: 1024,
+            mimeType: 'application/pdf',
+            s3Key: `obligations/alert-${daysAhead}.pdf`,
+            uploadedBy: adminUser.id
+          }
+        });
+
+        return obligation;
+      }
+
+      await criaObrigacao(1);
+      await criaObrigacao(2);
+      await criaObrigacao(3);
+
+      const result = await getUnviewedAlertsForAccounting();
+      
+      expect(result.oneDay.length).toBeGreaterThanOrEqual(1);
+      expect(result.twoDays.length).toBeGreaterThanOrEqual(1);
+      expect(result.threeDays.length).toBeGreaterThanOrEqual(1);
+
+      result.oneDay.forEach(alert => {
+        expect(alert.daysUntilDue).toBeLessThanOrEqual(1);
+      });
+
+      result.twoDays.forEach(alert => {
+        expect(alert.daysUntilDue).toBeGreaterThan(1);
+        expect(alert.daysUntilDue).toBeLessThanOrEqual(2);
+      });
+
+      result.threeDays.forEach(alert => {
+        expect(alert.daysUntilDue).toBeGreaterThan(2);
+        expect(alert.daysUntilDue).toBeLessThanOrEqual(3);
+      });
+
+      const calcTotal =
+        result.oneDay.length +
+        result.twoDays.length +
+        result.threeDays.length;
+
+      expect(result.total).toBe(calcTotal);
+    });
+
     test('deve excluir empresa EMP001 e NOT_APPLICABLE', async () => {
       const result = await getUnviewedAlertsForAccounting();
       
       const allAlerts = [...result.threeDays, ...result.twoDays, ...result.oneDay];
       const hasEmp001 = allAlerts.some(alert => alert.company.includes('EMP001'));
       expect(hasEmp001).toBe(false);
-    });
-
-    test('deve retornar apenas documentos com arquivo anexado', async () => {
-      const result = await getUnviewedAlertsForAccounting();
-      
-      const allAlerts = [...result.threeDays, ...result.twoDays, ...result.oneDay];
-      // Todos devem ter arquivo (verificado pela query)
-      expect(result.total).toBeGreaterThanOrEqual(0);
     });
 
     test('deve retornar apenas documentos não vencidos', async () => {
@@ -925,31 +1008,6 @@ describe('Analytics Service', () => {
         const dueDate = new Date(alert.dueDate);
         expect(dueDate.getTime()).toBeGreaterThanOrEqual(now.getTime());
       });
-    });
-
-    test('deve agrupar por dias até vencimento corretamente', async () => {
-      const result = await getUnviewedAlertsForAccounting();
-      
-      result.threeDays.forEach(alert => {
-        expect(alert.daysUntilDue).toBeGreaterThan(2);
-        expect(alert.daysUntilDue).toBeLessThanOrEqual(3);
-      });
-
-      result.twoDays.forEach(alert => {
-        expect(alert.daysUntilDue).toBeGreaterThan(1);
-        expect(alert.daysUntilDue).toBeLessThanOrEqual(2);
-      });
-
-      result.oneDay.forEach(alert => {
-        expect(alert.daysUntilDue).toBeLessThanOrEqual(1);
-      });
-    });
-
-    test('deve calcular total corretamente', async () => {
-      const result = await getUnviewedAlertsForAccounting();
-      
-      const calculatedTotal = result.threeDays.length + result.twoDays.length + result.oneDay.length;
-      expect(result.total).toBe(calculatedTotal);
     });
 
     test('deve retornar estrutura correta dos alertas', async () => {
