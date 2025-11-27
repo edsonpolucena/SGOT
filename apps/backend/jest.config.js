@@ -18,6 +18,9 @@ module.exports = {
     '/coverage/',
     '/__tests__/'
   ],
+  // rootDir padrão é o diretório onde jest.config.js está (apps/backend)
+  // Os caminhos no LCOV serão gerados como src/...
+  // O workflow GitHub Actions corrige para apps/backend/src/... para bater com sonar.sources
   collectCoverageFrom: [
     'src/**/*.js',
     '!src/__tests__/**',

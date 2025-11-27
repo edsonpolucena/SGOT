@@ -118,29 +118,114 @@ jobs:
 
       - name: Fix LCOV paths (backend & frontend)
         run: |
-          # Backend: normaliza barras e prefixa com apps/backend/src
+          echo "🔧 Corrigindo caminhos no LCOV para bater com sonar.sources..."
+          
+          # Backend: corrige caminhos para bater com sonar.sources (apps/backend/src)
           if [ -f apps/backend/coverage/lcov.info ]; then
+            echo "📝 Processando backend LCOV..."
+            
+            # Normaliza barras (Windows -> Unix)
             sed -i 's#\\#/#g' apps/backend/coverage/lcov.info
-            # usa SF:src (sem /) pra pegar tanto "SF:src" quanto "SF:src/..."
-            sed -i 's#SF:src#SF:apps/backend/src#g' apps/backend/coverage/lcov.info
-            sed -i 's#SF:apps/backend/src/../#SF:apps/backend/src/#g' apps/backend/coverage/lcov.info
+            
+            # Remove caminhos absolutos e converte para relativos à raiz
+            # Exemplos: 
+            #   /home/runner/work/SGOT/SGOT/apps/backend/src/... -> apps/backend/src/...
+            #   /tmp/.../apps/backend/src/... -> apps/backend/src/...
+            sed -i 's#SF:.*/apps/backend/src/#SF:apps/backend/src/#g' apps/backend/coverage/lcov.info
+            
+            # Corrige caminhos que começam com src/ (relativos ao working directory)
+            sed -i 's#^SF:src/#SF:apps/backend/src/#g' apps/backend/coverage/lcov.info
+            sed -i 's#^SF:src$#SF:apps/backend/src#g' apps/backend/coverage/lcov.info
+            
+            # Remove caminhos relativos problemáticos (../)
+            sed -i 's#SF:apps/backend/src/\.\./#SF:apps/backend/src/#g' apps/backend/coverage/lcov.info
+            sed -i 's#SF:apps/backend/src/\.\./#SF:apps/backend/src/#g' apps/backend/coverage/lcov.info
+            
+            # Garante que TODOS os caminhos SF: começam com apps/backend/src
+            # Se não começar com apps/backend/src, assume que é relativo e adiciona o prefixo
+            sed -i '/^SF:/!b; /^SF:apps\/backend\/src\//!s#^SF:\(.*\)#SF:apps/backend/src/\1#g' apps/backend/coverage/lcov.info
+            
+            echo "✅ Backend LCOV corrigido"
           fi
 
-          # Frontend: normaliza barras e prefixa com apps/frontend/src
+          # Frontend: corrige caminhos para bater com sonar.sources (apps/frontend/src)
           if [ -f apps/frontend/coverage/lcov.info ]; then
+            echo "📝 Processando frontend LCOV..."
+            
+            # Normaliza barras (Windows -> Unix)
             sed -i 's#\\#/#g' apps/frontend/coverage/lcov.info
-            sed -i 's#SF:src#SF:apps/frontend/src#g' apps/frontend/coverage/lcov.info
-            sed -i 's#SF:apps/frontend/src/../#SF:apps/frontend/src/#g' apps/frontend/coverage/lcov.info
+            
+            # Remove caminhos absolutos e converte para relativos à raiz
+            # Exemplos:
+            #   /home/runner/work/SGOT/SGOT/apps/frontend/src/... -> apps/frontend/src/...
+            #   /tmp/.../apps/frontend/src/... -> apps/frontend/src/...
+            sed -i 's#SF:.*/apps/frontend/src/#SF:apps/frontend/src/#g' apps/frontend/coverage/lcov.info
+            
+            # Corrige caminhos que começam com src/ (relativos ao working directory)
+            sed -i 's#^SF:src/#SF:apps/frontend/src/#g' apps/frontend/coverage/lcov.info
+            sed -i 's#^SF:src$#SF:apps/frontend/src#g' apps/frontend/coverage/lcov.info
+            
+            # Remove caminhos relativos problemáticos (../)
+            sed -i 's#SF:apps/frontend/src/\.\./#SF:apps/frontend/src/#g' apps/frontend/coverage/lcov.info
+            sed -i 's#SF:apps/frontend/src/\.\./#SF:apps/frontend/src/#g' apps/frontend/coverage/lcov.info
+            
+            # Garante que TODOS os caminhos SF: começam com apps/frontend/src
+            # Se não começar com apps/frontend/src, assume que é relativo e adiciona o prefixo
+            sed -i '/^SF:/!b; /^SF:apps\/frontend\/src\//!s#^SF:\(.*\)#SF:apps/frontend/src/\1#g' apps/frontend/coverage/lcov.info
+            
+            echo "✅ Frontend LCOV corrigido"
           fi
+          
+          echo "✅ Correção de caminhos concluída"
 
 
       - name: Verify fixed LCOV paths
         run: |
           echo "📋 Verificando caminhos corrigidos (backend):"
-          grep "SF:apps/backend/src/modules/analytics" apps/backend/coverage/lcov.info | head -3 || echo "Não encontrado"
+          echo "Total de arquivos no LCOV backend:"
+          grep -c "^SF:" apps/backend/coverage/lcov.info || echo "0"
+          echo ""
+          echo "Exemplos de caminhos corretos (backend):"
+          grep "^SF:apps/backend/src" apps/backend/coverage/lcov.info | head -5 || echo "Nenhum caminho correto encontrado"
+          echo ""
+          echo "Caminhos problemáticos (backend - devem ser corrigidos):"
+          grep "^SF:" apps/backend/coverage/lcov.info | grep -v "^SF:apps/backend/src" | head -10 || echo "✅ Nenhum problema encontrado"
           echo ""
           echo "📋 Verificando caminhos corrigidos (frontend):"
-          grep "SF:apps/frontend/src/modules/analytics" apps/frontend/coverage/lcov.info | head -3 || echo "Não encontrado"
+          echo "Total de arquivos no LCOV frontend:"
+          grep -c "^SF:" apps/frontend/coverage/lcov.info || echo "0"
+          echo ""
+          echo "Exemplos de caminhos corretos (frontend):"
+          grep "^SF:apps/frontend/src" apps/frontend/coverage/lcov.info | head -5 || echo "Nenhum caminho correto encontrado"
+          echo ""
+          echo "Caminhos problemáticos (frontend - devem ser corrigidos):"
+          grep "^SF:" apps/frontend/coverage/lcov.info | grep -v "^SF:apps/frontend/src" | head -10 || echo "✅ Nenhum problema encontrado"
+          echo ""
+          echo "📋 Verificando arquivos novos testados (backend):"
+          echo "  - analytics.service.js:"
+          grep -c "SF:apps/backend/src/modules/analytics/analytics.service" apps/backend/coverage/lcov.info || echo "    ❌ Não encontrado"
+          echo "  - notification.service.js:"
+          grep -c "SF:apps/backend/src/modules/notifications/notification.service" apps/backend/coverage/lcov.info || echo "    ❌ Não encontrado"
+          echo "  - obligation.service.js:"
+          grep -c "SF:apps/backend/src/modules/obligations/obligation.service" apps/backend/coverage/lcov.info || echo "    ❌ Não encontrado"
+          echo ""
+          echo "📋 Verificando arquivos novos testados (frontend):"
+          echo "  - auth.api.js:"
+          grep -c "SF:apps/frontend/src/modules/auth/data/auth.api" apps/frontend/coverage/lcov.info || echo "    ❌ Não encontrado"
+          echo "  - http.js:"
+          grep -c "SF:apps/frontend/src/shared/services/http" apps/frontend/coverage/lcov.info || echo "    ❌ Não encontrado"
+          echo "  - AuthContext.jsx:"
+          grep -c "SF:apps/frontend/src/shared/context/AuthContext" apps/frontend/coverage/lcov.info || echo "    ❌ Não encontrado"
+          echo "  - useApiRequest.js:"
+          grep -c "SF:apps/frontend/src/shared/hooks/useApiRequest" apps/frontend/coverage/lcov.info || echo "    ❌ Não encontrado"
+          echo "  - useAuthController.js:"
+          grep -c "SF:apps/frontend/src/modules/auth/controller/useAuthController" apps/frontend/coverage/lcov.info || echo "    ❌ Não encontrado"
+          echo ""
+          echo "📊 Estatísticas de cobertura:"
+          echo "Backend - Total de linhas cobertas:"
+          grep "^DA:" apps/backend/coverage/lcov.info | wc -l || echo "0"
+          echo "Frontend - Total de linhas cobertas:"
+          grep "^DA:" apps/frontend/coverage/lcov.info | wc -l || echo "0"
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2
