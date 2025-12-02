@@ -1,6 +1,7 @@
 // apps/backend/src/services/email.service.js
 const nodemailer = require('nodemailer');
 const { prisma } = require('../prisma');
+const { retryOperation } = require('../utils/retry.helper');
 
 let transporter = null;
 
@@ -134,11 +135,20 @@ async function sendEmail({ from, to, subject, html, text, replyTo }) {
   };
 
   try {
-    const info = await emailTransporter.sendMail(mailOptions);
+    const info = await retryOperation(
+      () => emailTransporter.sendMail(mailOptions),
+      {
+        maxAttempts: 3,
+        initialDelay: 2000,
+        backoffMultiplier: 2,
+        operationName: `Envio de email: ${to}`
+      }
+    );
+    
     console.log('✅ Email enviado:', { from: finalFrom, to, subject, messageId: info.messageId });
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('❌ Erro ao enviar email:', error);
+    console.error('❌ Erro ao enviar email após todas as tentativas:', error);
     return { success: false, error: error.message };
   }
 }

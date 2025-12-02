@@ -45,7 +45,6 @@ export default function UserForm() {
       setIsEditMode(true);
       loadUser(id);
     } else {
-      // Se for cliente, já preenche com a empresa do usuário logado
       if (user?.role?.startsWith('CLIENT_')) {
         setFormData(prev => ({ ...prev, companyId: user.companyId }));
       }
@@ -67,11 +66,10 @@ export default function UserForm() {
       setFormData({
         name: userData.name || '',
         email: userData.email || '',
-        password: '', // Senha não é retornada
+        password: '', 
         role: userData.role || '',
         status: userData.status || 'ACTIVE',
         companyId: userData.companyId || '',
-        // Garantir que o role seja ressetado ao mudar empresa
         forceRoleReset: true
       });
     } catch (err) {
@@ -82,26 +80,22 @@ export default function UserForm() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    // Se mudou a empresa, ressetar o role para forçar nova seleção
     if (name === 'companyId') {
       setFormData(prev => ({ 
         ...prev, 
         [name]: value, 
-        role: '' // Reset role quando empresa muda
+        role: '' 
       }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
 
-  /**
-   * Retorna as roles disponíveis baseado no usuário logado e na empresa selecionada
-   */
+  
   const getAvailableRoles = () => {
     const selectedCompany = companies.find(c => c.id === parseInt(formData.companyId));
     const isAccountingCompany = selectedCompany?.codigo === 'EMP001';
 
-    // ACCOUNTING_SUPER: Pode criar todos os tipos
     if (user?.role === 'ACCOUNTING_SUPER') {
       if (isAccountingCompany) {
         return [
@@ -117,7 +111,6 @@ export default function UserForm() {
       }
     }
 
-    // ACCOUNTING_ADMIN: Pode criar ACCOUNTING_NORMAL, CLIENT_ADMIN, CLIENT_NORMAL
     if (user?.role === 'ACCOUNTING_ADMIN') {
       if (isAccountingCompany) {
         return [
@@ -131,7 +124,6 @@ export default function UserForm() {
       }
     }
 
-    // CLIENT_ADMIN: Só pode criar CLIENT_NORMAL da própria empresa
     if (user?.role === 'CLIENT_ADMIN') {
       return [
         { value: 'CLIENT_NORMAL', label: 'Cliente - Normal' }
@@ -141,17 +133,12 @@ export default function UserForm() {
     return [];
   };
 
-  /**
-   * Verifica se o usuário logado pode cadastrar/editar usuários
-   */
+
   const canManageUsers = () => {
     return ['ACCOUNTING_SUPER', 'ACCOUNTING_ADMIN', 'CLIENT_ADMIN'].includes(user?.role);
   };
 
-  /**
-   * Verifica se deve mostrar o campo de empresa
-   * Cliente só vê sua própria empresa
-   */
+ 
   const canSelectCompany = () => {
     return user?.role?.startsWith('ACCOUNTING_');
   };
@@ -200,7 +187,6 @@ export default function UserForm() {
         companyId: parseInt(formData.companyId)
       };
 
-      // Só envia senha se foi preenchida
       if (formData.password) {
         dataToSend.password = formData.password;
       }
@@ -213,7 +199,6 @@ export default function UserForm() {
 
       nav('/users');
     } catch (err) {
-      // Erro já tratado no controller
       console.error('Erro ao salvar usuário:', err);
     }
   };

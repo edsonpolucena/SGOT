@@ -8,17 +8,19 @@ datasource db {
 }
 
 model User {
-  id           String       @id @default(cuid())
-  email        String       @unique
-  passwordHash String
-  createdAt    DateTime     @default(now())
-  name         String?
-  updatedAt    DateTime     @updatedAt
-  companyId    Int?
-  role         UserRole     @default(CLIENT)
-  status       UserStatus   @default(ACTIVE)
-  obligations  Obligation[]
-  company      Empresa?     @relation(fields: [companyId], references: [id])
+  id                String               @id @default(cuid())
+  email             String               @unique
+  passwordHash      String
+  createdAt         DateTime             @default(now())
+  name              String?
+  updatedAt         DateTime             @updatedAt
+  companyId         Int?
+  role              UserRole             @default(CLIENT)
+  status            UserStatus            @default(ACTIVE)
+  obligations       Obligation[]
+  company           Empresa?             @relation(fields: [companyId], references: [id])
+  consentLog        ConsentLog?
+  passwordResetTokens PasswordResetToken[]
 }
 
 model Obligation {
@@ -200,6 +202,7 @@ model PasswordResetToken {
   expiresAt DateTime
   used      Boolean  @default(false)
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([token])
   @@index([userId])
@@ -218,4 +221,20 @@ model TaxCalendar {
   @@unique([taxType])
   @@index([taxType])
   @@index([isActive])
+}
+
+model ConsentLog {
+  id            String   @id @default(cuid())
+  userId        String
+  consentAccepted Boolean // true se aceitou, false se recusou
+  consentDate   DateTime @default(now())
+  ipAddress     String?
+  userAgent     String?
+  termVersion   String   @default("1.0") // Versão do termo aceito
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+  @@index([userId])
+  @@index([consentAccepted])
+  @@index([consentDate])
 }

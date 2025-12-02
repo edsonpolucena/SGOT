@@ -13,25 +13,14 @@ const {
 
 const usersRouter = Router();
 
-// Todas as rotas requerem autenticação
 usersRouter.use(requireAuth);
 
-/**
- * GET /api/users
- * Lista todos os usuários (com filtros)
- * Permissões: ACCOUNTING_*, CLIENT_ADMIN
- */
 usersRouter.get(
   '/',
   authorize(['ACCOUNTING_SUPER', 'ACCOUNTING_ADMIN', 'ACCOUNTING_NORMAL', 'CLIENT_ADMIN']),
   listUsers
 );
 
-/**
- * GET /api/users/:id
- * Busca um usuário por ID
- * Permissões: ACCOUNTING_*, CLIENT_ADMIN
- */
 usersRouter.get(
   '/:id',
   authorize(['ACCOUNTING_SUPER', 'ACCOUNTING_ADMIN', 'ACCOUNTING_NORMAL', 'CLIENT_ADMIN']),
@@ -39,11 +28,6 @@ usersRouter.get(
   getUser
 );
 
-/**
- * PUT /api/users/:id
- * Atualiza um usuário
- * Permissões: ACCOUNTING_SUPER, ACCOUNTING_ADMIN, CLIENT_ADMIN
- */
 usersRouter.put(
   '/:id',
   authorize(['ACCOUNTING_SUPER', 'ACCOUNTING_ADMIN', 'CLIENT_ADMIN']),
@@ -52,11 +36,6 @@ usersRouter.put(
   updateUserData
 );
 
-/**
- * PATCH /api/users/:id/status
- * Altera apenas o status do usuário (ACTIVE/INACTIVE)
- * Permissões: ACCOUNTING_SUPER, ACCOUNTING_ADMIN, CLIENT_ADMIN
- */
 usersRouter.patch(
   '/:id/status',
   authorize(['ACCOUNTING_SUPER', 'ACCOUNTING_ADMIN', 'CLIENT_ADMIN']),
@@ -65,11 +44,6 @@ usersRouter.patch(
   changeUserStatus
 );
 
-/**
- * DELETE /api/users/:id
- * Deleta (inativa) um usuário
- * Permissões: ACCOUNTING_SUPER, ACCOUNTING_ADMIN, CLIENT_ADMIN
- */
 usersRouter.delete(
   '/:id',
   authorize(['ACCOUNTING_SUPER', 'ACCOUNTING_ADMIN', 'CLIENT_ADMIN']),
@@ -78,11 +52,6 @@ usersRouter.delete(
 );
 
 module.exports = { usersRouter };
-
-
-
-
-
 
 
 

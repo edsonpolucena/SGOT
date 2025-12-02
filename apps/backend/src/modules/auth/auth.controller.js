@@ -62,10 +62,18 @@ async function getMe(req, res) {
     include: {
       company: {
         select: { id: true, codigo: true, nome: true, cnpj: true }
+      },
+      consentLog: {
+        select: {
+          consentAccepted: true,
+          consentDate: true
+        }
       }
     }
   });
   if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
+
+  const hasConsent = user.consentLog?.consentAccepted === true;
 
   return res.json({
     id: user.id,
@@ -74,7 +82,9 @@ async function getMe(req, res) {
     role: user.role,
     status: user.status,
     companyId: user.companyId,
-    company: user.company
+    company: user.company,
+    hasConsent: hasConsent,
+    consentAccepted: user.consentLog?.consentAccepted ?? null
   });
 }
 
@@ -114,12 +124,19 @@ async function getValidateResetToken(req, res) {
       return res.status(400).json({ valid: false, reason: 'Token não fornecido' });
     }
 
+    console.log('🔍 Validando token de reset:', token.substring(0, 10) + '...');
     const result = await validateResetToken(token);
+    
+    if (!result.valid) {
+      console.log('❌ Token inválido:', result.reason);
+    } else {
+      console.log('✅ Token válido');
+    }
     
     return res.status(200).json(result);
   } catch (err) {
-    console.error('Erro ao validar token:', err);
-    return res.status(500).json({ valid: false, reason: 'Erro interno' });
+    console.error('❌ Erro ao validar token:', err);
+    return res.status(500).json({ valid: false, reason: 'Erro interno ao validar token' });
   }
 }
 

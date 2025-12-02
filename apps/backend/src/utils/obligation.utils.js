@@ -160,19 +160,45 @@ function formatCNPJ(cnpj) {
 }
 
 /**
- * Sanitiza string removendo caracteres especiais
+ * Sanitiza string removendo caracteres perigosos para prevenir XSS e SQL Injection
  * @param {string} str - String a ser sanitizada
+ * @param {number} maxLength - Tamanho máximo (padrão: 1000)
  * @returns {string} String sanitizada
  */
-function sanitizeString(str) {
+function sanitizeString(str, maxLength = 1000) {
   if (!str || typeof str !== 'string') return '';
   
   return str
     .trim()
-    .replace(/[<>]/g, '') // Remove < e >
-    .replace(/javascript:/gi, '') // Remove javascript:
-    .replace(/on\w+=/gi, '') // Remove event handlers
-    .substring(0, 1000); // Limita tamanho
+    .replace(/[<>]/g, '') // Remove < e > (previne tags HTML)
+    .replace(/javascript:/gi, '') // Remove javascript: (previne XSS em links)
+    .replace(/on\w+\s*=/gi, '') // Remove event handlers (onclick=, onerror=, etc)
+    .replace(/data:/gi, '') // Remove data: (previne data URIs maliciosas)
+    .replace(/vbscript:/gi, '') // Remove vbscript: (previne scripts antigos)
+    .replace(/&#/g, '') // Remove entidades HTML numéricas maliciosas
+    .replace(/&[#\w]+;/g, '') // Remove entidades HTML nomeadas
+    .replace(/['"]/g, '') // Remove aspas simples e duplas (proteção adicional)
+    .replace(/[\\\/]/g, '') // Remove barras (previne path traversal)
+    .substring(0, maxLength); // Limita tamanho
+}
+
+/**
+ * Sanitiza string preservando alguns caracteres especiais (para campos que precisam de mais flexibilidade)
+ * @param {string} str - String a ser sanitizada
+ * @param {number} maxLength - Tamanho máximo (padrão: 1000)
+ * @returns {string} String sanitizada
+ */
+function sanitizeStringSoft(str, maxLength = 1000) {
+  if (!str || typeof str !== 'string') return '';
+  
+  return str
+    .trim()
+    .replace(/[<>]/g, '') // Remove < e > (previne tags HTML)
+    .replace(/javascript:/gi, '') // Remove javascript: (previne XSS em links)
+    .replace(/on\w+\s*=/gi, '') // Remove event handlers
+    .replace(/data:/gi, '') // Remove data: URIs
+    .replace(/vbscript:/gi, '') // Remove vbscript:
+    .substring(0, maxLength); // Limita tamanho
 }
 
 /**
@@ -202,5 +228,6 @@ module.exports = {
   validateCNPJ,
   formatCNPJ,
   sanitizeString,
+  sanitizeStringSoft,
   toSlug
 };

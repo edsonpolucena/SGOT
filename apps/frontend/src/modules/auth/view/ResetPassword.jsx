@@ -30,17 +30,23 @@ export default function ResetPassword() {
 
     async function checkToken() {
       try {
+        console.log('🔍 Validando token:', token.substring(0, 10) + '...');
         const result = await validateResetToken(token);
         if (result.valid) {
           setTokenValid(true);
           setMaskedEmail(result.email || '');
+          console.log('✅ Token válido');
         } else {
           setTokenValid(false);
-          setErr(result.reason || 'Token inválido ou expirado');
+          const errorMessage = result.reason || 'Token inválido ou expirado';
+          setErr(errorMessage);
+          console.error('❌ Token inválido:', errorMessage);
         }
       } catch (error) {
         setTokenValid(false);
-        setErr('Erro ao validar token');
+        const errorMessage = error?.response?.data?.reason || error?.message || 'Erro ao validar token. Verifique sua conexão.';
+        setErr(errorMessage);
+        console.error('❌ Erro ao validar token:', error);
       } finally {
         setValidating(false);
       }

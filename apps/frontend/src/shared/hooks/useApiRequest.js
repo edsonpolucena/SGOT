@@ -1,9 +1,6 @@
 import { useState, useCallback } from 'react';
 
-/**
- * Hook genérico para requisições API
- * Evita duplicação de lógica de loading/error em controllers
- */
+
 export function useApiRequest() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);

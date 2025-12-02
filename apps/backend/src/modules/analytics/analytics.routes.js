@@ -21,7 +21,6 @@ router.get("/deadline-compliance", requireAuth, getDeadlineCompliance);
 router.get("/overdue-and-upcoming", requireAuth, getOverdueAndUpcoming);
 router.get("/unviewed-alerts", requireAuth, getUnviewedAlerts);
 
-// Manter compatibilidade com rota antiga
 router.get("/summary", requireAuth, getMonthlySummary);
 
 module.exports = router;

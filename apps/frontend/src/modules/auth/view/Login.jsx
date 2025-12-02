@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import styled from "styled-components";
 import AuthLayout from "./AuthLayout";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../../shared/context/AuthContext";
 import {FaEnvelope, FaLock} from "../../../shared/icons";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
@@ -25,7 +25,15 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
+
+  useEffect(() => {
+    const state = location.state;
+    if (state?.message) {
+      setErr(state.message);
+    }
+  }, [location]);
 
   async function onSubmit(e){
     e.preventDefault();

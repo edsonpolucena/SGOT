@@ -2,6 +2,7 @@ const { prisma } = require('../../prisma');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { env } = require('../../config/env');
+const { sanitizeString } = require('../../utils/obligation.utils');
 
 async function registerUser(name, email, password, role = 'CLIENT_NORMAL', companyId = null, status = 'ACTIVE', generateToken = true) {
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -11,7 +12,7 @@ async function registerUser(name, email, password, role = 'CLIENT_NORMAL', compa
 
   const user = await prisma.user.create({
     data: {
-      name,
+      name: name ? sanitizeString(name, 100) : name,
       email,
       passwordHash,
       role,

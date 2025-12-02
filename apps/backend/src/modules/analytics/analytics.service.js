@@ -4,8 +4,8 @@ async function getMonthlySummary(empresaId, mes) {
   const [ano, mesStr] = mes.split("-");
   const mesInt = parseInt(mesStr, 10);
 
-  const start = new Date(ano, mesInt - 1, 1); 
-  const end = new Date(ano, mesInt, 0);       
+  const start = new Date(ano, mesInt - 1, 1);
+  const end = new Date(ano, mesInt, 0);
 
   const obrigacoes = await prisma.obligation.findMany({
     where: {
@@ -58,7 +58,6 @@ async function getMonthlyVariationByTax(empresaId, mesAtual) {
   const startAnterior = new Date(anoAnterior, mesAnterior - 1, 1);
   const endAnterior = new Date(anoAnterior, mesAnterior, 0);
 
-  // Buscar obrigações do mês atual
   const atual = await prisma.obligation.findMany({
     where: {
       companyId: empresaId,
@@ -67,7 +66,6 @@ async function getMonthlyVariationByTax(empresaId, mesAtual) {
     select: { title: true, amount: true },
   });
 
-  // Buscar obrigações do mês anterior
   const anterior = await prisma.obligation.findMany({
     where: {
       companyId: empresaId,
@@ -99,7 +97,7 @@ async function getMonthlyVariationByTax(empresaId, mesAtual) {
     if (valorAnterior > 0) {
       variacao = ((valorAtual - valorAnterior) / valorAnterior) * 100;
     } else if (valorAtual > 0) {
-      variacao = 100; 
+      variacao = 100;
     }
 
     return {
@@ -113,11 +111,7 @@ async function getMonthlyVariationByTax(empresaId, mesAtual) {
   return { empresaId, mesAtual, impostos };
 }
 
-/**
- * Dashboard de controle de documentos - todas as empresas em um mês
- */
 async function getDocumentControlDashboard(month, userRole, userCompanyId) {
-  // Filtra empresas baseado no role
   let empresaWhere = { status: 'ativa' };
   if (userRole && userRole.startsWith('CLIENT_')) {
     empresaWhere.id = userCompanyId;
@@ -140,7 +134,6 @@ async function getDocumentControlDashboard(month, userRole, userCompanyId) {
     const expectedTaxes = empresa.taxProfiles.map(p => p.taxType);
     const obligations = empresa.obligations;
 
-    // Conta por status
     const posted = obligations.filter(o => 
       o.files.length > 0 || (o.amount && o.amount > 0)
     ).length;
@@ -149,7 +142,6 @@ async function getDocumentControlDashboard(month, userRole, userCompanyId) {
       o.status === 'PENDING' && o.files.length === 0 && (!o.amount || o.amount === 0)
     ).length;
 
-    // Impostos que faltam criar obrigação
     const obligationTaxTypes = obligations.map(o => o.taxType).filter(Boolean);
     const missing = expectedTaxes.filter(tax => !obligationTaxTypes.includes(tax));
 
@@ -172,7 +164,6 @@ async function getDocumentControlDashboard(month, userRole, userCompanyId) {
     };
   });
 
-  // Summary geral
   const summary = {
     totalCompanies: companiesData.length,
     completeCompanies: companiesData.filter(c => c.status === 'COMPLETE').length,
@@ -193,17 +184,11 @@ async function getDocumentControlDashboard(month, userRole, userCompanyId) {
   };
 }
 
-/**
- * Estatísticas por tipo de imposto para o dashboard principal
- * Retorna para cada tipo de imposto quantas empresas já postaram vs total de empresas
- * IMPORTANTE: EMP001 (código) é a contabilidade e não deve ser contada
- */
 async function getTaxTypeStats(month) {
-  // Buscar todas as empresas ativas EXCETO a contabilidade (EMP001)
   const empresas = await prisma.empresa.findMany({
     where: { 
       status: 'ativa',
-      codigo: { not: 'EMP001' } // Exclui a contabilidade
+      codigo: { not: 'EMP001' }
     },
     include: {
       taxProfiles: {
@@ -214,13 +199,11 @@ async function getTaxTypeStats(month) {
 
   const totalCompanies = empresas.length;
 
-  // Buscar todas as obrigações do mês
   const obligations = await prisma.obligation.findMany({
     where: { referenceMonth: month },
     include: { files: true }
   });
 
-  // Tipos de impostos únicos configurados no sistema
   const allTaxTypes = new Set();
   empresas.forEach(empresa => {
     empresa.taxProfiles.forEach(profile => {
@@ -228,31 +211,22 @@ async function getTaxTypeStats(month) {
     });
   });
 
-  // Para cada tipo de imposto, calcular quantas empresas postaram
   const taxStats = Array.from(allTaxTypes).map(taxType => {
-    // Empresas que têm esse imposto configurado (exceto contabilidade)
     const companiesWithTax = empresas.filter(empresa => 
       empresa.taxProfiles.some(p => p.taxType === taxType)
     ).map(e => e.id);
 
     const expectedCount = companiesWithTax.length;
 
-    // Empresas que já postaram esse imposto
-    // Conta apenas 1 vez por empresa, mesmo que poste múltiplas obrigações do mesmo tipo
-    // Considera "postado" se:
-    // - Tem arquivo anexado OU
-    // - Tem valor preenchido (obrigação com valor é considerada válida)
     const postedObligations = obligations.filter(obl => 
       obl.taxType === taxType && 
       companiesWithTax.includes(obl.companyId) &&
       (obl.files.length > 0 || (obl.amount && obl.amount > 0))
     );
 
-    // Contar empresas únicas que postaram (Set garante que cada empresa conta apenas 1 vez)
     const postedCompanies = new Set(postedObligations.map(o => o.companyId));
     const postedCount = postedCompanies.size;
 
-    // Percentual de conclusão
     const completionRate = expectedCount > 0 ? (postedCount / expectedCount) : 0;
 
     return {
@@ -264,7 +238,6 @@ async function getTaxTypeStats(month) {
     };
   });
 
-  // Ordenar por nome do imposto
   taxStats.sort((a, b) => a.taxName.localeCompare(b.taxName));
 
   return {
@@ -274,10 +247,6 @@ async function getTaxTypeStats(month) {
   };
 }
 
-/**
- * Relatório completo de impostos para cliente
- * Mostra evolução mensal dos últimos 12 meses
- */
 async function getClientTaxReport(companyId, months = 12) {
   const company = await prisma.empresa.findUnique({
     where: { id: parseInt(companyId) }
@@ -287,7 +256,6 @@ async function getClientTaxReport(companyId, months = 12) {
     throw new Error('Empresa não encontrada');
   }
 
-  // Calcular os últimos N meses
   const monthlyData = [];
   const now = new Date();
   
@@ -297,7 +265,6 @@ async function getClientTaxReport(companyId, months = 12) {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const referenceMonth = `${year}-${month}`;
 
-    // Buscar obrigações do mês
     const obligations = await prisma.obligation.findMany({
       where: {
         companyId: parseInt(companyId),
@@ -310,7 +277,6 @@ async function getClientTaxReport(companyId, months = 12) {
       }
     });
 
-    // Calcular totais por tipo de imposto
     const byTaxType = {};
     let totalMonth = 0;
 
@@ -330,7 +296,6 @@ async function getClientTaxReport(companyId, months = 12) {
     });
   }
 
-  // Calcular variações mês a mês
   const withVariation = monthlyData.map((current, index) => {
     if (index === 0) {
       return { ...current, variation: null };
@@ -347,7 +312,6 @@ async function getClientTaxReport(companyId, months = 12) {
     };
   });
 
-  // Calcular totais por tipo de imposto (todos os meses)
   const totalByTaxType = {};
   monthlyData.forEach(month => {
     Object.entries(month.byTaxType).forEach(([taxType, value]) => {
@@ -361,7 +325,6 @@ async function getClientTaxReport(companyId, months = 12) {
     total: Number(total.toFixed(2))
   })).sort((a, b) => b.total - a.total);
 
-  // Calcular total geral
   const grandTotal = Number(
     taxTypeTotals.reduce((sum, tax) => sum + tax.total, 0).toFixed(2)
   );
@@ -379,9 +342,6 @@ async function getClientTaxReport(companyId, months = 12) {
   };
 }
 
-/**
- * Mapeia código do imposto para nome amigável
- */
 function getTaxName(taxType) {
   const taxNames = {
     'DAS': 'DAS',
@@ -393,11 +353,7 @@ function getTaxName(taxType) {
   return taxNames[taxType] || taxType;
 }
 
-/**
- * Calcula % de prazos cumpridos (documentos enviados 4+ dias antes do vencimento)
- */
 async function getDeadlineComplianceStats(month) {
-  // Buscar todas as obrigações do mês (exceto contabilidade e NOT_APPLICABLE)
   const obligations = await prisma.obligation.findMany({
     where: {
       referenceMonth: month,
@@ -412,7 +368,6 @@ async function getDeadlineComplianceStats(month) {
     }
   });
 
-  // Obrigações com arquivo ou valor (postadas)
   const postedObligations = obligations.filter(o => 
     o.files.length > 0 || (o.amount && Number(o.amount) > 0)
   );
@@ -422,14 +377,12 @@ async function getDeadlineComplianceStats(month) {
   let details = [];
 
   postedObligations.forEach(obl => {
-    // Data de upload = data do primeiro arquivo ou data de criação
     const uploadDate = obl.files.length > 0 
       ? new Date(obl.files[0].createdAt)
       : new Date(obl.createdAt);
     
     const dueDate = new Date(obl.dueDate);
-    
-    // Calcular diferença em dias
+
     const diffTime = dueDate.getTime() - uploadDate.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -465,15 +418,11 @@ async function getDeadlineComplianceStats(month) {
   };
 }
 
-/**
- * Busca impostos atrasados e com vencimento próximo (2 dias)
- */
 async function getOverdueAndUpcomingTaxes(month) {
   const now = new Date();
   const twoDaysFromNow = new Date();
   twoDaysFromNow.setDate(twoDaysFromNow.getDate() + 2);
 
-  // Buscar obrigações do mês (exceto contabilidade e NOT_APPLICABLE)
   const obligations = await prisma.obligation.findMany({
     where: {
       referenceMonth: month,
@@ -488,12 +437,10 @@ async function getOverdueAndUpcomingTaxes(month) {
     }
   });
 
-  // Filtrar não postadas
   const notPosted = obligations.filter(o => 
     o.files.length === 0 && (!o.amount || Number(o.amount) === 0)
   );
 
-  // Separar atrasados e próximos ao vencimento
   const overdue = notPosted.filter(o => new Date(o.dueDate) < now);
   const dueSoon = notPosted.filter(o => {
     const dueDate = new Date(o.dueDate);
@@ -525,21 +472,16 @@ async function getOverdueAndUpcomingTaxes(month) {
   };
 }
 
-/**
- * Retorna alertas de documentos não visualizados para contabilidade
- * Agrupa por dias até vencimento (3, 2, 1 dia)
- */
 async function getUnviewedAlertsForAccounting() {
   const now = new Date();
-  
-  // Buscar documentos não visualizados com arquivo anexado
+
   const unviewedDocs = await prisma.obligation.findMany({
     where: {
       status: { not: 'NOT_APPLICABLE' },
       views: { none: {} },
       files: { some: {} },
       company: { codigo: { not: 'EMP001' } },
-      dueDate: { gte: now } // Apenas não vencidos
+      dueDate: { gte: now }
     },
     include: {
       company: { select: { codigo: true, nome: true } },
@@ -548,7 +490,6 @@ async function getUnviewedAlertsForAccounting() {
     orderBy: { dueDate: 'asc' }
   });
 
-  // Agrupar por dias até vencimento
   const alerts = {
     threeDays: [],
     twoDays: [],
@@ -590,5 +531,5 @@ module.exports = {
   getDeadlineComplianceStats,
   getOverdueAndUpcomingTaxes,
   getUnviewedAlertsForAccounting,
-  getTaxName // Exportada para testes de cobertura
+  getTaxName
 };

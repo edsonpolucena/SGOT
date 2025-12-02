@@ -186,6 +186,10 @@ const obligationFiltersSchema = Joi.object({
   to: Joi.date().iso().optional()
 });
 
+const consentSchema = Joi.object({
+  consentAccepted: Joi.boolean().required()
+});
+
 module.exports = {
   validate,
   validateParams,
@@ -201,5 +205,6 @@ module.exports = {
   idParamSchema,
   fileIdParamSchema,
   obligationIdParamSchema,
-  obligationFiltersSchema
+  obligationFiltersSchema,
+  consentSchema
 };

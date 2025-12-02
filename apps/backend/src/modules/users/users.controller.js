@@ -7,10 +7,6 @@ const {
 } = require('./users.service');
 const { logAudit } = require('../../utils/audit.helper');
 
-/**
- * GET /api/users
- * Lista usuários com filtros opcionais
- */
 async function listUsers(req, res) {
   try {
     const filters = {
@@ -27,10 +23,6 @@ async function listUsers(req, res) {
   }
 }
 
-/**
- * GET /api/users/:id
- * Busca um usuário por ID
- */
 async function getUser(req, res) {
   try {
     const user = await getUserById(req.params.id, req.user);
@@ -55,7 +47,6 @@ async function updateUserData(req, res) {
   try {
     const updatedUser = await updateUser(req.params.id, req.body, req.user);
     
-    // Log de auditoria
     await logAudit(req, 'UPDATE', 'User', req.params.id, { 
       fields: Object.keys(req.body),
       email: updatedUser.email 
@@ -80,10 +71,6 @@ async function updateUserData(req, res) {
   }
 }
 
-/**
- * PATCH /api/users/:id/status
- * Altera apenas o status do usuário
- */
 async function changeUserStatus(req, res) {
   try {
     const { status } = req.body;
@@ -94,7 +81,6 @@ async function changeUserStatus(req, res) {
 
     const updatedUser = await updateUserStatus(req.params.id, status, req.user);
     
-    // Log de auditoria
     await logAudit(req, 'STATUS_CHANGE', 'User', req.params.id, { 
       newStatus: status,
       email: updatedUser.email 
@@ -116,15 +102,10 @@ async function changeUserStatus(req, res) {
   }
 }
 
-/**
- * DELETE /api/users/:id
- * Deleta (inativa) um usuário
- */
 async function removeUser(req, res) {
   try {
     const result = await deleteUser(req.params.id, req.user);
     
-    // Log de auditoria
     await logAudit(req, 'DELETE', 'User', req.params.id);
     
     return res.json(result);
@@ -150,5 +131,3 @@ module.exports = {
   changeUserStatus,
   removeUser
 };
-
-

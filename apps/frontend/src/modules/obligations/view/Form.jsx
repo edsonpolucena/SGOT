@@ -158,7 +158,9 @@ export default function Form() {
 
       // Calcular referenceMonth baseado no VENCIMENTO (não na competência digitada)
       // Isso garante que o dashboard use o mês correto automaticamente
-      const dueDateObj = new Date(dueDate);
+      // Criar data no timezone local para evitar problemas de conversão
+      const [year, month, day] = dueDate.split('-').map(Number);
+      const dueDateObj = new Date(year, month - 1, day);
       const referenceMonth = `${dueDateObj.getFullYear()}-${String(dueDateObj.getMonth() + 1).padStart(2, '0')}`;
 
       const obligationData = {
@@ -166,7 +168,7 @@ export default function Form() {
         regime: 'SIMPLES',
         periodStart: new Date(),
         periodEnd: new Date(),
-        dueDate: dueDateObj,
+        dueDate: dueDateObj.toISOString(),
         amount: amount ? parseFloat(amount.replace(/[^\d,]/g, '').replace(',', '.')) : null,
         notes: JSON.stringify(companyInfo),
         companyId: companyId,
@@ -236,7 +238,10 @@ export default function Form() {
       };
 
       // Calcular referenceMonth baseado no vencimento
-      const dueDateObj = new Date(dueDate || new Date());
+      // Criar data no timezone local para evitar problemas de conversão
+      const dateToUse = dueDate || new Date().toISOString().split('T')[0];
+      const [year, month, day] = dateToUse.split('-').map(Number);
+      const dueDateObj = new Date(year, month - 1, day);
       const referenceMonth = `${dueDateObj.getFullYear()}-${String(dueDateObj.getMonth() + 1).padStart(2, '0')}`;
 
       const obligationData = {
@@ -244,7 +249,7 @@ export default function Form() {
         regime: 'SIMPLES',
         periodStart: new Date(),
         periodEnd: new Date(),
-        dueDate: dueDateObj,
+        dueDate: dueDateObj.toISOString(),
         amount: null,
         notes: JSON.stringify(companyInfo),
         companyId: companyId,

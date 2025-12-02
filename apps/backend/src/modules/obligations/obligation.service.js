@@ -1,23 +1,27 @@
 const { prisma } = require('../../prisma');
-const { computeStatus } = require('../../utils/obligation.utils');
+const { computeStatus, sanitizeString, sanitizeStringSoft } = require('../../utils/obligation.utils');
 
 async function createObligation(userId, data) {
-  // Se o status já foi definido (ex: NOT_APPLICABLE), respeita ele
   const status = data.status ? computeStatus(data.dueDate, new Date(), data.status) : computeStatus(data.dueDate);
 
+  const sanitizedData = {
+    ...data,
+    title: data.title ? sanitizeString(data.title, 200) : data.title,
+    notes: data.notes ? sanitizeStringSoft(data.notes, 1000) : data.notes,
+    taxType: data.taxType ? sanitizeString(data.taxType, 50) : data.taxType,
+    notApplicableReason: data.notApplicableReason ? sanitizeStringSoft(data.notApplicableReason, 500) : data.notApplicableReason,
+    status,
+    userId
+  };
+
   return prisma.obligation.create({
-    data: {
-      ...data,
-      status,
-      userId
-    }
+    data: sanitizedData
   });
 }
 
 async function listObligations(userId, role, filters = {}, companyIdFromToken = null) {
   let where = {};
 
-  // Usuários CLIENT (ADMIN ou NORMAL) só veem obrigações da própria empresa
   if (role === 'CLIENT_NORMAL' || role === 'CLIENT_ADMIN') {
     const user = await prisma.user.findUnique({
       where: { id: userId }
@@ -26,7 +30,6 @@ async function listObligations(userId, role, filters = {}, companyIdFromToken = 
     where.companyId = user.companyId;
   } 
   
-  // Contabilidade pode ver tudo ou filtrar por empresa
   else if (role.startsWith('ACCOUNTING_')) {
     if (filters.companyId) where.companyId = filters.companyId;
   }
@@ -41,9 +44,6 @@ async function listObligations(userId, role, filters = {}, companyIdFromToken = 
     };
   }
 
-  // 👈 IMPORTANTE: Excluir obrigações NOT_APPLICABLE das listagens normais
-  // Elas são apenas para controle interno e não devem aparecer nas listas
-  // EXCETO se estiver filtrando especificamente por referenceMonth (para a matriz)
   if (!filters.referenceMonth) {
     where.status = { not: 'NOT_APPLICABLE' };
   }
@@ -53,7 +53,7 @@ async function listObligations(userId, role, filters = {}, companyIdFromToken = 
     orderBy: { createdAt: 'desc' },
     include: { company: true,
       user: {select: {name: true}}
-     } // importante pro dashboard
+     }
   });
 }
 
@@ -65,11 +65,10 @@ async function getObligation(userId, role, id) {
 
   if (!obligation) return null;
 
-  // Usuários CLIENT só acessam obrigações da própria empresa
   if (role === 'CLIENT_NORMAL' || role === 'CLIENT_ADMIN') {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (user?.companyId !== obligation.companyId) {
-      return null; // bloqueia acesso a obrigações de outra empresa
+      return null;
     }
   }
 
@@ -86,9 +85,16 @@ async function updateObligation(userId, role, id, data) {
     data.status ?? existing.status
   );
 
+  const sanitizedData = { ...data };
+  if (data.title !== undefined) sanitizedData.title = sanitizeString(data.title, 200);
+  if (data.notes !== undefined) sanitizedData.notes = data.notes ? sanitizeStringSoft(data.notes, 1000) : data.notes;
+  if (data.taxType !== undefined) sanitizedData.taxType = data.taxType ? sanitizeString(data.taxType, 50) : data.taxType;
+  if (data.notApplicableReason !== undefined) sanitizedData.notApplicableReason = data.notApplicableReason ? sanitizeStringSoft(data.notApplicableReason, 500) : data.notApplicableReason;
+  sanitizedData.status = status;
+
   return prisma.obligation.update({
     where: { id },
-    data: { ...data, status }
+    data: sanitizedData
   });
 }
 
@@ -100,11 +106,7 @@ async function deleteObligation(userId, role, id) {
   return true;
 }
 
-/**
- * Marca uma obrigação como "Não Aplicável" (sem precisar anexar arquivo)
- */
 async function markAsNotApplicable(userId, role, id, reason) {
-  // Apenas contabilidade pode marcar como não aplicável
   if (!role.startsWith('ACCOUNTING_')) {
     throw new Error('Apenas usuários da contabilidade podem marcar como não aplicável');
   }
@@ -112,22 +114,20 @@ async function markAsNotApplicable(userId, role, id, reason) {
   const existing = await getObligation(userId, role, id);
   if (!existing) return null;
 
+  const sanitizedReason = reason ? sanitizeStringSoft(reason, 500) : 'Não aplicável neste período';
+
   return prisma.obligation.update({
     where: { id },
     data: {
       status: 'NOT_APPLICABLE',
-      notApplicableReason: reason || 'Não aplicável neste período'
+      notApplicableReason: sanitizedReason
     }
   });
 }
 
-/**
- * Busca obrigações com controle mensal por empresa
- */
 async function getMonthlyControl(companyId, month) {
   const companyIdInt = parseInt(companyId);
 
-  // Busca perfil fiscal da empresa (impostos esperados)
   const taxProfiles = await prisma.companyTaxProfile.findMany({
     where: {
       companyId: companyIdInt,
@@ -137,7 +137,6 @@ async function getMonthlyControl(companyId, month) {
 
   const expectedTaxes = taxProfiles.map(p => p.taxType);
 
-  // Busca obrigações do mês
   const obligations = await prisma.obligation.findMany({
     where: {
       companyId: companyIdInt,
@@ -148,7 +147,6 @@ async function getMonthlyControl(companyId, month) {
     }
   });
 
-  // Organiza por tipo de imposto
   const obligationsByTax = {};
   obligations.forEach(obl => {
     if (obl.taxType) {
@@ -156,14 +154,11 @@ async function getMonthlyControl(companyId, month) {
     }
   });
 
-  // Identifica impostos que faltam criar
   const missing = expectedTaxes.filter(tax => !obligationsByTax[tax]);
 
-  // Calcula taxa de conclusão
   const treated = expectedTaxes.length - missing.length;
   const completionRate = expectedTaxes.length > 0 ? treated / expectedTaxes.length : 1;
 
-  // Busca nome da empresa
   const company = await prisma.empresa.findUnique({
     where: { id: companyIdInt }
   });

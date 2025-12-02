@@ -37,8 +37,20 @@ export const PeriodSelect = styled.select`
 
   &:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  option {
+    color: #374151;
+    background: white;
+    padding: 8px;
+  }
+
+  option:hover,
+  option:checked {
+    background: #6b7280;
+    color: white;
   }
 `;
 

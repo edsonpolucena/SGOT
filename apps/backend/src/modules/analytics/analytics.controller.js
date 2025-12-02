@@ -28,7 +28,6 @@ async function monthlyVariationByTax(req, res) {
       return res.status(400).json({ error: "empresaId e mes são obrigatórios" });
     }
 
-    // aqui chama do service
     const result = await analyticsService.getMonthlyVariationByTax(
       Number(empresaId),
       mes
@@ -41,10 +40,6 @@ async function monthlyVariationByTax(req, res) {
   }
 }
 
-/**
- * GET /api/analytics/document-control-dashboard?month=2025-01
- * Dashboard de controle de documentos mensais
- */
 async function getDocumentControlDashboard(req, res) {
   try {
     const { month } = req.query;
@@ -66,10 +61,6 @@ async function getDocumentControlDashboard(req, res) {
   }
 }
 
-/**
- * GET /api/analytics/tax-type-stats?month=2025-01
- * Estatísticas por tipo de imposto para dashboard principal
- */
 async function getTaxTypeStats(req, res) {
   try {
     const { month } = req.query;
@@ -87,10 +78,6 @@ async function getTaxTypeStats(req, res) {
   }
 }
 
-/**
- * GET /api/analytics/client-tax-report?companyId=123&months=12
- * Relatório completo de impostos para clientes
- */
 async function getClientTaxReport(req, res) {
   try {
     const { companyId, months } = req.query;
@@ -99,7 +86,6 @@ async function getClientTaxReport(req, res) {
       return res.status(400).json({ error: "companyId é obrigatório" });
     }
 
-    // Validar permissão: clientes só podem ver da própria empresa
     if (req.user?.role?.startsWith('CLIENT_')) {
       if (parseInt(companyId) !== req.user.companyId) {
         return res.status(403).json({ error: "Acesso negado" });
@@ -118,10 +104,6 @@ async function getClientTaxReport(req, res) {
   }
 }
 
-/**
- * GET /api/analytics/deadline-compliance?month=2025-11
- * Estatísticas de cumprimento de prazos (4 dias antes do vencimento)
- */
 async function getDeadlineCompliance(req, res) {
   try {
     const { month } = req.query;
@@ -139,10 +121,6 @@ async function getDeadlineCompliance(req, res) {
   }
 }
 
-/**
- * GET /api/analytics/overdue-and-upcoming?month=2025-11
- * Retorna impostos atrasados e com vencimento próximo
- */
 async function getOverdueAndUpcoming(req, res) {
   try {
     const { month } = req.query;

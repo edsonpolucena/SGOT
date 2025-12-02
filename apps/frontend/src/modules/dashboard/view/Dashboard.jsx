@@ -9,6 +9,7 @@ import IconButton from "../../../shared/ui/IconButton";
 import IconGroup from "../../../shared/ui/IconGroup";
 import { FaChartBar } from "react-icons/fa";
 import { useObligationActions } from "../../../shared/hooks/useObligationActions";
+import SentryTestButton from "../../../shared/ui/SentryTestButton";
 import {
   StatsGrid,
   StatCard,
@@ -309,6 +310,19 @@ export default function Dashboard() {
       title={`Bem-vindo(a), ${user?.name}`}
       subtitle="Gerencie todas as obrigações tributárias"
     />
+
+      {/* Botão de teste do Sentry - apenas em desenvolvimento */}
+      {import.meta.env.MODE === 'development' && (
+        <div style={{ 
+          marginBottom: '20px', 
+          padding: '12px', 
+          background: '#f3f4f6', 
+          borderRadius: '8px',
+          border: '1px solid #e5e7eb'
+        }}>
+          <SentryTestButton />
+        </div>
+      )}
 
       {/* Cards de estatísticas principais */}
       <StatsGrid>

@@ -4,6 +4,7 @@ const {
   upsertTaxCalendar,
   deleteTaxCalendar
 } = require('./tax-calendar.service');
+const { sanitizeString, sanitizeStringSoft } = require('../../utils/obligation.utils');
 
 async function getAll(req, res) {
   try {
@@ -40,7 +41,10 @@ async function upsert(req, res) {
       return res.status(400).json({ message: 'dueDay deve estar entre 1 e 31' });
     }
 
-    const item = await upsertTaxCalendar(taxType, dueDay, description);
+    const sanitizedTaxType = sanitizeString(taxType, 50);
+    const sanitizedDescription = description ? sanitizeStringSoft(description, 500) : null;
+
+    const item = await upsertTaxCalendar(sanitizedTaxType, dueDay, sanitizedDescription);
     return res.json(item);
   } catch (error) {
     console.error('Erro ao salvar vencimento:', error);

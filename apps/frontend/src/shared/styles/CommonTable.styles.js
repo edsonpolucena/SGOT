@@ -74,21 +74,36 @@ export const FilterInput = styled.input`
 
 export const FilterSelect = styled.select`
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 0.95rem;
+  padding: 10px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
   background: white;
   cursor: pointer;
-  color: #111827;
-  
-  & > option {
-    color: #111827;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: #9ca3af;
   }
-  
+
   &:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  option {
+    color: #374151;
+    background: white;
+    padding: 8px;
+  }
+
+  option:hover,
+  option:checked {
+    background: #6b7280;
+    color: white;
   }
 `;
 

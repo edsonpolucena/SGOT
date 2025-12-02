@@ -1,5 +1,6 @@
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../shared/context/AuthContext';
+import ConsentGuard from './ConsentGuard';
 
 export default function ProtectedRoute({ children }) {
   const { token, user } = useAuth();
@@ -8,7 +9,7 @@ export default function ProtectedRoute({ children }) {
     return <Navigate to="/login" replace />;
   }
 
-  return children;
+  return <ConsentGuard>{children}</ConsentGuard>;
 }
 
 export function UsersProtectedRoute({ children, requiredRoles }) {

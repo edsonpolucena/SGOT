@@ -10,6 +10,7 @@
     "test:ci": "vitest run --coverage"
   },
   "dependencies": {
+    "@sentry/react": "^8.55.0",
     "axios": "^1.7.2",
     "chart.js": "^4.5.0",
     "react": "^18.3.1",

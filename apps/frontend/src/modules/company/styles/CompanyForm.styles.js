@@ -35,7 +35,7 @@ export const Field = styled.div`
     color: #555;
   }
 
-  input, select {
+  input {
     padding: 10px;
     border: 1px solid #ccc;
     border-radius: 8px;
@@ -44,8 +44,42 @@ export const Field = styled.div`
     transition: border-color 0.2s;
   }
 
-  input:focus, select:focus {
+  input:focus {
     border-color: #0077ff;
+  }
+
+  select {
+    padding: 10px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    outline: none;
+  }
+
+  select:hover {
+    border-color: #9ca3af;
+  }
+
+  select:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  select option {
+    color: #374151;
+    background: white;
+    padding: 8px;
+  }
+
+  select option:hover,
+  select option:checked {
+    background: #6b7280;
+    color: white;
   }
 `;
 

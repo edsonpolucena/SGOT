@@ -1,6 +1,7 @@
 const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl: generateSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { env } = require('../config/env');
+const { retryOperation } = require('../utils/retry.helper');
 
 const s3Client = new S3Client({
   region: env.AWS_REGION || 'sa-east-1',
@@ -13,18 +14,26 @@ const s3Client = new S3Client({
 const BUCKET_NAME = env.S3_BUCKET_NAME;
 
 async function uploadFile(fileBuffer, fileName, mimeType, folder = 'documents') {
-  try {
-    const s3Key = `${folder}/${Date.now()}-${fileName}`;
-    
-    const command = new PutObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: s3Key,
-      Body: fileBuffer,
-      ContentType: mimeType,
-      ACL: 'private'
-    });
+  const s3Key = `${folder}/${Date.now()}-${fileName}`;
+  
+  const command = new PutObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: s3Key,
+    Body: fileBuffer,
+    ContentType: mimeType,
+    ACL: 'private'
+  });
 
-    await s3Client.send(command);
+  try {
+    await retryOperation(
+      () => s3Client.send(command),
+      {
+        maxAttempts: 3,
+        initialDelay: 1000,
+        backoffMultiplier: 2,
+        operationName: `Upload S3: ${fileName}`
+      }
+    );
     
     const s3Url = `https://${BUCKET_NAME}.s3.${env.AWS_REGION || 'sa-east-1'}.amazonaws.com/${s3Key}`;
     
@@ -33,8 +42,8 @@ async function uploadFile(fileBuffer, fileName, mimeType, folder = 'documents') 
       s3Url: s3Url
     };
   } catch (error) {
-    console.error('Erro no upload para S3:', error);
-    throw new Error('Falha no upload do arquivo');
+    console.error('Erro no upload para S3 após todas as tentativas:', error);
+    throw new Error('Falha no upload do arquivo após 3 tentativas');
   }
 }
 

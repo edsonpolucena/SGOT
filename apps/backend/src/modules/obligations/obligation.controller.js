@@ -12,6 +12,7 @@ const { logAudit } = require('../../utils/audit.helper');
 const { recordView } = require('../notifications/notification.service');
 const emailService = require('../../services/email.service');
 const { prisma } = require('../../prisma');
+const { sanitizeString, sanitizeStringSoft } = require('../../utils/obligation.utils');
 
 async function postObligation(req, res) {
   try {
@@ -22,18 +23,18 @@ async function postObligation(req, res) {
     }
 
     const obligationData = {
-      title,
+      title: sanitizeString(title, 200),
       regime,
       periodStart: new Date(periodStart),
       periodEnd: new Date(periodEnd),
       dueDate: new Date(dueDate),
       amount: amount ? parseFloat(amount) : null,
-      notes,
+      notes: notes ? sanitizeStringSoft(notes, 1000) : null,
       companyId: parseInt(companyId),
-      taxType: taxType || null,
+      taxType: taxType ? sanitizeString(taxType, 50) : null,
       referenceMonth: referenceMonth || null,
       status: status || undefined,
-      notApplicableReason: notApplicableReason || null
+      notApplicableReason: notApplicableReason ? sanitizeStringSoft(notApplicableReason, 500) : null
     };
 
     const created = await createObligation(req.userId, obligationData);
@@ -301,7 +302,8 @@ async function deleteFile(req, res) {
 async function markNotApplicable(req, res) {
   try {
     const { reason } = req.body;
-    const updated = await markAsNotApplicable(req.userId, req.user.role, req.params.id, reason);
+    const sanitizedReason = reason ? sanitizeStringSoft(reason, 500) : null;
+    const updated = await markAsNotApplicable(req.userId, req.user.role, req.params.id, sanitizedReason);
     
     if (!updated) {
       return res.status(404).json({ message: 'Obligation not found' });

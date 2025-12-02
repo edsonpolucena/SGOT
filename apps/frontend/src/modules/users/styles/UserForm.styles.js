@@ -56,22 +56,42 @@ export const Input = styled.input`
 
 export const Select = styled.select`
   width: 100%;
-  padding: 12px 15px;
-  border: 1px solid #ddd;
+  padding: 10px 16px;
+  border: 1px solid #d1d5db;
   border-radius: 8px;
-  font-size: 1rem;
-  background-color: white;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  background: white;
   cursor: pointer;
-  transition: border-color 0.3s;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: #9ca3af;
+  }
 
   &:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
 
   &:disabled {
     background-color: #f5f5f5;
     cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  option {
+    color: #374151;
+    background: white;
+    padding: 8px;
+  }
+
+  option:hover,
+  option:checked {
+    background: #6b7280;
+    color: white;
   }
 `;
 
