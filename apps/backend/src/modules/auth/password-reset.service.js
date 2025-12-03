@@ -26,7 +26,7 @@ async function requestPasswordReset(email) {
     throw new Error('Usuário inativo. Contate o administrador.');
   }
 
-  // Gera token seguro
+  // Gera token seguro (hex não tem caracteres especiais, ideal para URLs)
   const token = crypto.randomBytes(32).toString('hex');
   
   // Token expira em 1 hora
@@ -74,43 +74,62 @@ async function requestPasswordReset(email) {
  * Valida se um token é válido
  */
 async function validateResetToken(token) {
-  const resetToken = await prisma.passwordResetToken.findUnique({
-    where: { token },
-    include: {
-      user: {
-        select: {
-          email: true,
-          status: true
+  try {
+    console.log('[validateResetToken] Iniciando validação do token:', token?.substring(0, 10) + '...');
+    
+    const resetToken = await prisma.passwordResetToken.findUnique({
+      where: { token },
+      include: {
+        user: {
+          select: {
+            email: true,
+            status: true
+          }
         }
       }
+    });
+
+    console.log('[validateResetToken] Token encontrado:', !!resetToken);
+
+    if (!resetToken) {
+      console.log('[validateResetToken] Token não existe no banco');
+      return { valid: false, reason: 'Token inválido' };
     }
-  });
 
-  if (!resetToken) {
-    return { valid: false, reason: 'Token inválido' };
+    console.log('[validateResetToken] Token usado:', resetToken.used);
+    console.log('[validateResetToken] Token expira em:', resetToken.expiresAt);
+    console.log('[validateResetToken] Data atual:', new Date());
+
+    if (resetToken.used) {
+      console.log('[validateResetToken] Token já foi utilizado');
+      return { valid: false, reason: 'Token já foi utilizado' };
+    }
+
+    if (new Date() > resetToken.expiresAt) {
+      console.log('[validateResetToken] Token expirado');
+      return { valid: false, reason: 'Token expirado' };
+    }
+
+    if (resetToken.user.status !== 'ACTIVE') {
+      console.log('[validateResetToken] Usuário inativo');
+      return { valid: false, reason: 'Usuário inativo' };
+    }
+
+    // Mascara o email (ex: u***@example.com)
+    const email = resetToken.user.email;
+    const [localPart, domain] = email.split('@');
+    const maskedEmail = localPart[0] + '***@' + domain;
+
+    console.log('[validateResetToken] Token válido, email mascarado:', maskedEmail);
+
+    return { 
+      valid: true, 
+      email: maskedEmail 
+    };
+  } catch (error) {
+    console.error('[validateResetToken] ERRO ao validar token:', error);
+    throw error; // Propaga o erro para o controller tratar
   }
-
-  if (resetToken.used) {
-    return { valid: false, reason: 'Token já foi utilizado' };
-  }
-
-  if (new Date() > resetToken.expiresAt) {
-    return { valid: false, reason: 'Token expirado' };
-  }
-
-  if (resetToken.user.status !== 'ACTIVE') {
-    return { valid: false, reason: 'Usuário inativo' };
-  }
-
-  // Mascara o email (ex: u***@example.com)
-  const email = resetToken.user.email;
-  const [localPart, domain] = email.split('@');
-  const maskedEmail = localPart[0] + '***@' + domain;
-
-  return { 
-    valid: true, 
-    email: maskedEmail 
-  };
 }
 
 /**

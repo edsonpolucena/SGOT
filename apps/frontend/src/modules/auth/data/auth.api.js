@@ -15,7 +15,9 @@ export function forgotPassword({ email }) {
 }
 
 export function validateResetToken(token) {
-  return api.get(`${PREFIX}/auth/validate-reset-token/${token}`);
+  // Encode o token para garantir que caracteres especiais sejam tratados corretamente
+  const encodedToken = encodeURIComponent(token);
+  return api.get(`${PREFIX}/auth/validate-reset-token/${encodedToken}`);
 }
 
 export function resetPassword({ token, newPassword }) {

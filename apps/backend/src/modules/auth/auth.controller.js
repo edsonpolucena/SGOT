@@ -118,11 +118,14 @@ async function postForgotPassword(req, res) {
  */
 async function getValidateResetToken(req, res) {
   try {
-    const { token } = req.params;
+    let { token } = req.params;
 
     if (!token) {
       return res.status(400).json({ valid: false, reason: 'Token não fornecido' });
     }
+
+    // Decode o token caso venha encodado da URL
+    token = decodeURIComponent(token);
 
     console.log('🔍 Validando token de reset:', token.substring(0, 10) + '...');
     const result = await validateResetToken(token);
@@ -136,6 +139,7 @@ async function getValidateResetToken(req, res) {
     return res.status(200).json(result);
   } catch (err) {
     console.error('❌ Erro ao validar token:', err);
+    console.error('❌ Stack trace:', err.stack);
     return res.status(500).json({ valid: false, reason: 'Erro interno ao validar token' });
   }
 }

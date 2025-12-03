@@ -163,11 +163,9 @@ export default function AuthLayout({ children, hideInfo = false }) {
 
                 <div>
                   <strong>🧠 Informações institucionais</strong>
-                  SGOT v2.3.1 – Atualizado em 18/09/2025<br/>
+                  SGOT v2.3.1 – Atualizado em 02/12/2025<br/>
                   © 2025 SGOT. Todos os direitos reservados.<br/>
-                  🔒 Conexão segura via HTTPS<br/>
-                  📄 <a href="/privacidade">Política de Privacidade</a> |{" "}
-                  <a href="/termos">Termos de Uso</a>
+                  🔒 Conexão segura via HTTPS
                 </div>
               </Info>
             </HeroBottom>
@@ -176,8 +174,7 @@ export default function AuthLayout({ children, hideInfo = false }) {
           <FooterMobile>
             SGOT v2.3.1 – © 2025<br/>
             🔒 Conexão segura via HTTPS<br/>
-            <a href="/privacidade">Política de Privacidade</a> |{" "}
-            <a href="/termos">Termos de Uso</a>
+           
           </FooterMobile>
         </>
       )}
