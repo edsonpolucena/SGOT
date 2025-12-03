@@ -1,17 +1,23 @@
-# 📊 SGOT - Sistema de Gestão de Obrigações Tributárias
+#  SGOT - Sistema de Gestão de Obrigações Tributárias
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 ![Status](https://img.shields.io/badge/status-em%20desenvolvimento-orange.svg)
 
-<div align="center">
-  <img src="https://via.placeholder.com/800x400/1e293b/ffffff?text=SGOT+-+Sistema+de+Gestão+de+Obrigações+Tributárias" alt="SGOT Banner" />
-</div>
+---
+##  Credenciais de Acesso
 
+###  Super Admin (Contabilidade)
+- **Email:** `contabilidade@sgot.com`
+- **Senha:** `secret123`
+
+###  Admin Cliente
+- **Email:** `clienteadmin@sgot.com`
+- **Senha:** `secret123`
 ---
 
-## 📑 Índice
+##  Índice
 
 - [Descrição do Projeto](#-descrição-do-projeto)
 - [Status do Projeto](#-status-do-projeto)
@@ -31,7 +37,7 @@
 
 ---
 
-## 📝 Descrição do Projeto
+##  Descrição do Projeto
 
 O **SGOT (Sistema de Gestão de Obrigações Tributárias)** é uma plataforma web completa desenvolvida para auxiliar empresas e escritórios de contabilidade no gerenciamento eficiente de obrigações tributárias. 
 
@@ -47,7 +53,7 @@ O sistema oferece uma solução centralizada para:
 
 ---
 
-## 🚀 Status do Projeto
+##  Status do Projeto
 
 ![Status](https://img.shields.io/badge/status-em%20desenvolvimento-orange.svg)
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-ativo-success.svg)
@@ -67,58 +73,58 @@ O projeto está em **desenvolvimento ativo** com as seguintes características:
 
 ---
 
-## ✨ Funcionalidades
+##  Funcionalidades
 
-### 🔐 Autenticação e Autorização
+###  Autenticação e Autorização
 - Login seguro com JWT
 - Recuperação de senha por email
 - Sistema de roles (Super Admin, Contabilidade, Cliente)
 - Proteção de rotas baseada em permissões
 
-### 📋 Gestão de Obrigações
+###  Gestão de Obrigações
 - Cadastro e edição de obrigações tributárias
 - Upload de documentos (integração com AWS S3)
 - Controle de status (Pendente, Postado, Não Aplicável)
 - Filtros avançados e busca
 - Histórico completo de alterações
 
-### 📊 Dashboard e Analytics
+###  Dashboard e Analytics
 - Dashboard principal com visão geral
 - Estatísticas por tipo de imposto
 - Taxa de cumprimento de prazos
 - Gráficos interativos (Chart.js, Recharts)
 - Alertas de vencimentos próximos e atrasados
 
-### 🏢 Gestão de Empresas
+###  Gestão de Empresas
 - Cadastro de empresas/clientes
 - Perfis fiscais personalizados
 - Calendário de vencimentos por empresa
 - Relatórios de impostos por período
 
-### 📅 Calendário Fiscal
+###  Calendário Fiscal
 - Configuração de dias de vencimento por tipo de imposto
 - Alertas de vencimentos próximos (3, 2, 1 dia)
 
-### 📧 Notificações
+###  Notificações
 - Email automático ao criar nova obrigação
 - Lembretes de vencimentos próximos
 - Notificações de documentos não visualizados
 - Integração com AWS SES
 
-### 🔍 Auditoria
+###  Auditoria
 - Log completo de todas as ações do sistema
 - Rastreamento de alterações
 - Histórico de uploads e downloads
 - Filtros por usuário, ação e data
 
-### 👥 Gestão de Usuários
+###  Gestão de Usuários
 - Cadastro e edição de usuários
 - Atribuição de roles e permissões
 - Controle de acesso granular
 
 ---
 
-## 🎬 Demonstração da Aplicação
+##  Demonstração da Aplicação
 
 ### Tela de Login
 Interface moderna e intuitiva com autenticação segura.
@@ -142,10 +148,10 @@ Interface moderna e intuitiva com autenticação segura.
 
 ---
 
-## 🌐 Acesso ao Projeto
+##  Acesso ao Projeto
 
 ### Produção
-🔗 **URL:** [https://www.sgot.com.br](https://www.sgot.com.br)
+ **URL:** [https://www.sgot.com.br](https://www.sgot.com.br)
 
 ### Desenvolvimento Local
 ```bash
@@ -211,7 +217,7 @@ O backend estará disponível em: `http://localhost:3333`
 
 ---
 
-## 📁 Estrutura do Projeto
+##  Estrutura do Projeto
 
 ```
 SGOT/
@@ -244,7 +250,7 @@ SGOT/
 
 ---
 
-## 📋 Pré-requisitos
+##  Pré-requisitos
 
 Antes de começar, você precisa ter instalado:
 
@@ -255,7 +261,7 @@ Antes de começar, você precisa ter instalado:
 
 ---
 
-## 💻 Instalação
+##  Instalação
 
 ### 1. Clone o repositório
 ```bash
@@ -319,7 +325,9 @@ npm run dev
 
 ---
 
-## 🚀 Como Usar
+
+
+##  Como Usar
 
 ### Desenvolvimento
 
@@ -356,7 +364,7 @@ docker compose -f infra/compose/docker-compose.yml up -d
 
 ---
 
-## 🧪 Testes
+##  Testes
 
 ### Backend
 ```bash
@@ -381,7 +389,7 @@ npm run test:all
 
 ---
 
-## 🚢 Deploy
+##  Deploy
 
 O projeto está configurado com CI/CD automatizado via GitHub Actions. 
 
@@ -419,7 +427,7 @@ O workflow GitHub Actions executa automaticamente ao fazer push para `main`:
 
 ---
 
-## 👥 Pessoas Contribuidoras
+##  Pessoas Contribuidoras
 
 Este projeto está aberto para contribuições! Se você deseja contribuir:
 
@@ -435,7 +443,7 @@ Este projeto está aberto para contribuições! Se você deseja contribuir:
 
 ---
 
-## 👨‍💻 Pessoas Desenvolvedoras do Projeto
+##  Pessoas Desenvolvedoras do Projeto
 
 ### Desenvolvedor Principal
 - **Edson Borges Polucena**
@@ -444,7 +452,7 @@ Este projeto está aberto para contribuições! Se você deseja contribuir:
 
 ---
 
-## 📄 Licença
+##  Licença
 
 Este projeto está sob a licença **MIT**. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
@@ -474,7 +482,7 @@ SOFTWARE.
 
 ---
 
-## 📞 Contato
+##  Contato
 
 Para dúvidas, sugestões ou problemas, abra uma [issue](https://github.com/edsonpolucena/SGOT/issues) no GitHub.
 
