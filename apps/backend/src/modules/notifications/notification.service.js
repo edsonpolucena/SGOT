@@ -255,27 +255,72 @@ async function getObligationViews(obligationId) {
  * Retorna nome do usuário, data/hora e ação
  */
 async function getClientViewsHistory(obligationId) {
-  // Primeiro buscar todas as views da obrigação
-  const allViews = await prisma.obligationView.findMany({
-    where: { obligationId },
-    orderBy: { viewedAt: 'desc' }
-  });
-
-  // Buscar informações dos usuários que visualizaram
-  const userIds = [...new Set(allViews.map(v => v.viewedBy))];
-  const users = await prisma.user.findMany({
-    where: {
-      id: { in: userIds },
-      role: {
-        in: ['CLIENT_NORMAL', 'CLIENT_ADMIN']
-      }
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true
+  try {
+    // Validar parâmetro
+    if (!obligationId) {
+      console.error('❌ obligationId é obrigatório');
+      throw new Error('obligationId é obrigatório');
     }
+
+    console.log(`📋 getClientViewsHistory chamado com obligationId: ${obligationId}`);
+
+    // Buscar a obrigação para pegar o companyId
+    const obligation = await prisma.obligation.findUnique({
+      where: { id: obligationId },
+      select: { companyId: true }
+    });
+
+    if (!obligation) {
+      console.log(`⚠️ Obrigação ${obligationId} não encontrada`);
+      return [];
+    }
+
+    // Buscar todas as views da obrigação
+    const allViews = await prisma.obligationView.findMany({
+      where: { obligationId },
+      orderBy: { viewedAt: 'desc' }
+    });
+
+    // Se não há visualizações, retornar vazio
+    if (allViews.length === 0) {
+      console.log(`ℹ️ Nenhuma visualização encontrada para obrigação ${obligationId}`);
+      return [];
+    }
+
+    // Buscar informações dos usuários que visualizaram
+    // FILTRAR APENAS usuários CLIENT DA MESMA EMPRESA
+    const userIds = [...new Set(allViews.map(v => v.viewedBy))];
+    
+    // Se não há userIds, retornar vazio (não deve acontecer, mas previne erro)
+    if (userIds.length === 0) {
+      console.log(`⚠️ Nenhum userId encontrado nas visualizações da obrigação ${obligationId}`);
+      return [];
+    }
+
+    const users = await prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+        role: {
+          in: ['CLIENT_NORMAL', 'CLIENT_ADMIN']
+        },
+        companyId: obligation.companyId  // ← FILTRO POR EMPRESA
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        companyId: true
+      }
+    });
+
+  console.log(`📊 Histórico de visualizações da obrigação ${obligationId}:`);
+  console.log(`   - Empresa: ${obligation.companyId}`);
+  console.log(`   - Total de visualizações: ${allViews.length}`);
+  console.log(`   - IDs de usuários que visualizaram:`, userIds);
+  console.log(`   - Usuários CLIENT da empresa encontrados: ${users.length}`);
+  users.forEach(u => {
+    console.log(`      → ${u.email} (${u.role}) - companyId: ${u.companyId}`);
   });
 
   // Criar mapa de usuários
@@ -284,9 +329,15 @@ async function getClientViewsHistory(obligationId) {
     userMap[user.id] = user;
   });
 
-  // Filtrar apenas views de clientes e formatar
+  // Filtrar apenas views de clientes DA MESMA EMPRESA e formatar
   const clientViews = allViews
-    .filter(view => userMap[view.viewedBy])
+    .filter(view => {
+      const hasUser = !!userMap[view.viewedBy];
+      if (!hasUser) {
+        console.log(`   ⚠️ View ${view.id} ignorada: usuário ${view.viewedBy} não é CLIENT da empresa ${obligation.companyId}`);
+      }
+      return hasUser;
+    })
     .map(view => ({
       id: view.id,
       userName: userMap[view.viewedBy].name || userMap[view.viewedBy].email,
@@ -295,7 +346,16 @@ async function getClientViewsHistory(obligationId) {
       viewedAt: view.viewedAt
     }));
 
-  return clientViews;
+    console.log(`   - Visualizações de clientes da empresa: ${clientViews.length}`);
+    clientViews.forEach(cv => {
+      console.log(`      → ${cv.userName} (${cv.userEmail}) - ${cv.action} em ${cv.viewedAt}`);
+    });
+
+    return clientViews;
+  } catch (error) {
+    console.error(`❌ Erro ao buscar histórico de clientes para obrigação ${obligationId}:`, error);
+    throw error;
+  }
 }
 
 /**

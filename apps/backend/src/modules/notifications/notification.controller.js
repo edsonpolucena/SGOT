@@ -87,12 +87,25 @@ async function getViewHistory(req, res) {
  */
 async function getClientViewsHistoryController(req, res) {
   try {
-    const { obligationId } = req.params;
+    // A rota usa :id, então o parâmetro vem como 'id', não 'obligationId'
+    const obligationId = req.params.id || req.params.obligationId;
+    
+    if (!obligationId) {
+      console.error('❌ obligationId não encontrado em req.params:', req.params);
+      return res.status(400).json({ message: 'obligationId é obrigatório' });
+    }
+
+    console.log(`🔍 Buscando histórico de clientes para obrigação: ${obligationId}`);
     const history = await getClientViewsHistory(obligationId);
+    console.log(`✅ Histórico retornado: ${history.length} registros`);
     return res.json(history);
   } catch (err) {
-    console.error('Erro ao buscar histórico de clientes:', err);
-    return res.status(500).json({ message: 'Erro ao buscar histórico' });
+    console.error('❌ Erro ao buscar histórico de clientes:', err);
+    console.error('Stack trace:', err.stack);
+    return res.status(500).json({ 
+      message: 'Erro ao buscar histórico',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 }
 
