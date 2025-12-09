@@ -139,13 +139,25 @@ export default function Form() {
       return;
     }
 
-    // 👈 Validar se tem arquivo OU valor
-    // COMENTADO para permitir criar obrigações vazias (para testar alertas)
-    // if (!file && !amount) {
-    //   setErrorMessage('❌ Por favor, anexe um arquivo OU informe o valor da obrigação.');
-    //   setSuccessMessage('');
-    //   return;
-    // }
+    // 👈 Validar se tem vencimento
+    if (!dueDate) {
+      setErrorMessage('❌ Por favor, informe a data de vencimento.');
+      setSuccessMessage('');
+      return;
+    }
+
+    // 👈 Validar se tem arquivo E valor (ambos obrigatórios)
+    if (!file) {
+      setErrorMessage('❌ Por favor, anexe um arquivo.');
+      setSuccessMessage('');
+      return;
+    }
+
+    if (!amount || amount.trim() === '') {
+      setErrorMessage('❌ Por favor, informe o valor da obrigação.');
+      setSuccessMessage('');
+      return;
+    }
 
     try {
       const companyInfo = {
@@ -217,14 +229,28 @@ export default function Form() {
   }
 
   async function handleMarkNotApplicable() {
+    // 👈 Validar campos obrigatórios
     if (!companyId) {
-      setErrorMessage('❌ Por favor, selecione uma empresa primeiro.');
+      setErrorMessage('❌ Por favor, selecione uma empresa.');
+      setSuccessMessage('');
+      return;
+    }
+
+    if (!competence || !competence.includes('/')) {
+      setErrorMessage('❌ Por favor, informe a competência (formato: MM/AAAA).');
+      setSuccessMessage('');
+      return;
+    }
+
+    if (!dueDate) {
+      setErrorMessage('❌ Por favor, informe a data de vencimento.');
       setSuccessMessage('');
       return;
     }
 
     if (!notApplicableReason.trim()) {
       setErrorMessage('❌ Por favor, informe o motivo.');
+      setSuccessMessage('');
       return;
     }
 
@@ -237,15 +263,18 @@ export default function Form() {
         competence
       };
 
-      // Calcular referenceMonth baseado no vencimento
-      // Criar data no timezone local para evitar problemas de conversão
-      const dateToUse = dueDate || new Date().toISOString().split('T')[0];
-      const [year, month, day] = dateToUse.split('-').map(Number);
+      // CORRIGIDO: Calcular referenceMonth baseado na COMPETÊNCIA (não no vencimento)
+      // Isso garante que uma obrigação de Julho (07) apareça em Julho, não em Dezembro
+      // Agora sempre temos competência e dueDate validados acima
+      const [competenceMonth, competenceYear] = competence.split('/');
+      const referenceMonth = `${competenceYear}-${String(competenceMonth).padStart(2, '0')}`;
+      
+      // Usar o dueDate informado
+      const [year, month, day] = dueDate.split('-').map(Number);
       const dueDateObj = new Date(year, month - 1, day);
-      const referenceMonth = `${dueDateObj.getFullYear()}-${String(dueDateObj.getMonth() + 1).padStart(2, '0')}`;
 
       const obligationData = {
-        title: `${docType} - ${competence}`,
+        title: `${docType} - ${competence || referenceMonth}`,
         regime: 'SIMPLES',
         periodStart: new Date(),
         periodEnd: new Date(),
@@ -254,7 +283,7 @@ export default function Form() {
         notes: JSON.stringify(companyInfo),
         companyId: companyId,
         taxType: docType,
-        referenceMonth: referenceMonth, // 👈 Calculado do vencimento
+        referenceMonth: referenceMonth, // 👈 Calculado da COMPETÊNCIA (corrigido)
         status: 'NOT_APPLICABLE',
         notApplicableReason: notApplicableReason
       };

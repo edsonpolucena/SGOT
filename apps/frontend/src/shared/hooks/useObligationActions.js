@@ -8,7 +8,7 @@ export function useObligationActions() {
   const { user, isClient } = useAuth();
   const [alertData, setAlertData] = useState({ isOpen: false, history: [], actionType: 'VIEW', onClose: null });
 
-  const checkClientHistory = async (obligationId) => {
+  const checkClientHistory = async (obligationId, actionType) => {
     if (!isClient || !user) {
       return { shouldShow: false, history: [] };
     }
@@ -17,39 +17,13 @@ export function useObligationActions() {
       const response = await http.get(`/api/obligations/${obligationId}/client-views`);
       const history = response.data || [];
 
-      console.log('📊 Histórico completo recebido:', history.length, 'registros');
-      console.log('👤 Email do usuário atual:', user.email);
-      console.log('📋 Histórico completo:', history);
+      const otherUsersHistory = history.filter(item => item.userEmail !== user.email);
 
-      // Marcar quais ações são do próprio usuário para destacar no modal
-      const historyWithOwnership = history.map(item => {
-        const isOwnAction = item.userEmail?.toLowerCase() === user.email?.toLowerCase();
-        return {
-          ...item,
-          isOwnAction // Flag para destacar no modal
-        };
-      });
-
-      // Ordenar: próprias ações primeiro, depois outras
-      const sortedHistory = historyWithOwnership.sort((a, b) => {
-        if (a.isOwnAction && !b.isOwnAction) return -1;
-        if (!a.isOwnAction && b.isOwnAction) return 1;
-        // Se ambos são do mesmo tipo, ordenar por data (mais recente primeiro)
-        return new Date(b.viewedAt) - new Date(a.viewedAt);
-      });
-
-      console.log('📊 Histórico processado:', sortedHistory.length, 'registros');
-      sortedHistory.forEach(item => {
-        console.log(`   - ${item.userName} (${item.userEmail}) - ${item.action} - Próprio? ${item.isOwnAction}`);
-      });
-
-      // Mostrar modal se houver qualquer histórico (incluindo do próprio usuário)
       return {
-        shouldShow: sortedHistory.length > 0,
-        history: sortedHistory
+        shouldShow: otherUsersHistory.length > 0,
+        history: otherUsersHistory
       };
     } catch (error) {
-      console.error('Erro ao buscar histórico:', error);
       return { shouldShow: false, history: [] };
     }
   };
@@ -59,8 +33,8 @@ export function useObligationActions() {
       console.log('🔍 Iniciando visualização da obrigação:', obligationId);
       if (isClient && user) {
         try {
-          console.log('🔍 Verificando histórico para cliente (VIEW)...');
-          const { shouldShow, history } = await checkClientHistory(obligationId);
+          console.log('🔍 Verificando histórico para cliente...');
+          const { shouldShow, history } = await checkClientHistory(obligationId, 'VIEW');
           console.log('📊 Resultado da verificação:', { shouldShow, historyLength: history?.length });
           
           if (shouldShow && history && history.length > 0) {
@@ -127,8 +101,8 @@ export function useObligationActions() {
       console.log('🔍 Iniciando download da obrigação:', obligationId);
       if (isClient && user) {
         try {
-          console.log('🔍 Verificando histórico para cliente (DOWNLOAD)...');
-          const { shouldShow, history } = await checkClientHistory(obligationId);
+          console.log('🔍 Verificando histórico para cliente...');
+          const { shouldShow, history } = await checkClientHistory(obligationId, 'DOWNLOAD');
           console.log('📊 Resultado da verificação:', { shouldShow, historyLength: history?.length });
           
           if (shouldShow && history && history.length > 0) {

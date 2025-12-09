@@ -47,10 +47,6 @@ async function requestPasswordReset(email) {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const resetLink = `${frontendUrl}/reset-password?token=${token}`;
 
-  // Log para debug (remover em produção se necessário)
-  console.log('🔗 Link de reset gerado:', resetLink);
-  console.log('📧 Enviando email para:', user.email);
-
   // Envia email
   try {
     await emailService.sendPasswordResetEmail({
@@ -75,8 +71,6 @@ async function requestPasswordReset(email) {
  */
 async function validateResetToken(token) {
   try {
-    console.log('[validateResetToken] Iniciando validação do token:', token?.substring(0, 10) + '...');
-    
     const resetToken = await prisma.passwordResetToken.findUnique({
       where: { token },
       include: {
@@ -89,29 +83,19 @@ async function validateResetToken(token) {
       }
     });
 
-    console.log('[validateResetToken] Token encontrado:', !!resetToken);
-
     if (!resetToken) {
-      console.log('[validateResetToken] Token não existe no banco');
       return { valid: false, reason: 'Token inválido' };
     }
 
-    console.log('[validateResetToken] Token usado:', resetToken.used);
-    console.log('[validateResetToken] Token expira em:', resetToken.expiresAt);
-    console.log('[validateResetToken] Data atual:', new Date());
-
     if (resetToken.used) {
-      console.log('[validateResetToken] Token já foi utilizado');
       return { valid: false, reason: 'Token já foi utilizado' };
     }
 
     if (new Date() > resetToken.expiresAt) {
-      console.log('[validateResetToken] Token expirado');
       return { valid: false, reason: 'Token expirado' };
     }
 
     if (resetToken.user.status !== 'ACTIVE') {
-      console.log('[validateResetToken] Usuário inativo');
       return { valid: false, reason: 'Usuário inativo' };
     }
 
@@ -119,8 +103,6 @@ async function validateResetToken(token) {
     const email = resetToken.user.email;
     const [localPart, domain] = email.split('@');
     const maskedEmail = localPart[0] + '***@' + domain;
-
-    console.log('[validateResetToken] Token válido, email mascarado:', maskedEmail);
 
     return { 
       valid: true, 
@@ -203,7 +185,6 @@ async function cleanExpiredTokens() {
     }
   });
 
-  console.log(`🗑️ ${result.count} tokens de recuperação removidos`);
   return result.count;
 }
 

@@ -179,9 +179,11 @@ export default function Dashboard() {
         setTaxStats([]);
       }
 
-      // Buscar estatísticas de cumprimento de prazos
+      // Buscar estatísticas de cumprimento de prazos (sem filtro de mês para incluir todos)
       try {
-        const deadlineResponse = await http.get(`/api/analytics/deadline-compliance?month=${currentMonth}`);
+        // CORRIGIDO: Não passa month para buscar TODOS os impostos postados
+        // Isso garante que impostos atrasados de meses anteriores sejam contabilizados
+        const deadlineResponse = await http.get(`/api/analytics/deadline-compliance`);
         setDeadlineCompliance(deadlineResponse.data);
       } catch (deadlineError) {
         console.error("Erro ao carregar estatísticas de prazo:", deadlineError);
@@ -438,6 +440,25 @@ export default function Dashboard() {
           </div>
           
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '12px' }}>
+            {/* Documentos Vencidos */}
+            {unviewedAlerts.overdue && unviewedAlerts.overdue.length > 0 && (
+              <div style={{ flex: '1', minWidth: '220px', background: '#fee2e2', padding: '12px', borderRadius: '6px', borderLeft: '4px solid #dc2626' }}>
+                <div style={{ fontWeight: '600', color: '#991b1b', marginBottom: '6px' }}>
+                  🔴 Vencidos ({unviewedAlerts.overdue.length})
+                </div>
+                {unviewedAlerts.overdue.slice(0, 2).map((item, i) => (
+                  <div key={i} style={{ fontSize: '0.8rem', color: '#7f1d1d', marginBottom: '3px' }}>
+                    • {item.company} - {item.taxType} ({item.daysOverdue || 0} dias atrasado)
+                  </div>
+                ))}
+                {unviewedAlerts.overdue.length > 2 && (
+                  <div style={{ fontSize: '0.75rem', fontStyle: 'italic', color: '#991b1b', marginTop: '4px' }}>
+                    + {unviewedAlerts.overdue.length - 2} mais...
+                  </div>
+                )}
+              </div>
+            )}
+
             {unviewedAlerts.oneDay.length > 0 && (
               <div style={{ flex: '1', minWidth: '220px', background: '#fef2f2', padding: '12px', borderRadius: '6px', borderLeft: '4px solid #dc2626' }}>
                 <div style={{ fontWeight: '600', color: '#991b1b', marginBottom: '6px' }}>

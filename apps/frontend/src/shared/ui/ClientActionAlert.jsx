@@ -92,13 +92,10 @@ const HistoryList = styled.div`
 
 const HistoryItem = styled.div`
   padding: 12px;
-  background: ${props => props.$isOwn ? '#fef3c7' : 'white'};
+  background: white;
   border-radius: 6px;
   margin-bottom: 8px;
-  border-left: 3px solid ${props => {
-    if (props.$isOwn) return '#f59e0b'; // Amarelo para ações próprias
-    return props.$action === 'DOWNLOAD' ? '#3b82f6' : '#10b981';
-  }};
+  border-left: 3px solid ${props => props.$action === 'DOWNLOAD' ? '#3b82f6' : '#10b981'};
 
   &:last-child {
     margin-bottom: 0;
@@ -110,20 +107,6 @@ const UserName = styled.div`
   color: #1f2937;
   margin-bottom: 4px;
   font-size: 0.95rem;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-`;
-
-const OwnActionBadge = styled.span`
-  display: inline-block;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  background: #f59e0b;
-  color: white;
-  text-transform: uppercase;
 `;
 
 const ActionBadge = styled.span`
@@ -214,18 +197,17 @@ export default function ClientActionAlert({
         </Header>
 
         <Message>
-          Histórico de visualizações e downloads deste documento:
+          Este documento já foi {actionLabel} anteriormente por outro usuário cliente:
         </Message>
 
         {history.length > 0 ? (
           <HistoryList>
             {history.map((item) => (
-              <HistoryItem key={item.id} $action={item.action} $isOwn={item.isOwnAction}>
+              <HistoryItem key={item.id} $action={item.action}>
                 <UserName>
                   <ActionBadge $action={item.action}>
                     {getActionLabel(item.action)}
                   </ActionBadge>
-                  {item.isOwnAction && <OwnActionBadge>Você</OwnActionBadge>}
                   {item.userName}
                 </UserName>
                 <DateTime>

@@ -44,7 +44,6 @@ function getTransporter() {
 
   // Se EMAIL_ENABLED=false no .env, não envia emails (útil em desenvolvimento)
   if (process.env.EMAIL_ENABLED === 'false') {
-    console.warn('⚠️  Envio de emails DESABILITADO (EMAIL_ENABLED=false)');
     return null;
   }
 
@@ -52,7 +51,6 @@ function getTransporter() {
   const smtpPass = process.env.SES_SMTP_PASS;
 
   if (!smtpUser || !smtpPass) {
-    console.warn('⚠️  SES SMTP não configurado. Defina SES_SMTP_USER e SES_SMTP_PASS no .env');
     return null;
   }
 
@@ -74,7 +72,6 @@ function getTransporter() {
     // opcional: tls: { minVersion: 'TLSv1.2' }
   });
 
-  console.log('✅ AWS SES (SMTP) configurado com sucesso');
   return transporter;
 }
 
@@ -91,7 +88,6 @@ function getTransporter() {
 async function sendEmail({ from, to, subject, html, text, replyTo }) {
   const emailTransporter = getTransporter();
   if (!emailTransporter) {
-    console.log('⚠️  Email não enviado: transporter não configurado');
     return { success: false, error: 'SES SMTP não configurado' };
   }
 
@@ -145,7 +141,6 @@ async function sendEmail({ from, to, subject, html, text, replyTo }) {
       }
     );
     
-    console.log('✅ Email enviado:', { from: finalFrom, to, subject, messageId: info.messageId });
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('❌ Erro ao enviar email após todas as tentativas:', error);

@@ -1,14 +1,36 @@
 const { prisma } = require("../../prisma");
 const { sanitizeString, sanitizeStringSoft } = require("../../utils/obligation.utils");
 
-function create(data) {
+// Tipos de impostos padrão que serão criados para novas empresas clientes
+// Ajuste esta lista conforme os impostos que suas empresas precisam pagar
+const DEFAULT_TAX_TYPES = ['DAS', 'ISS_RETIDO', 'FGTS', 'DCTFWeb', 'OUTRO'];
+
+async function create(data) {
   const sanitizedData = {
     ...data,
     codigo: data.codigo ? sanitizeString(data.codigo, 20) : data.codigo,
     nome: data.nome ? sanitizeString(data.nome, 200) : data.nome,
     endereco: data.endereco ? sanitizeStringSoft(data.endereco, 500) : data.endereco
   };
-  return prisma.empresa.create({ data: sanitizedData });
+  
+  // Criar empresa
+  const empresa = await prisma.empresa.create({ data: sanitizedData });
+  
+  // Criar perfil fiscal padrão APENAS se não for EMP001 (contabilidade)
+  // Isso garante que todas as novas empresas clientes já tenham perfil fiscal configurado
+  if (empresa.codigo !== 'EMP001') {
+    const taxProfiles = DEFAULT_TAX_TYPES.map(taxType => ({
+      companyId: empresa.id,
+      taxType,
+      isActive: true
+    }));
+    
+    await prisma.companyTaxProfile.createMany({
+      data: taxProfiles
+    });
+  }
+  
+  return empresa;
 }
 
 function getAll() {

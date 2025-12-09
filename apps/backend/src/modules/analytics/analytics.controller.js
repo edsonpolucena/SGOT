@@ -108,11 +108,9 @@ async function getDeadlineCompliance(req, res) {
   try {
     const { month } = req.query;
 
-    if (!month) {
-      return res.status(400).json({ error: "month é obrigatório (formato: YYYY-MM)" });
-    }
-
-    const stats = await analyticsService.getDeadlineComplianceStats(month);
+    // CORRIGIDO: month é opcional agora - se não informado, busca de todos os meses
+    // Isso permite calcular estatísticas de prazos considerando impostos de meses anteriores
+    const stats = await analyticsService.getDeadlineComplianceStats(month || null);
 
     res.json(stats);
   } catch (error) {
@@ -125,11 +123,9 @@ async function getOverdueAndUpcoming(req, res) {
   try {
     const { month } = req.query;
 
-    if (!month) {
-      return res.status(400).json({ error: "month é obrigatório (formato: YYYY-MM)" });
-    }
-
-    const data = await analyticsService.getOverdueAndUpcomingTaxes(month);
+    // month é opcional agora - se não informado, busca de todos os meses
+    // Isso permite encontrar impostos atrasados de meses anteriores
+    const data = await analyticsService.getOverdueAndUpcomingTaxes(month || null);
 
     res.json(data);
   } catch (error) {

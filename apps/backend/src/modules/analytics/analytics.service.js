@@ -218,14 +218,24 @@ async function getTaxTypeStats(month) {
 
     const expectedCount = companiesWithTax.length;
 
-    const postedObligations = obligations.filter(obl => 
+    // CORRIGIDO: Conta empresas que postaram OU marcaram como não aplicável
+    // Uma obrigação é considerada "tratada" se:
+    // - Tem arquivo OU
+    // - Tem valor > 0 OU
+    // - Está marcada como NOT_APPLICABLE
+    const treatedObligations = obligations.filter(obl => 
       obl.taxType === taxType && 
       companiesWithTax.includes(obl.companyId) &&
-      (obl.files.length > 0 || (obl.amount && obl.amount > 0))
+      (
+        obl.files.length > 0 ||                          // Postado (tem arquivo)
+        (obl.amount && Number(obl.amount) > 0) ||        // Postado (tem valor)
+        obl.status === 'NOT_APPLICABLE'                  // Marcado como não aplicável
+      )
     );
 
-    const postedCompanies = new Set(postedObligations.map(o => o.companyId));
-    const postedCount = postedCompanies.size;
+    // Conta empresas distintas que trataram a obrigação
+    const treatedCompanies = new Set(treatedObligations.map(o => o.companyId));
+    const postedCount = treatedCompanies.size;
 
     const completionRate = expectedCount > 0 ? (postedCount / expectedCount) : 0;
 
@@ -354,9 +364,11 @@ function getTaxName(taxType) {
 }
 
 async function getDeadlineComplianceStats(month) {
+  // CORRIGIDO: Busca TODOS os impostos postados de QUALQUER mês
+  // Não filtra por referenceMonth, pois impostos atrasados podem ser de meses anteriores
+  // Isso garante que o cálculo de "prazos cumpridos" seja preciso
   const obligations = await prisma.obligation.findMany({
     where: {
-      referenceMonth: month,
       status: { not: 'NOT_APPLICABLE' },
       company: {
         codigo: { not: 'EMP001' }
@@ -386,6 +398,8 @@ async function getDeadlineComplianceStats(month) {
     const diffTime = dueDate.getTime() - uploadDate.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+    // CORRIGIDO: Um imposto está "no prazo" se foi postado 4+ dias ANTES do vencimento
+    // Se diffDays for negativo, significa que foi postado DEPOIS do vencimento (atrasado)
     const isOnTime = diffDays >= 4;
 
     if (isOnTime) {
@@ -401,7 +415,8 @@ async function getDeadlineComplianceStats(month) {
       uploadDate: uploadDate.toLocaleDateString('pt-BR'),
       dueDate: dueDate.toLocaleDateString('pt-BR'),
       diffDays,
-      isOnTime
+      isOnTime,
+      referenceMonth: obl.referenceMonth // Adiciona mês de referência para identificação
     });
   });
 
@@ -409,7 +424,7 @@ async function getDeadlineComplianceStats(month) {
   const complianceRate = total > 0 ? (onTime / total) * 100 : 100;
 
   return {
-    month,
+    month: month || 'all', // Indica que pode incluir todos os meses
     total,
     onTime,
     late,
@@ -423,9 +438,10 @@ async function getOverdueAndUpcomingTaxes(month) {
   const twoDaysFromNow = new Date();
   twoDaysFromNow.setDate(twoDaysFromNow.getDate() + 2);
 
+  // CORRIGIDO: Busca TODOS os impostos não postados de QUALQUER mês
+  // Não filtra por referenceMonth, pois um imposto de maio pode estar atrasado em dezembro
   const obligations = await prisma.obligation.findMany({
     where: {
-      referenceMonth: month,
       status: { not: 'NOT_APPLICABLE' },
       company: {
         codigo: { not: 'EMP001' }
@@ -437,18 +453,36 @@ async function getOverdueAndUpcomingTaxes(month) {
     }
   });
 
+  // Considera "NÃO POSTADO" se não tem arquivo E não tem valor
   const notPosted = obligations.filter(o => 
     o.files.length === 0 && (!o.amount || Number(o.amount) === 0)
   );
 
+  // ATRASADO: vencimento passou (dueDate < hoje)
   const overdue = notPosted.filter(o => new Date(o.dueDate) < now);
+  
+  // VENCENDO: vence entre hoje e 2 dias
   const dueSoon = notPosted.filter(o => {
     const dueDate = new Date(o.dueDate);
     return dueDate >= now && dueDate <= twoDaysFromNow;
   });
 
+  // Ordena atrasados por dias de atraso (mais antigos primeiro)
+  overdue.sort((a, b) => {
+    const daysA = Math.ceil((now - new Date(a.dueDate)) / (1000 * 60 * 60 * 24));
+    const daysB = Math.ceil((now - new Date(b.dueDate)) / (1000 * 60 * 60 * 24));
+    return daysB - daysA;
+  });
+
+  // Ordena vencendo por proximidade (mais próximos primeiro)
+  dueSoon.sort((a, b) => {
+    const daysA = Math.ceil((new Date(a.dueDate) - now) / (1000 * 60 * 60 * 24));
+    const daysB = Math.ceil((new Date(b.dueDate) - now) / (1000 * 60 * 60 * 24));
+    return daysA - daysB;
+  });
+
   return {
-    month,
+    month: month || 'all', // Indica que pode incluir todos os meses
     overdue: {
       count: overdue.length,
       items: overdue.map(o => ({
@@ -456,6 +490,7 @@ async function getOverdueAndUpcomingTaxes(month) {
         companyName: o.company.nome,
         taxType: o.taxType,
         dueDate: o.dueDate,
+        referenceMonth: o.referenceMonth, // Adiciona mês de referência para identificação
         daysOverdue: Math.ceil((now - new Date(o.dueDate)) / (1000 * 60 * 60 * 24))
       }))
     },
@@ -466,6 +501,7 @@ async function getOverdueAndUpcomingTaxes(month) {
         companyName: o.company.nome,
         taxType: o.taxType,
         dueDate: o.dueDate,
+        referenceMonth: o.referenceMonth, // Adiciona mês de referência para identificação
         daysUntilDue: Math.ceil((new Date(o.dueDate) - now) / (1000 * 60 * 60 * 24))
       }))
     }
@@ -475,13 +511,15 @@ async function getOverdueAndUpcomingTaxes(month) {
 async function getUnviewedAlertsForAccounting() {
   const now = new Date();
 
+  // CORRIGIDO: Busca TODOS os documentos não visualizados, incluindo os já vencidos
+  // Removido filtro dueDate: { gte: now } para não perder documentos antigos
   const unviewedDocs = await prisma.obligation.findMany({
     where: {
       status: { not: 'NOT_APPLICABLE' },
-      views: { none: {} },
-      files: { some: {} },
-      company: { codigo: { not: 'EMP001' } },
-      dueDate: { gte: now }
+      views: { none: {} },        // Sem visualizações
+      files: { some: {} },         // Tem arquivos (postado)
+      company: { codigo: { not: 'EMP001' } }
+      // Removido: dueDate: { gte: now } - agora mostra todos, incluindo vencidos
     },
     include: {
       company: { select: { codigo: true, nome: true } },
@@ -494,6 +532,7 @@ async function getUnviewedAlertsForAccounting() {
     threeDays: [],
     twoDays: [],
     oneDay: [],
+    overdue: [],  // Adiciona categoria para documentos vencidos
     total: unviewedDocs.length
   };
 
@@ -507,14 +546,24 @@ async function getUnviewedAlertsForAccounting() {
       title: doc.title,
       company: `${doc.company.codigo} - ${doc.company.nome}`,
       dueDate: doc.dueDate,
-      daysUntilDue
+      daysUntilDue,
+      daysOverdue: daysUntilDue < 0 ? Math.abs(daysUntilDue) : 0  // Dias de atraso se vencido
     };
 
-    if (daysUntilDue <= 1) {
+    // Documentos vencidos
+    if (daysUntilDue < 0) {
+      alerts.overdue.push(item);
+    }
+    // Documentos vencendo em 1 dia
+    else if (daysUntilDue <= 1) {
       alerts.oneDay.push(item);
-    } else if (daysUntilDue <= 2) {
+    }
+    // Documentos vencendo em 2 dias
+    else if (daysUntilDue <= 2) {
       alerts.twoDays.push(item);
-    } else if (daysUntilDue <= 3) {
+    }
+    // Documentos vencendo em 3 dias
+    else if (daysUntilDue <= 3) {
       alerts.threeDays.push(item);
     }
   });

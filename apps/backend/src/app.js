@@ -30,7 +30,6 @@ app.use(
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
 
-      console.log('❌ CORS BLOQUEADO:', origin);
       return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
@@ -44,67 +43,6 @@ app.use(express.json());
 
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
-
-app.get('/test-sentry', async (req, res) => {
-  const Sentry = require('./instrument');
-  const SENTRY_DSN = process.env.SENTRY_DSN;
-
-  if (!Sentry) {
-    return res.status(200).json({ 
-      success: false,
-      message: 'Sentry não configurado',
-      hint: 'Configure SENTRY_DSN no arquivo .env para ativar o Sentry',
-      check: {
-        hasDsn: !!SENTRY_DSN,
-        dsnNotEmpty: SENTRY_DSN && SENTRY_DSN.trim() !== '',
-        dsnValue: SENTRY_DSN ? (SENTRY_DSN.length > 0 ? `${SENTRY_DSN.substring(0, 20)}...` : 'vazio') : 'não definido',
-        nodeEnv: process.env.NODE_ENV,
-        isTest: process.env.NODE_ENV === 'test'
-      },
-      solution: !SENTRY_DSN || SENTRY_DSN.trim() === '' 
-        ? 'Adicione SENTRY_DSN="seu-dsn-aqui" no arquivo .env'
-        : 'Verifique se o DSN está correto e reinicie o servidor'
-    });
-  }
-
-  if (!process.env.SENTRY_DSN) {
-    return res.status(200).json({ 
-      success: false,
-      message: 'SENTRY_DSN não configurado',
-      hint: 'Adicione SENTRY_DSN no arquivo .env'
-    });
-  }
-
-  try {
-    foo();
-  } catch (e) {
-    const eventId = Sentry.captureException(e, {
-      tags: {
-        source: 'test-endpoint',
-        environment: process.env.NODE_ENV || 'development'
-      },
-      extra: {
-        test: true,
-        endpoint: '/test-sentry',
-        timestamp: new Date().toISOString()
-      }
-    });
-    
-    await Sentry.flush(2000);
-    
-    return res.status(200).json({ 
-      success: true,
-      message: 'Erro de teste capturado pelo Sentry!',
-      hint: 'Verifique o dashboard do Sentry para ver o erro',
-      eventId: eventId,
-      error: {
-        message: e.message,
-        name: e.name
-      }
-    });
-  }
-});
-
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);

@@ -127,14 +127,7 @@ async function getValidateResetToken(req, res) {
     // Decode o token caso venha encodado da URL
     token = decodeURIComponent(token);
 
-    console.log('🔍 Validando token de reset:', token.substring(0, 10) + '...');
     const result = await validateResetToken(token);
-    
-    if (!result.valid) {
-      console.log('❌ Token inválido:', result.reason);
-    } else {
-      console.log('✅ Token válido');
-    }
     
     return res.status(200).json(result);
   } catch (err) {

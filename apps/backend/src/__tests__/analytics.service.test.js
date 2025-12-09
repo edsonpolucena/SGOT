@@ -412,6 +412,46 @@ describe('Analytics Service (unit - cobertura)', () => {
     expect(result.taxStats[0].postedCount).toBe(1);
   });
 
+  test('getTaxTypeStats deve considerar NOT_APPLICABLE como tratado', async () => {
+    prisma.empresa.findMany.mockResolvedValue([
+      {
+        id: 1,
+        codigo: 'EMP002',
+        status: 'ativa',
+        taxProfiles: [{ taxType: 'DAS', isActive: true }],
+      },
+      {
+        id: 2,
+        codigo: 'EMP003',
+        status: 'ativa',
+        taxProfiles: [{ taxType: 'DAS', isActive: true }],
+      },
+    ]);
+
+    prisma.obligation.findMany.mockResolvedValue([
+      {
+        companyId: 1,
+        taxType: 'DAS',
+        amount: 1000,
+        files: [],
+        status: 'PENDING',
+      },
+      {
+        companyId: 2,
+        taxType: 'DAS',
+        amount: null,
+        files: [],
+        status: 'NOT_APPLICABLE', // Marcado como não aplicável
+      },
+    ]);
+
+    const result = await getTaxTypeStats('2025-01');
+
+    expect(result.taxStats[0].expectedCount).toBe(2);
+    expect(result.taxStats[0].postedCount).toBe(2); // Ambas tratadas (1 postada + 1 not applicable)
+    expect(result.taxStats[0].completionRate).toBe(100);
+  });
+
   // -------------------------------------------------------------------
   // getClientTaxReport
   // -------------------------------------------------------------------
@@ -647,6 +687,7 @@ describe('Analytics Service (unit - cobertura)', () => {
         amount: null,
         dueDate: ontem,
         files: [],
+        referenceMonth: '2025-01',
         company: { id: 1, codigo: 'EMP002', nome: 'Empresa 2' },
       },
       {
@@ -654,6 +695,7 @@ describe('Analytics Service (unit - cobertura)', () => {
         amount: 0,
         dueDate: amanha,
         files: [],
+        referenceMonth: '2025-01',
         company: { id: 1, codigo: 'EMP002', nome: 'Empresa 2' },
       },
     ]);
@@ -663,6 +705,32 @@ describe('Analytics Service (unit - cobertura)', () => {
     expect(prisma.obligation.findMany).toHaveBeenCalledTimes(1);
     expect(result.month).toBe('2025-01');
     expect(result.overdue.count + result.dueSoon.count).toBe(2);
+    // Verifica que não filtra por referenceMonth no where
+    expect(prisma.obligation.findMany.mock.calls[0][0].where.referenceMonth).toBeUndefined();
+  });
+
+  test('getOverdueAndUpcomingTaxes deve buscar todos os meses quando month é null', async () => {
+    const now = new Date();
+    const ontem = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
+
+    prisma.obligation.findMany.mockResolvedValue([
+      {
+        taxType: 'DAS',
+        amount: null,
+        dueDate: ontem,
+        files: [],
+        referenceMonth: '2025-05', // Mês anterior
+        company: { id: 1, codigo: 'EMP002', nome: 'Empresa 2' },
+      },
+    ]);
+
+    const result = await getOverdueAndUpcomingTaxes(null);
+
+    expect(prisma.obligation.findMany).toHaveBeenCalledTimes(1);
+    expect(result.month).toBe('all');
+    expect(result.overdue.count).toBe(1);
+    // Verifica que não filtra por referenceMonth
+    expect(prisma.obligation.findMany.mock.calls[0][0].where.referenceMonth).toBeUndefined();
   });
 
   // -------------------------------------------------------------------

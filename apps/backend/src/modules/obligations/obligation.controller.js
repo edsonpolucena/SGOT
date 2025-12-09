@@ -155,9 +155,6 @@ async function uploadFiles(req, res) {
       const toEmail = obligation.company.email;
 
       if (toEmail) {
-        console.log(`📧 Enviando notificação para empresa ${obligation.company.nome}...`);
-        console.log(`   To: ${toEmail}`);
-        
         try {
           // Buscar email remetente (empresa contabilidade)
           const accountingCompany = await prisma.empresa.findUnique({
@@ -187,18 +184,9 @@ async function uploadFiles(req, res) {
               emailError: result?.error || null
             }
           });
-          
-          if (result?.success) {
-            console.log(`   ✅ Email enviado com sucesso para ${toEmail}`);
-          } else {
-            console.log(`   ❌ Falha ao enviar: ${result?.error}`);
-          }
         } catch (emailError) {
-          console.error(`   ❌ Erro ao enviar email:`, emailError.message);
           // Não falha o upload se email não for enviado
         }
-      } else {
-        console.log(`⚠️  Empresa ${obligation.company.nome} sem email cadastrado`);
       }
     }
 
@@ -207,7 +195,6 @@ async function uploadFiles(req, res) {
       files: uploadedFiles 
     });
   } catch (error) {
-    console.error('Error uploading files:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 }

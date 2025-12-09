@@ -479,13 +479,17 @@ describe("AnalyticsController", () => {
   // ---------------------------------------------------------------------------
   // getOverdueAndUpcoming
   // ---------------------------------------------------------------------------
-  test("deve retornar erro 400 para overdue-and-upcoming sem month", async () => {
+  test("deve buscar overdue-and-upcoming sem month (busca todos os meses)", async () => {
     const res = await request(app)
       .get("/api/analytics/overdue-and-upcoming")
       .set("Authorization", `Bearer ${adminToken}`);
 
-    expect(res.status).toBe(400);
-    expect(res.body.error).toContain("month é obrigatório");
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty("month");
+    expect(res.body).toHaveProperty("overdue");
+    expect(res.body).toHaveProperty("dueSoon");
+    // Quando não informa month, busca de todos os meses
+    expect(res.body.month).toBe('all');
   });
 
   test("deve validar formato de month em getOverdueAndUpcoming", async () => {
