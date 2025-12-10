@@ -126,7 +126,6 @@ export default function Dashboard() {
     loadDashboardData();
   }, [isClient, navigate]);
 
-  // Recarregar dados quando a janela receber foco
   useEffect(() => {
     const handleFocus = () => {
       if (!isClient) {
@@ -167,7 +166,6 @@ export default function Dashboard() {
 
       setObligations(obligations);
 
-      // Buscar estatísticas por tipo de imposto (mês atual)
       const now = new Date();
       const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       
@@ -179,10 +177,7 @@ export default function Dashboard() {
         setTaxStats([]);
       }
 
-      // Buscar estatísticas de cumprimento de prazos (sem filtro de mês para incluir todos)
       try {
-        // CORRIGIDO: Não passa month para buscar TODOS os impostos postados
-        // Isso garante que impostos atrasados de meses anteriores sejam contabilizados
         const deadlineResponse = await http.get(`/api/analytics/deadline-compliance`);
         setDeadlineCompliance(deadlineResponse.data);
       } catch (deadlineError) {
@@ -190,7 +185,6 @@ export default function Dashboard() {
         setDeadlineCompliance(null);
       }
 
-      // Buscar impostos atrasados e próximos ao vencimento
       try {
         const alertsResponse = await http.get(`/api/analytics/overdue-and-upcoming?month=${currentMonth}`);
         setAlerts(alertsResponse.data);
@@ -199,7 +193,6 @@ export default function Dashboard() {
         setAlerts(null);
       }
 
-      // Buscar alertas de documentos não visualizados
       try {
         const unviewedResponse = await http.get('/api/analytics/unviewed-alerts');
         setUnviewedAlerts(unviewedResponse.data);
@@ -278,7 +271,6 @@ export default function Dashboard() {
   const currentItems = filteredObligations.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredObligations.length / itemsPerPage);
 
-  // ===== Compliance (Cumprimento Geral) =====
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
@@ -313,7 +305,6 @@ export default function Dashboard() {
       subtitle="Gerencie todas as obrigações tributárias"
     />
 
-      {/* Botão de teste do Sentry - apenas em desenvolvimento */}
       {import.meta.env.MODE === 'development' && (
         <div style={{ 
           marginBottom: '20px', 
@@ -326,14 +317,12 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Cards de estatísticas principais */}
       <StatsGrid>
         <StatCard color="#667eea">
           <StatNumber color="#667eea">{stats.totalObligations}</StatNumber>
           <StatLabel>Total de Obrigações</StatLabel>
         </StatCard>
         
-        {/* Card: % de Prazos Cumpridos (4 dias antes) */}
         {deadlineCompliance && (
           <StatCard color={
             deadlineCompliance.complianceRate >= 90 ? '#10b981' :
@@ -369,7 +358,6 @@ export default function Dashboard() {
         )}
       </StatsGrid>
 
-      {/* Alertas de Impostos Atrasados e Vencendo */}
       {alerts && (alerts.overdue.count > 0 || alerts.dueSoon.count > 0) && (
         <div style={{ 
           margin: '20px 0', 
@@ -423,7 +411,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Alertas de Documentos Não Visualizados */}
       {unviewedAlerts && unviewedAlerts.total > 0 && (
         <div style={{ 
           margin: '20px 0', 
@@ -433,18 +420,17 @@ export default function Dashboard() {
           borderRadius: '8px'
         }}>
           <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#075985', marginBottom: '12px' }}>
-            📢 {unviewedAlerts.total} Documento(s) Não Visualizado(s) pelos Clientes
+             {unviewedAlerts.total} Documento(s) Não Visualizado(s) pelos Clientes
           </div>
           <div style={{ fontSize: '0.85rem', color: '#0c4a6e', marginBottom: '8px' }}>
             Documentos postados aguardando visualização:
           </div>
           
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '12px' }}>
-            {/* Documentos Vencidos */}
             {unviewedAlerts.overdue && unviewedAlerts.overdue.length > 0 && (
               <div style={{ flex: '1', minWidth: '220px', background: '#fee2e2', padding: '12px', borderRadius: '6px', borderLeft: '4px solid #dc2626' }}>
                 <div style={{ fontWeight: '600', color: '#991b1b', marginBottom: '6px' }}>
-                  🔴 Vencidos ({unviewedAlerts.overdue.length})
+                   Vencidos ({unviewedAlerts.overdue.length})
                 </div>
                 {unviewedAlerts.overdue.slice(0, 2).map((item, i) => (
                   <div key={i} style={{ fontSize: '0.8rem', color: '#7f1d1d', marginBottom: '3px' }}>
@@ -462,7 +448,7 @@ export default function Dashboard() {
             {unviewedAlerts.oneDay.length > 0 && (
               <div style={{ flex: '1', minWidth: '220px', background: '#fef2f2', padding: '12px', borderRadius: '6px', borderLeft: '4px solid #dc2626' }}>
                 <div style={{ fontWeight: '600', color: '#991b1b', marginBottom: '6px' }}>
-                  🚨 Vence em 1 dia ({unviewedAlerts.oneDay.length})
+                   Vence em 1 dia ({unviewedAlerts.oneDay.length})
                 </div>
                 {unviewedAlerts.oneDay.slice(0, 2).map((item, i) => (
                   <div key={i} style={{ fontSize: '0.8rem', color: '#7f1d1d', marginBottom: '3px' }}>
@@ -534,7 +520,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Estatísticas por Tipo de Imposto */}
       {taxStats.length > 0 && (
         <TaxStatsSection>
           <h2> <FaChartBar/> Status por Tipo de Imposto</h2>

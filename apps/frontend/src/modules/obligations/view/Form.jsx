@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import * as api from '../data/obligation.api.js';
-// import InputMask from "react-input-mask"; // Comentado temporariamente
 import {
   Page, Title, Card, FormStyled, Field, FieldRow, FieldSmall, Label, Input, Select, Submit
 } from '../styles/Obligation.styles';
@@ -34,10 +33,25 @@ export default function Form() {
   const [errorMessage, setErrorMessage] = useState('');
   const [showNotApplicableModal, setShowNotApplicableModal] = useState(false);
   const [notApplicableReason, setNotApplicableReason] = useState('');
+  const [taxCalendar, setTaxCalendar] = useState({});
 
   useEffect(() => {
     loadCompanies();
+    loadTaxCalendar();
   }, []);
+
+  async function loadTaxCalendar() {
+    try {
+      const response = await http.get('/api/tax-calendar');
+      const calendarMap = {};
+      response.data.forEach(item => {
+        calendarMap[item.taxType] = item.dueDay;
+      });
+      setTaxCalendar(calendarMap);
+    } catch (err) {
+      console.error('Erro ao carregar calendário fiscal:', err);
+    }
+  }
 
   const loadCompanies = async () => {
     try {
@@ -69,11 +83,10 @@ export default function Form() {
     setCompanyCode(company.codigo);
     setCnpj(company.cnpj);
     setCompanyName(company.nome);
-    setCompanyId(company.id); // 👈 Salvar o ID da empresa selecionada
+    setCompanyId(company.id);
     setShowDropdown(false);
   };
 
-  // Carregar dados se for edição (opcional)
   useEffect(() => {
     if (isEdit) {
       loadObligation();
@@ -90,7 +103,7 @@ export default function Form() {
       setCompanyCode(meta.companyCode || '');
       setCnpj(meta.cnpj || '');
       setCompanyName(meta.companyName || '');
-      setCompanyId(obligation.companyId); // 👈 Carregar companyId na edição
+      setCompanyId(obligation.companyId);
       setDocType(meta.docType || 'DAS');
       setCompetence(meta.competence || '');
       setDueDate(obligation.dueDate.split('T')[0]);
@@ -101,7 +114,6 @@ export default function Form() {
     }
   };
 
-  // --- Funções de valor ---
   function formatCurrency(value) {
     const number = value.replace(/\D/g, "");
     const options = { style: "currency", currency: "BRL" };
@@ -113,7 +125,6 @@ export default function Form() {
     setAmount(formatCurrency(e.target.value));
   }
 
-  // Gerar descrição automática
   function generateDescription() {
     if (companyCode && docType && competence) {
       const formattedCompetence = competence.replace('/', '');
@@ -129,24 +140,50 @@ export default function Form() {
     }
   }, [companyCode, docType, competence]);
 
+  useEffect(() => {
+    if (competence && competence.includes('/') && docType && taxCalendar[docType]) {
+      const [competenceMonth, competenceYear] = competence.split('/');
+      const dueDay = taxCalendar[docType];
+      
+      const year = parseInt(competenceYear);
+      const month = parseInt(competenceMonth);
+      
+      if (month >= 1 && month <= 12 && year >= 2020 && year <= 2100) {
+        let dueYear = year;
+        let dueMonth = month + 1;
+        
+        if (dueMonth > 12) {
+          dueMonth = 1;
+          dueYear = year + 1;
+        }
+        
+        const lastDayOfMonth = new Date(dueYear, dueMonth, 0).getDate();
+        const finalDueDay = Math.min(dueDay, lastDayOfMonth);
+        
+        const formattedDate = `${dueYear}-${String(dueMonth).padStart(2, '0')}-${String(finalDueDay).padStart(2, '0')}`;
+        
+        if (!dueDate || dueDate.startsWith(`${dueYear}-${String(dueMonth).padStart(2, '0')}`)) {
+          setDueDate(formattedDate);
+        }
+      }
+    }
+  }, [competence, docType, taxCalendar]);
+
   async function onSubmit(e) {
     e.preventDefault();
 
-    // 👈 Validar se empresa foi selecionada
     if (!companyId) {
       setErrorMessage('❌ Por favor, selecione uma empresa.');
       setSuccessMessage('');
       return;
     }
 
-    // 👈 Validar se tem vencimento
     if (!dueDate) {
       setErrorMessage('❌ Por favor, informe a data de vencimento.');
       setSuccessMessage('');
       return;
     }
 
-    // 👈 Validar se tem arquivo E valor (ambos obrigatórios)
     if (!file) {
       setErrorMessage('❌ Por favor, anexe um arquivo.');
       setSuccessMessage('');
@@ -168,9 +205,6 @@ export default function Form() {
         competence
       };
 
-      // Calcular referenceMonth baseado no VENCIMENTO (não na competência digitada)
-      // Isso garante que o dashboard use o mês correto automaticamente
-      // Criar data no timezone local para evitar problemas de conversão
       const [year, month, day] = dueDate.split('-').map(Number);
       const dueDateObj = new Date(year, month - 1, day);
       const referenceMonth = `${dueDateObj.getFullYear()}-${String(dueDateObj.getMonth() + 1).padStart(2, '0')}`;
@@ -184,14 +218,13 @@ export default function Form() {
         amount: amount ? parseFloat(amount.replace(/[^\d,]/g, '').replace(',', '.')) : null,
         notes: JSON.stringify(companyInfo),
         companyId: companyId,
-        taxType: docType, // 👈 Tipo de imposto para o dashboard
-        referenceMonth: referenceMonth // 👈 Calculado automaticamente do vencimento
+        taxType: docType,
+        referenceMonth: referenceMonth
       };
 
       const response = await api.create(obligationData);
       const obligationId = response.data.id;
       
-      // Se há arquivo, fazer upload
       if (file) {
         try {
           const formData = new FormData();
@@ -204,7 +237,6 @@ export default function Form() {
           });
         } catch (uploadError) {
           console.error('Erro no upload do arquivo:', uploadError);
-          // Não falha a criação da obrigação se o upload falhar
         }
       }
       
@@ -213,7 +245,7 @@ export default function Form() {
           setCompanyCode('');
           setCnpj('');
           setCompanyName('');
-          setCompanyId(null); // 👈 Limpar companyId também
+          setCompanyId(null);
           setDocType('DAS');
           setCompetence('');
           setDueDate('');
@@ -229,7 +261,6 @@ export default function Form() {
   }
 
   async function handleMarkNotApplicable() {
-    // 👈 Validar campos obrigatórios
     if (!companyId) {
       setErrorMessage('❌ Por favor, selecione uma empresa.');
       setSuccessMessage('');
@@ -238,12 +269,6 @@ export default function Form() {
 
     if (!competence || !competence.includes('/')) {
       setErrorMessage('❌ Por favor, informe a competência (formato: MM/AAAA).');
-      setSuccessMessage('');
-      return;
-    }
-
-    if (!dueDate) {
-      setErrorMessage('❌ Por favor, informe a data de vencimento.');
       setSuccessMessage('');
       return;
     }
@@ -263,15 +288,65 @@ export default function Form() {
         competence
       };
 
-      // CORRIGIDO: Calcular referenceMonth baseado na COMPETÊNCIA (não no vencimento)
-      // Isso garante que uma obrigação de Julho (07) apareça em Julho, não em Dezembro
-      // Agora sempre temos competência e dueDate validados acima
       const [competenceMonth, competenceYear] = competence.split('/');
       const referenceMonth = `${competenceYear}-${String(competenceMonth).padStart(2, '0')}`;
       
-      // Usar o dueDate informado
-      const [year, month, day] = dueDate.split('-').map(Number);
-      const dueDateObj = new Date(year, month - 1, day);
+      let dueDateObj;
+      let calculatedDueDate = '';
+      
+      if (dueDate) {
+        const [year, month, day] = dueDate.split('-').map(Number);
+        dueDateObj = new Date(year, month - 1, day);
+        calculatedDueDate = dueDate;
+      } else if (competence && competence.includes('/') && taxCalendar[docType]) {
+        const [compMonth, compYear] = competence.split('/');
+        const year = parseInt(compYear);
+        const month = parseInt(compMonth);
+        const dueDay = taxCalendar[docType];
+        
+        if (month >= 1 && month <= 12 && year >= 2020 && year <= 2100) {
+          let dueYear = year;
+          let dueMonth = month + 1;
+          
+          if (dueMonth > 12) {
+            dueMonth = 1;
+            dueYear = year + 1;
+          }
+          
+          const lastDayOfMonth = new Date(dueYear, dueMonth, 0).getDate();
+          const finalDueDay = Math.min(dueDay, lastDayOfMonth);
+          
+          dueDateObj = new Date(dueYear, dueMonth - 1, finalDueDay);
+          calculatedDueDate = `${dueYear}-${String(dueMonth).padStart(2, '0')}-${String(finalDueDay).padStart(2, '0')}`;
+          
+          setDueDate(calculatedDueDate);
+        } else {
+          let dueYear = year;
+          let dueMonth = month + 1;
+          if (dueMonth > 12) {
+            dueMonth = 1;
+            dueYear = year + 1;
+          }
+          dueDateObj = new Date(dueYear, dueMonth, 0);
+          const lastDay = dueDateObj.getDate();
+          calculatedDueDate = `${dueYear}-${String(dueMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+          setDueDate(calculatedDueDate);
+        }
+      } else {
+        const [compMonth, compYear] = competence.split('/');
+        const year = parseInt(compYear);
+        const month = parseInt(compMonth);
+        let dueYear = year;
+        let dueMonth = month + 1;
+        if (dueMonth > 12) {
+          dueMonth = 1;
+          dueYear = year + 1;
+        }
+        dueDateObj = new Date(dueYear, dueMonth, 0);
+        const lastDay = dueDateObj.getDate();
+        calculatedDueDate = `${dueYear}-${String(dueMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+        setDueDate(calculatedDueDate);
+      }
 
       const obligationData = {
         title: `${docType} - ${competence || referenceMonth}`,
@@ -283,7 +358,7 @@ export default function Form() {
         notes: JSON.stringify(companyInfo),
         companyId: companyId,
         taxType: docType,
-        referenceMonth: referenceMonth, // 👈 Calculado da COMPETÊNCIA (corrigido)
+        referenceMonth: referenceMonth,
         status: 'NOT_APPLICABLE',
         notApplicableReason: notApplicableReason
       };
@@ -295,7 +370,6 @@ export default function Form() {
       setShowNotApplicableModal(false);
       setNotApplicableReason('');
       
-      // Limpar formulário
       setCompanyCode('');
       setCnpj('');
       setCompanyName('');
@@ -353,7 +427,6 @@ export default function Form() {
         <FormStyled onSubmit={onSubmit}>
           <Title> <FaClipboardList/> {isEdit ? 'Editar obrigação' : 'Nova obrigação'}</Title>
 
-          {/* Empresa */}
           <FieldRow>
             <Field>
               <Label>Empresa*</Label>
@@ -424,7 +497,6 @@ export default function Form() {
             </Field>
           </FieldRow>
 
-          {/* Nome */}
           <Field>
             <Label>Nome da empresa</Label>
             <Input
@@ -434,7 +506,6 @@ export default function Form() {
             />
           </Field>
 
-          {/* Tipo + Competência */}
           <FieldRow>
             <Field>
               <Label>Tipo do documento*</Label>
@@ -464,7 +535,6 @@ export default function Form() {
             </Field>
           </FieldRow>
 
-          {/* Vencimento + Valor */}
           <FieldRow>
             <Field>
               <Label>Vencimento*</Label>
@@ -476,7 +546,6 @@ export default function Form() {
             </FieldSmall>
           </FieldRow>
 
-          {/* Descrição */}
           <Field>
             <Label>Descrição (gerada automaticamente)</Label>
             <Input
@@ -487,7 +556,6 @@ export default function Form() {
             />
           </Field>
 
-          {/* Upload */}
           <Field>
             <Label>Upload do documento</Label>
             <Input 
@@ -536,7 +604,6 @@ export default function Form() {
         </FormStyled>
       </Card>
 
-      {/* Modal "Não Aplicável" */}
       {showNotApplicableModal && (
         <div style={{
           position: 'fixed',
