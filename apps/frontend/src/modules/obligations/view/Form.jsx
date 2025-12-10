@@ -56,8 +56,9 @@ export default function Form() {
   const loadCompanies = async () => {
     try {
       const response = await http.get('/api/empresas');
-      setCompanies(response.data);
-      setFilteredCompanies(response.data);
+      const activeCompanies = response.data.filter(company => company.status === 'ativa');
+      setCompanies(activeCompanies);
+      setFilteredCompanies(activeCompanies);
     } catch (error) {
       console.error('Erro ao carregar empresas:', error);
     }

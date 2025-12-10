@@ -22,6 +22,19 @@ async function postObligation(req, res) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
+    const company = await prisma.empresa.findUnique({
+      where: { id: parseInt(companyId) },
+      select: { id: true, status: true, nome: true }
+    });
+
+    if (!company) {
+      return res.status(404).json({ message: 'Empresa não encontrada' });
+    }
+
+    if (company.status !== 'ativa') {
+      return res.status(400).json({ message: 'Não é possível postar documentos para empresas inativas' });
+    }
+
     const obligationData = {
       title: sanitizeString(title, 200),
       regime,
