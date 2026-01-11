@@ -387,8 +387,8 @@ O projeto está configurado com CI/CD automatizado via GitHub Actions.
 
 1. **Backend (EC2)**
    ```bash
-   # No servidor
-   cd /home/ubuntu/SGOT
+   # No servidor (ajuste o caminho conforme seu ambiente)
+   cd /caminho/do/seu/projeto
    git pull origin main
    cd apps/backend
    npm install

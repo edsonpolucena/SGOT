@@ -15,13 +15,13 @@ async function run() {
   const empresa1 = await prisma.empresa.upsert({
     where: { cnpj: "00.000.000/0001-00" },
     update: {
-      email: "edsonpolucena@hotmail.com", // Força atualização do email
+      email: "administrador@sgot.com", // Força atualização do email
     },
     create: {
       codigo: "EMP001",
       nome: "Contabilidade SGOT",
       cnpj: "00.000.000/0001-00",
-      email: "edsonpolucena@hotmail.com",
+      email: "administrador@sgot.com",
       telefone: "(47) 99999-0000",
       endereco: "Rua Principal, 100 - Joinville/SC",
     },
@@ -30,13 +30,13 @@ async function run() {
   const empresa2 = await prisma.empresa.upsert({
     where: { cnpj: "11.111.111/0001-11" },
     update: {
-      email: "edson.polucena@catolicasc.edu.br", // Força atualização do email
+      email: "contato@cliente-exemplo.com", // Força atualização do email
     },
     create: {
       codigo: "EMP002",
       nome: "Cliente Exemplo Ltda",
       cnpj: "11.111.111/0001-11",
-      email: "edson.polucena@catolicasc.edu.br",
+      email: "contato@cliente-exemplo.com",
       telefone: "(47) 98888-1111",
       endereco: "Av. Central, 456 - Joinville/SC",
     },
@@ -45,13 +45,13 @@ async function run() {
   const empresa3 = await prisma.empresa.upsert({
     where: { cnpj: "22.222.222/0001-22" },
     update: {
-      email: "edsonpolucena@hotmail.com", // Força atualização do email
+      email: "administrador@sgot.com", // Força atualização do email
     },
     create: {
       codigo: "EMP003",
       nome: "Comércio ABC ME",
       cnpj: "22.222.222/0001-22",
-      email: "edsonpolucena@hotmail.com",
+      email: "administrador@sgot.com",
       telefone: "(47) 97777-2222",
       endereco: "Rua das Flores, 789 - Joinville/SC",
     },
@@ -86,10 +86,10 @@ async function run() {
 
   // Usando email verificado no AWS SES
   const clientAdmin = await prisma.user.upsert({
-    where: { email: 'edson.polucena@catolicasc.edu.br' },
+    where: { email: 'contato@cliente-exemplo.com' },
     update: {},
     create: {
-      email: 'edson.polucena@catolicasc.edu.br', 
+      email: 'contato@cliente-exemplo.com', 
       passwordHash, 
       name: 'Cliente Admin',
       role: 'CLIENT_ADMIN',
@@ -158,14 +158,14 @@ async function run() {
   console.log('   Senha: secret123');
   console.log('   Role: ACCOUNTING_ADMIN\n');
   console.log('🏢 CLIENTE ADMIN');
-  console.log('   Email: edson.polucena@catolicasc.edu.br');
+  console.log('   Email: contato@cliente-exemplo.com');
   console.log('   Senha: secret123');
   console.log('   Role: CLIENT_ADMIN');
   console.log('   Empresa: Cliente Exemplo Ltda\n');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`\n🏢 EMPRESAS CRIADAS: ${[empresa1, empresa2, empresa3].length}`);
   console.log(`👥 USUÁRIOS CRIADOS: 3`);
-  console.log(`\n💡 OBSERVAÇÃO: Use edsonpolucena@hotmail.com para login de contabilidade`);
+  console.log(`\n💡 OBSERVAÇÃO: Use administrador@sgot.com para login de contabilidade`);
 }
 
 run()

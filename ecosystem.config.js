@@ -3,7 +3,6 @@ module.exports = {
     {
       name: 'backend-api',
       script: 'apps/backend/src/server.js',
-      cwd: '/home/ubuntu/SGOT',
       instances: 1,
       exec_mode: 'fork',
       env: {
@@ -23,14 +22,16 @@ module.exports = {
     }
   ],
 
+  // Configuração de deploy - configure as variáveis de ambiente ou use arquivo separado
+  // Para produção, configure: PM2_DEPLOY_USER, PM2_DEPLOY_HOST, PM2_DEPLOY_PATH
   deploy: {
     production: {
-      user: 'ubuntu',
-      host: '54.207.3.124',
+      // user: process.env.PM2_DEPLOY_USER || 'deploy-user',
+      // host: process.env.PM2_DEPLOY_HOST || 'your-server-ip',
       ref: 'origin/main',
       repo: 'git@github.com:edsonpolucena/SGOT.git',
-      path: '/var/www/api-backend',
-      'post-deploy': 'cp -n /var/www/api-backend/shared/.env apps/backend/.env || true && cd apps/backend && npm ci && npx prisma generate && npm prune --omit=dev && cd ../.. && pm2 startOrReload ecosystem.config.js --env production',
+      // path: process.env.PM2_DEPLOY_PATH || '/path/to/deploy',
+      // 'post-deploy': 'cp -n ${PM2_DEPLOY_PATH}/shared/.env apps/backend/.env || true && cd apps/backend && npm ci && npx prisma generate && npm prune --omit=dev && cd ../.. && pm2 startOrReload ecosystem.config.js --env production',
       ssh_options: ['StrictHostKeyChecking=accept-new', 'ConnectTimeout=30', 'ServerAliveInterval=60'],
       'pre-setup': '',
       'post-setup': 'echo "Post-setup concluído"'
