@@ -6,16 +6,6 @@
 ![Status](https://img.shields.io/badge/status-em%20desenvolvimento-orange.svg)
 
 ---
-##  Credenciais de Acesso
-
-###  Super Admin (Contabilidade)
-- **Email:** `contabilidade@sgot.com`
-- **Senha:** `secret123`
-
-###  Admin Cliente
-- **Email:** `clienteadmin@sgot.com`
-- **Senha:** `secret123`
----
 
 ##  Índice
 
